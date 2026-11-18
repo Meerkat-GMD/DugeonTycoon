@@ -1,0 +1,53 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="PrayerScene.uss" />
+    <!--
+        The prayer scene (gamerules.md "기도"): the whole screen turns into the sanctum, the praying hero kneels on
+        the dais at the left and the GM's three answers stand at the right. PrayerScene.cs mounts this into the HUD
+        and finds every element by name; the hero art comes from the role-N class on the root (see the USS).
+    -->
+    <ui:VisualElement name="prayer-scene" class="prayer-scene">
+        <ui:VisualElement name="prayer-bg" class="prayer-bg" picking-mode="Ignore" />
+        <ui:VisualElement name="prayer-beam" class="prayer-beam" picking-mode="Ignore" />
+        <ui:VisualElement name="prayer-vignette" class="prayer-vignette" picking-mode="Ignore" />
+        <ui:VisualElement name="prayer-hero" class="prayer-hero" picking-mode="Ignore">
+            <ui:VisualElement name="art-pray" class="hero-art pray" picking-mode="Ignore" />
+            <ui:VisualElement name="art-radiant" class="hero-art radiant" picking-mode="Ignore" />
+            <ui:VisualElement name="art-despair" class="hero-art despair" picking-mode="Ignore" />
+            <ui:VisualElement name="sparkles" class="sparkles" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:Label name="prayer-narration" class="prayer-narration" picking-mode="Ignore" />
+        <ui:VisualElement name="prayer-bubble" class="prayer-bubble" picking-mode="Ignore">
+            <ui:Label name="prayer-who" class="prayer-who" picking-mode="Ignore" />
+            <ui:Label name="prayer-line" class="prayer-line" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="prayer-choices" class="prayer-choices">
+            <ui:Button name="choice-0" class="prayer-choice">
+                <ui:Label class="choice-key" text="1" picking-mode="Ignore" />
+                <ui:VisualElement class="choice-body" picking-mode="Ignore">
+                    <ui:Label name="title" class="choice-title" picking-mode="Ignore" />
+                    <ui:Label name="desc" class="choice-desc" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="cost" class="choice-cost" picking-mode="Ignore" />
+            </ui:Button>
+            <ui:Button name="choice-1" class="prayer-choice">
+                <ui:Label class="choice-key" text="2" picking-mode="Ignore" />
+                <ui:VisualElement class="choice-body" picking-mode="Ignore">
+                    <ui:Label name="title" class="choice-title" picking-mode="Ignore" />
+                    <ui:Label name="desc" class="choice-desc" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="cost" class="choice-cost" picking-mode="Ignore" />
+            </ui:Button>
+            <ui:Button name="choice-2" class="prayer-choice ignore">
+                <ui:Label class="choice-key" text="3" picking-mode="Ignore" />
+                <ui:VisualElement class="choice-body" picking-mode="Ignore">
+                    <ui:Label name="title" class="choice-title" picking-mode="Ignore" />
+                    <ui:Label name="desc" class="choice-desc" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="cost" class="choice-cost" picking-mode="Ignore" />
+            </ui:Button>
+        </ui:VisualElement>
+        <ui:Label name="prayer-stamp" class="prayer-stamp" picking-mode="Ignore" />
+        <ui:VisualElement name="prayer-flash" class="prayer-flash" picking-mode="Ignore" />
+        <ui:Label name="prayer-next" class="prayer-next" text="클릭 / 스페이스 ▸" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

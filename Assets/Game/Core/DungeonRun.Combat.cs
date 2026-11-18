@@ -109,6 +109,7 @@ namespace DungeonTycoon.Core
                 Regroup();
                 int hp = party.Sum(h => h.Hp), max = party.Sum(h => h.MaxHp);
                 log.Add($"전투 종료 • 파티 체력 {hp} / {max}");
+                ReleasePrayerHolds(combatEnded: true);
                 SettleSpoils();
             }
         }
@@ -393,6 +394,7 @@ namespace DungeonTycoon.Core
                 Phase = RunPhase.Defeat;
                 pendingTrial = 0;
                 PendingFork = null;
+                PendingPrayer = null;
                 spoils.Clear();
                 log.Add("파티 전멸 • 원정이 끝났습니다.");
             }

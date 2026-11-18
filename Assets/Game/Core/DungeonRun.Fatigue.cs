@@ -62,7 +62,7 @@ namespace DungeonTycoon.Core
             return true;
         }
 
-        /// <summary>Takes fatigue away for free. Kept for a later miracle that rests the party.</summary>
+        /// <summary>Takes fatigue away without spending faith. The rest miracle pays for itself.</summary>
         internal void ReduceFatigue(int steps)
         {
             if (steps <= 0) return;

@@ -16,7 +16,9 @@ namespace DungeonTycoon.Unity
         private readonly TilePoint[] heroTiles = new TilePoint[4];
         private PartyDirector director;
         private DialogueStage stage;
+        private PrayerScene prayerScene;
         private CancellationToken lifetime;
+        private int heardPrayer;
         private int fogVersion = -1;
         private float accumulator;
         private int discussedFork;
@@ -34,7 +36,9 @@ namespace DungeonTycoon.Unity
         /// A fork debate or an adversity is playing on the dialogue stage. The dungeon stays still and the HUD keeps
         /// showing the party as it was until the stage closes, so the cards never give the result away early.
         /// </summary>
-        public bool Presenting => stage != null && stage.IsOpen;
+        public bool Presenting => (stage != null && stage.IsOpen) || (prayerScene != null && prayerScene.IsOpen);
+        /// <summary>The hero (as int) whose answer to "will you pray?" is on its way, or -1. The HUD shows "…" over them.</summary>
+        public int AskingPrayer { get; private set; } = -1;
         public int LastRoll { get; private set; }
         public string TrialAnnouncement { get; private set; } = "";
         /// <summary>The latest fork result or adversity, shown for a few seconds in the intervention panel.</summary>
@@ -59,6 +63,7 @@ namespace DungeonTycoon.Unity
             gameObject.AddComponent<DungeonHud>();
             // Mounts itself into the HUD document in Start, after the HUD has bound its own elements.
             stage = gameObject.AddComponent<DialogueStage>();
+            prayerScene = gameObject.AddComponent<PrayerScene>();
         }
 
         public void SetSpeed(int speed)
@@ -118,7 +123,7 @@ namespace DungeonTycoon.Unity
             }
             if (run == null || !InDungeon(run)) return;
             int stage = run.Stage;
-            if (run.PendingAdversity || Speed == 0 || Presenting) accumulator = 0;
+            if (run.PendingAdversity || run.PendingPrayer != null || Speed == 0 || Presenting) accumulator = 0;
             else
             {
                 accumulator += Time.deltaTime*Speed;
@@ -127,7 +132,7 @@ namespace DungeonTycoon.Unity
                 {
                     accumulator -= TickSeconds;
                     run.Tick();
-                    if (!InDungeon(run) || run.Stage != stage || run.PendingAdversity) break;
+                    if (!InDungeon(run) || run.Stage != stage || run.PendingAdversity || run.PendingPrayer != null) break;
                 }
                 if (accumulator > TickSeconds*budget) accumulator = 0;
             }
@@ -152,6 +157,12 @@ namespace DungeonTycoon.Unity
             {
                 discussedFork = fork.Token;
                 DiscussAsync(run, fork, lifetime).Forget();
+            }
+            var prayer = run.PendingPrayer;
+            if (prayer != null && prayer.Token != heardPrayer)
+            {
+                heardPrayer = prayer.Token;
+                PrayAsync(run, prayer, lifetime).Forget();
             }
             if (run.Phase == RunPhase.Combat && run.Situation != plannedSituation)
             {
@@ -227,6 +238,39 @@ namespace DungeonTycoon.Unity
             {
                 if (stage) stage.Close();
             }
+        }
+
+        /// <summary>
+        /// A desperate hero: the dungeon is frozen and "…" hangs over the hero while they decide. A refusal shows in
+        /// the hero's card bubble and the dungeon moves on; a prayer opens the sanctum and waits for the GM's answer.
+        /// </summary>
+        private async UniTask PrayAsync(DungeonRun expedition, PrayerRequest prayer, CancellationToken token)
+        {
+            PrayerProposal proposal;
+            AskingPrayer = (int)prayer.Role;
+            try
+            {
+                proposal = await Think(director.PrayAsync(expedition, prayer, token));
+            }
+            finally
+            {
+                AskingPrayer = -1;
+            }
+            if (Run != expedition) return;
+            var heard = expedition.HearPrayer(prayer.Token, proposal);
+            if (heard == null) return;
+            var hero = expedition.Party[(int)heard.Role];
+            if (!heard.Praying)
+            {
+                Spotlight("기도 거절", $"{hero.Name} “{heard.Line}”");
+                return;
+            }
+            await prayerScene.PlayAsync(expedition, heard,
+                answer => expedition.AnswerPrayer(heard.Token, answer) ? expedition.LastPrayer : null, token);
+            var outcome = expedition.LastPrayer;
+            if (Run == expedition && outcome != null && outcome.Role == heard.Role)
+                Spotlight(outcome.Answered ? "기도 · 기적" : "기도 · 외면", outcome.Narration);
+            if (Run == expedition) RefreshParty();
         }
 
         /// <summary>Counts an AI request as "판단 중" for the HUD until it answers.</summary>
@@ -336,6 +380,7 @@ namespace DungeonTycoon.Unity
             if (Run.Phase != RunPhase.Victory && Run.Phase != RunPhase.Defeat) return;
             Run = new DungeonRun(Environment.TickCount);
             sharedLoot = 0;
+            heardPrayer = 0;
             ClearTrialDisplay();
             RefreshLayout();
         }

@@ -197,6 +197,64 @@ namespace DungeonTycoon.Core
             }
         }
 
+        /// <summary>The narrator as a desperate hero kneels to pray.</summary>
+        public static string PrayerOpening(string name) => $"{HeroTraits.Subject(name)} 무릎을 꿇고 하늘을 올려다본다.";
+
+        /// <summary>A hero's local prayer, by their first personality tag.</summary>
+        public static string Prayer(PersonalityTag tag)
+        {
+            switch (tag)
+            {
+                case PersonalityTag.Reckless: return "…젠장. 신이든 뭐든 좋아. 듣고 있다면 대답해!";
+                case PersonalityTag.Cautious: return "신이시여… 더는 버틸 수 없습니다. 동료들만은 지켜 주소서!";
+                default: return "숨이 다 바닥났어요… 신이시여, 저희를 잊지 않으셨죠?";
+            }
+        }
+
+        /// <summary>What a desperate hero says instead of praying.</summary>
+        public static string PrayerRefusal(PersonalityTag tag)
+        {
+            switch (tag)
+            {
+                case PersonalityTag.Reckless: return "기도는 무슨. 이 정도로 쓰러질 내가 아니야!";
+                case PersonalityTag.Cautious: return "아직… 아직 버틸 수 있어.";
+                default: return "아니, 아직 해 볼 게 남았어!";
+            }
+        }
+
+        /// <summary>What a hero says when the god answers their prayer.</summary>
+        public static string PrayerAnswered(PersonalityTag tag)
+        {
+            switch (tag)
+            {
+                case PersonalityTag.Reckless: return "하, 진짜 대답하잖아? 좋아, 믿어 주지!";
+                case PersonalityTag.Cautious: return "느껴져요… 신께서 우리를 보고 계세요!";
+                default: return "응답하셨어…! 이제 아무것도 두렵지 않아!";
+            }
+        }
+
+        /// <summary>What a hero says when the god looks away.</summary>
+        public static string PrayerIgnored(PersonalityTag tag)
+        {
+            switch (tag)
+            {
+                case PersonalityTag.Reckless: return "역시 그렇지. 믿은 내가 바보였어.";
+                case PersonalityTag.Cautious: return "…대답이 없어. 신께서도 우리를 버리신 걸까.";
+                default: return "아무도… 듣고 있지 않았구나.";
+            }
+        }
+
+        /// <summary>The GM's three answers on the prayer scene, in button order.</summary>
+        public static string PrayerAnswerName(PrayerAnswer answer)
+        {
+            switch (answer)
+            {
+                case PrayerAnswer.HealingMiracle: return "치유의 기적";
+                case PrayerAnswer.RestMiracle: return "안식의 기적";
+                default: return "외면한다";
+            }
+        }
+
         /// <summary>What the hero who answered an adversity says once it is over.</summary>
         public static string Reaction(HeroRole role, bool success)
         {
