@@ -19,7 +19,6 @@ namespace DungeonTycoon.Unity
         private const float ReferenceHeight = 640, ReadableScale = .75f;
         private const float MinWidth = 1000, MinHeight = 500;
         private const float LineSeconds = 6, NoticeSeconds = 2.5f;
-        private const int DetailFontSize = 11, SmallestDetailFontSize = 8;
 
         private static readonly string[] RoleNames = { "탱커", "힐러", "근딜", "원딜" };
 
@@ -27,11 +26,12 @@ namespace DungeonTycoon.Unity
         private UIDocument document;
         private PanelSettings panel;
         private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
-        private VisualElement planningPage, interventionPage, resultPage, speedGroup, info, dialogueStage;
+        private VisualElement interventionPage, resultPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
-        private Label category, hint, budget, faith, partyLevel, summaryTitle, summaryDetail;
-        private Label infoHeading, infoText, resultTitle, resultText;
+        private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
+        private Label resultTitle, resultText;
         private Button follow, primary, collapse, skeletonCard, ghostCard, zombieCard, removeCard, trialCard, blessCard;
+        private VisualElement faithCells;
         private Label trialDetail, blessDetail, restDetail, fatigueStage, fatigueEffect;
         private Button restCard;
         private VisualElement fatigue, fatigueFill, fatigueTick1, fatigueTick2;
@@ -124,7 +124,8 @@ namespace DungeonTycoon.Unity
             party = root.Q("party");
             aiMode = root.Q<Label>("ai-mode");
             bottom = root.Q("bottom");
-            category = root.Q<Label>("category");
+            faithCells = root.Q("faith-cells");
+            expeditionFaith = root.Q<Label>("expedition-faith");
             hint = root.Q<Label>("hint");
             budget = root.Q<Label>("budget");
             faith = root.Q<Label>("faith");
@@ -132,7 +133,6 @@ namespace DungeonTycoon.Unity
             speedGroup = root.Q("speed");
             primary = root.Q<Button>("primary");
             collapse = root.Q<Button>("collapse");
-            planningPage = root.Q("planning");
             interventionPage = root.Q("intervention");
             resultPage = root.Q("result");
             skeletonCard = root.Q<Button>("brush-skeleton");
@@ -142,21 +142,20 @@ namespace DungeonTycoon.Unity
             summaryTitle = root.Q<Label>("summary-title");
             summaryDetail = root.Q<Label>("summary-detail");
             trialCard = root.Q<Button>("trial");
-            trialCard.Q<Label>("trial-risk").text = $"실패 체력 -{DungeonRun.TrialDamage}";
+            root.Q<Label>("trial-risk").text = $"실패 체력 -{DungeonRun.TrialDamage}";
             blessCard = root.Q<Button>("bless");
-            trialDetail = trialCard.Q<Label>("detail");
-            blessDetail = blessCard.Q<Label>("detail");
+            trialDetail = root.Q<Label>("trial-detail");
+            blessDetail = root.Q<Label>("bless-detail");
             restCard = root.Q<Button>("rest");
-            restDetail = restCard.Q<Label>("detail");
+            restDetail = root.Q<Label>("rest-detail");
+            blessCard.Q<Label>("cost").text = DungeonRun.BlessCost.ToString();
+            restCard.Q<Label>("cost").text = DungeonRun.BlessCost.ToString();
             fatigue = root.Q("fatigue");
             fatigueStage = root.Q<Label>("fatigue-stage");
             fatigueEffect = root.Q<Label>("fatigue-effect");
             fatigueFill = root.Q("fatigue-fill");
             fatigueTick1 = root.Q("fatigue-tick-1");
             fatigueTick2 = root.Q("fatigue-tick-2");
-            info = root.Q("info");
-            infoHeading = root.Q<Label>("info-heading");
-            infoText = root.Q<Label>("info-text");
             resultTitle = root.Q<Label>("result-title");
             resultText = root.Q<Label>("result-text");
             history = root.Q("history");
@@ -196,11 +195,8 @@ namespace DungeonTycoon.Unity
             root.Q<Button>("history-open").clicked += OpenHistory;
             root.Q<Button>("history-close").clicked += () => history.RemoveFromClassList("open");
             collapse.clicked += () => bottom.ToggleInClassList("collapsed");
-            primary.clicked += () =>
-            {
-                if (game.Run.Phase == RunPhase.Planning) game.RequestDeparture();
-                else game.Restart();
-            };
+            primary.clicked += game.RequestDeparture;
+            root.Q<Button>("result-new").clicked += () => game.Restart();
             skeletonCard.clicked += () => brush = MonsterKind.Skeleton;
             ghostCard.clicked += () => brush = MonsterKind.Ghost;
             zombieCard.clicked += () => brush = MonsterKind.Zombie;
@@ -337,30 +333,24 @@ namespace DungeonTycoon.Unity
             Show(aiMode,game.Thinking && !game.Presenting);
             aiMode.EnableInClassList("thinking",game.Thinking);
 
-            category.text = planning ? "몬스터 배치" : finished ? "원정 결과" : "사회자 개입";
             bool warning = notice.Length > 0 && Time.unscaledTime < noticeUntil;
             hint.text = warning ? notice : planning && !cameraUsed ? "우클릭 드래그 이동 · 휠 확대·축소" : "";
             hint.EnableInClassList("warning",warning);
             budget.text = run.Budget.ToString();
             if (!game.Presenting) faith.text = run.Faith.ToString();
 
-            Show(speedGroup,exploring);
+            Show(speedGroup,exploring && !game.Presenting);
             for (int speed = 0; speed < speedButtons.Length; speed++)
                 speedButtons[speed].EnableInClassList("on",game.Speed == speed);
-            Show(primary,planning || finished);
-            primary.text = planning ? (run.CanEditFormation ? "편성 · 출발  ›" : "원정 출발  ›") : "새 원정";
+            primary.text = run.CanEditFormation ? "편성 · 출발  ›" : "원정 출발  ›";
             collapse.text = bottom.ClassListContains("collapsed") ? "▲" : "▼";
 
-            // The dialogue stage replaces the bottom panel while it plays. Hidden rather than removed, so the panel
-            // keeps its layout (the camera reads its bounds) and its hint line cannot give the result away.
-            bottom.style.visibility = game.Presenting ? Visibility.Hidden : Visibility.Visible;
-
-            Show(planningPage,planning);
-            Show(interventionPage,exploring);
-            Show(resultPage,finished);
+            Show(bottom,planning && !game.Presenting);
+            Show(interventionPage,exploring && !game.Presenting);
+            Show(resultPage,finished && !game.Presenting);
             if (planning) RefreshPlanning(run);
             else if (finished) RefreshResult(run);
-            else RefreshIntervention(run);
+            else if (exploring && !game.Presenting) RefreshIntervention(run);
 
             if (HistoryOpen)
             {
@@ -621,66 +611,28 @@ namespace DungeonTycoon.Unity
 
         private void RefreshIntervention(DungeonRun run)
         {
+            expeditionFaith.text = run.Faith.ToString();
+            int slots = Mathf.Max(5, run.Faith);
+            while (faithCells.childCount < slots)
+            {
+                var cell = new VisualElement { pickingMode = PickingMode.Ignore };
+                cell.AddToClassList("faith-cell");
+                faithCells.Add(cell);
+            }
+            for (int i = 0; i < faithCells.childCount; i++)
+                faithCells[i].EnableInClassList("filled", i < run.Faith);
+
             trialCard.SetEnabled(run.TrialsLeft > 0 && !run.PendingAdversity);
-            SetDetail(trialDetail,$"d20+보정 ≥ {run.TrialDifficulty} · {run.TrialsLeft}회");
+            trialDetail.text = $"d20+보정 ≥ {run.TrialDifficulty} · {run.TrialsLeft}회";
             int target = game.SelectedHero;
-            SetDetail(blessDetail,target < 0 ? "용사를 먼저 고르세요" :
+            blessDetail.text = target < 0 ? "용사를 먼저 고르세요" :
                 run.Party[target].Hp == run.Party[target].MaxHp ? run.Party[target].Name+" · 다치지 않음" :
-                run.Faith < DungeonRun.BlessCost ? "신앙 부족" : $"체력 +{run.BlessRecovery(run.Party[target])} · 신앙 {DungeonRun.BlessCost}");
+                run.Faith < DungeonRun.BlessCost ? "신앙 부족" : $"체력 +{run.BlessRecovery(run.Party[target])} · 신앙 {DungeonRun.BlessCost}";
             blessCard.SetEnabled(target >= 0 && run.CanBlessHero((HeroRole)target));
-            SetDetail(restDetail,run.FatigueSteps == 0 ? "피로 없음" : run.Faith < DungeonRun.BlessCost ? "신앙 부족" :
-                "피로 -"+System.Math.Min(run.FatigueSteps,DungeonRun.FatigueRelief)+" · 신앙 "+DungeonRun.BlessCost);
+            restDetail.text = run.FatigueSteps == 0 ? "피로 없음" : run.Faith < DungeonRun.BlessCost ? "신앙 부족" :
+                "피로 -"+System.Math.Min(run.FatigueSteps,DungeonRun.FatigueRelief)+" · 신앙 "+DungeonRun.BlessCost;
             restCard.SetEnabled(run.CanRelieveFatigue);
 
-            var fork = run.PendingFork;
-            if (run.PendingAdversity)
-                Detail("낙석 역경   ·   용사 대응 중",game.TrialAnnouncement);
-            else if (fork != null)
-            {
-                var options = new System.Text.StringBuilder();
-                foreach (var option in fork.Options)
-                {
-                    if (options.Length > 0) options.Append("     ");
-                    options.Append(option.Label);
-                    if (option.VisibleMonsters > 0) options.Append("  (적 "+option.VisibleMonsters+")");
-                }
-                Detail((fork.Backtracking ? "막다른 길" : "갈림길")+"   ·   용사들이 논의하는 중",options.ToString());
-            }
-            else if (Time.time < game.SpotlightUntil && !string.IsNullOrWhiteSpace(game.SpotlightText))
-                Detail(game.SpotlightTitle,game.SpotlightText);
-            else
-            {
-                string where = run.FightingBoss ? "보스와 교전 중" :
-                    run.Phase == RunPhase.Combat ? "교전 중  ·  적 "+run.Engaged.Count() :
-                    run.IsSeen(run.Map.BossTile) ? "보스방으로 향하는 중" : "보스방을 찾는 중";
-                var engaged = run.Engaged.OrderByDescending(m => m.IsBoss).ThenBy(m => m.Hp).Take(3)
-                    .Select(m => m.Name+" "+m.Hp+"/"+m.MaxHp).ToList();
-                info.RemoveFromClassList("detail");
-                infoHeading.text = engaged.Count > 0 ? string.Join("   ·   ",engaged) : where;
-                infoText.text = "";
-            }
-        }
-
-        private void Detail(string heading,string body)
-        {
-            info.AddToClassList("detail");
-            infoHeading.text = heading;
-            infoText.text = body;
-        }
-
-        /// <summary>Card details step their font down rather than being cut off at the card's edge.</summary>
-        private static void SetDetail(Label label,string value)
-        {
-            if (label.text == value && label.userData is string fitted && fitted == value) return;
-            label.text = value;
-            float room = label.parent.resolvedStyle.width-8;
-            float size = label.resolvedStyle.fontSize;
-            if (float.IsNaN(room) || room <= 0 || float.IsNaN(size) || size <= 0) return;
-            float width = label.MeasureTextSize(value,0,VisualElement.MeasureMode.Undefined,0,VisualElement.MeasureMode.Undefined).x;
-            // Text width scales with font size, so one measurement at the current size picks the size that fits.
-            int fit = width <= 0 ? DetailFontSize : Mathf.FloorToInt(size*room/width);
-            label.style.fontSize = Mathf.Clamp(fit,SmallestDetailFontSize,DetailFontSize);
-            label.userData = value;
         }
 
         private void RefreshResult(DungeonRun run)
@@ -719,7 +671,7 @@ namespace DungeonTycoon.Unity
         private void UpdateClearArea(DungeonRun run)
         {
             var screen = hud.worldBound;
-            float columnRight = party.worldBound.xMax, bossBottom = bossBar.worldBound.yMax, panelTop = bottom.worldBound.yMin;
+            float columnRight = party.worldBound.xMax, bossBottom = bossBar.worldBound.yMax, panelTop = bottom.resolvedStyle.display == DisplayStyle.None ? screen.yMax : bottom.worldBound.yMin;
             if (screen.width <= 0 || screen.height <= 0 || float.IsNaN(columnRight) || float.IsNaN(panelTop) ||
                 float.IsNaN(bossBottom))
                 return;

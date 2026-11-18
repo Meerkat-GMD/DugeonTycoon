@@ -644,7 +644,78 @@
 .hud .gold { color: var(--gold); }
 .hud .teal { color: var(--teal); }
 
+.hud .skill-dock {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+}
+
+.hud .faith-meter, .hud .skill-cost, .hud .faith-cells, .hud .skill-buttons {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hud .faith-meter {
+    margin: 0 2px 4px;
+    padding: 3px 6px;
+    height: 23px;
+    background-color: #202a30;
+}
+
+.hud .faith-icon {
+    width: 15px;
+    height: 15px;
+    background-image: url("FaithDrop.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud .faith-total { margin: 0 6px 0 2px; color: var(--teal); }
+.hud .faith-cells { flex-grow: 1; }
+.hud .faith-cell {
+    height: 8px;
+    flex-grow: 1;
+    margin-left: 2px;
+    background-color: #38494e;
+}
+.hud .faith-cell.filled { background-color: var(--teal); }
+
+.hud .skill-slot { margin: 0 2px; }
+.hud .skill-button {
+    width: 68px;
+    height: 82px;
+    padding: 2px;
+    margin: 0;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-color: #526065;
+    border-radius: 3px;
+    background-color: #253038;
+}
+.hud .skill-button:hover { background-color: #34444a; border-color: var(--teal); }
+.hud .skill-button:disabled { opacity: 0.65; }
+.hud .skill-title { font-size: 12px; color: var(--paper); }
+.hud .skill-art { width: 39px; height: 39px; -unity-background-scale-mode: scale-to-fit; }
+.hud .rockfall { background-image: url("Rockfall.png"); }
+.hud .blessing { background-image: url("Blessing.png"); }
+.hud .rest-feather { background-image: url("RestFeather.png"); }
+.hud .skill-cost { justify-content: center; }
+.hud .skill-cost Label { margin-left: 3px; color: var(--teal); font-size: 13px; }
+.hud .skill-description {
+    display: none;
+    position: absolute;
+    bottom: 112px;
+    right: 0;
+    padding: 6px 8px;
+    background-color: #202a30;
+}
+.hud .skill-slot:hover .skill-description { display: flex; }
+.hud .skill-description Label { font-size: 12px; white-space: nowrap; color: var(--paper); }
+
 .hud .speed {
+    position: absolute;
+    right: 10px;
+    bottom: 123px;
     flex-direction: row;
     flex-shrink: 0;
     margin-left: 12px;
@@ -787,24 +858,6 @@
     color: var(--muted);
 }
 
-.hud .divider {
-    width: 1px;
-    height: 88px;
-    margin: 0 16px 0 8px;
-    background-color: var(--edge);
-}
-
-.hud .info {
-    flex-grow: 1;
-    flex-shrink: 1;
-    height: 92px;
-}
-
-.hud .info-heading {
-    font-size: 17px;
-    -unity-font-style: bold;
-}
-
 .hud .info-text {
     margin-top: 6px;
     font-size: 13px;
@@ -812,32 +865,15 @@
     color: var(--muted);
 }
 
-.hud .info-note {
-    margin-top: 4px;
-    font-size: 13px;
-    color: var(--muted);
-}
-
-/* A fork, an adversity or a fresh result: gold heading over a longer paper-coloured body. */
-.hud .info.detail .info-heading {
-    font-size: 13px;
-    color: var(--gold);
-}
-
-.hud .info.detail .info-text {
-    font-size: 14px;
-    color: var(--paper);
-}
-
-.hud .info.detail .info-note {
-    display: none;
-}
-
 .hud .result {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    background-color: var(--card);
+    padding: 16px;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    padding-left: 4px;
 }
 
 .hud .result-title {

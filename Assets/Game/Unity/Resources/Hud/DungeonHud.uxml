@@ -179,11 +179,6 @@
                     <ui:Label class="stat-title" text="신앙" />
                     <ui:Label name="faith" class="stat-value teal" text="1" />
                 </ui:VisualElement>
-                <ui:VisualElement name="speed" class="speed">
-                    <ui:Button name="speed-0" class="chip" text="일시정지" focusable="false" />
-                    <ui:Button name="speed-1" class="chip" text="1배속" focusable="false" />
-                    <ui:Button name="speed-2" class="chip" text="2배속" focusable="false" />
-                </ui:VisualElement>
                 <ui:Button name="primary" class="primary" text="원정 출발  ›" focusable="false" />
                 <ui:Button name="collapse" class="chip collapse" text="▼" focusable="false" />
             </ui:VisualElement>
@@ -212,38 +207,72 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <ui:VisualElement name="intervention" class="page">
-                    <ui:Button name="trial" class="card" focusable="false">
-                        <ui:Label class="card-title" text="낙석 역경" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" picking-mode="Ignore" />
-                        <ui:Label class="card-detail" text="성공 경험치·신앙 +1" picking-mode="Ignore" />
-                        <ui:Label name="trial-risk" class="card-detail" picking-mode="Ignore" />
-                    </ui:Button>
-                    <ui:Button name="bless" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-bless" text="+" picking-mode="Ignore" />
-                        <ui:Label class="card-title" text="축복" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="용사를 먼저 고르세요" picking-mode="Ignore" />
-                    </ui:Button>
-                    <ui:Button name="rest" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-rest" text="쉼" picking-mode="Ignore" />
-                        <ui:Label class="card-title" text="피로 회복" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="신앙 1" picking-mode="Ignore" />
-                    </ui:Button>
-                    <ui:VisualElement class="divider" />
-                    <ui:VisualElement name="info" class="info status">
-                        <ui:Label name="info-heading" class="info-heading" text="보스방을 찾는 중" />
-                        <ui:Label name="info-text" class="info-text" text="" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
 
-                <ui:VisualElement name="result" class="page result">
-                    <ui:Label name="result-title" class="result-title" text="마왕을 쓰러뜨렸습니다" />
-                    <ui:Label name="result-text" class="result-text" text="최종 파티 레벨 1" />
-                    <ui:VisualElement class="result-actions">
-                        <ui:Button name="result-copy" class="chip result-action" text="편성·배치 복사" focusable="false" />
-                        <ui:Button name="result-replay" class="chip result-action" text="같은 시드로" focusable="false" />
+        <ui:VisualElement name="speed" class="speed" picking-mode="Ignore">
+            <ui:Button name="speed-0" class="chip" text="일시정지" focusable="false" />
+            <ui:Button name="speed-1" class="chip" text="1배속" focusable="false" />
+            <ui:Button name="speed-2" class="chip" text="2배속" focusable="false" />
+        </ui:VisualElement>
+        <ui:VisualElement name="intervention" class="skill-dock" picking-mode="Ignore">
+            <ui:VisualElement class="faith-meter" picking-mode="Ignore">
+                <ui:VisualElement class="faith-icon" picking-mode="Ignore" />
+                <ui:Label name="expedition-faith" class="faith-total" picking-mode="Ignore" />
+                <ui:VisualElement name="faith-cells" class="faith-cells" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="skill-buttons" picking-mode="Ignore">
+                <ui:VisualElement class="skill-slot">
+                    <ui:Button name="trial" class="skill-button" focusable="false">
+                        <ui:Label class="skill-title" text="낙석 역경" picking-mode="Ignore" />
+                        <ui:VisualElement class="skill-art rockfall" picking-mode="Ignore" />
+                        <ui:VisualElement class="skill-cost" picking-mode="Ignore">
+                            <ui:VisualElement class="faith-icon" picking-mode="Ignore" />
+                            <ui:Label name="cost" text="0" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:Button>
+                    <ui:VisualElement class="skill-description" picking-mode="Ignore">
+                        <ui:Label name="trial-detail" picking-mode="Ignore" />
+                        <ui:Label text="성공 경험치·신앙 +1" picking-mode="Ignore" />
+                        <ui:Label name="trial-risk" picking-mode="Ignore" />
                     </ui:VisualElement>
                 </ui:VisualElement>
+                <ui:VisualElement class="skill-slot">
+                    <ui:Button name="bless" class="skill-button" focusable="false">
+                        <ui:Label class="skill-title" text="축복" picking-mode="Ignore" />
+                        <ui:VisualElement class="skill-art blessing" picking-mode="Ignore" />
+                        <ui:VisualElement class="skill-cost" picking-mode="Ignore">
+                            <ui:VisualElement class="faith-icon" picking-mode="Ignore" />
+                            <ui:Label name="cost" text="0" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:Button>
+                    <ui:VisualElement class="skill-description" picking-mode="Ignore">
+                        <ui:Label name="bless-detail" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="skill-slot">
+                    <ui:Button name="rest" class="skill-button" focusable="false">
+                        <ui:Label class="skill-title" text="피로 회복" picking-mode="Ignore" />
+                        <ui:VisualElement class="skill-art rest-feather" picking-mode="Ignore" />
+                        <ui:VisualElement class="skill-cost" picking-mode="Ignore">
+                            <ui:VisualElement class="faith-icon" picking-mode="Ignore" />
+                            <ui:Label name="cost" text="0" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                    </ui:Button>
+                    <ui:VisualElement class="skill-description" picking-mode="Ignore">
+                        <ui:Label name="rest-detail" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="result" class="result">
+            <ui:Label name="result-title" class="result-title" text="마왕을 쓰러뜨렸습니다" />
+            <ui:Label name="result-text" class="result-text" text="최종 파티 레벨 1" />
+            <ui:VisualElement class="result-actions">
+                <ui:Button name="result-new" class="primary result-action" text="새 원정" focusable="false" />
+                <ui:Button name="result-copy" class="chip result-action" text="편성·배치 복사" focusable="false" />
+                <ui:Button name="result-replay" class="chip result-action" text="같은 시드로" focusable="false" />
             </ui:VisualElement>
         </ui:VisualElement>
 
