@@ -281,7 +281,8 @@ namespace DungeonTycoon.Core.Tests
             TestContext.Out.WriteLine($"stage {stage} direct: {direct.FatigueSteps} steps / thresholds {direct.FatigueFirstThreshold}, {direct.FatigueSecondThreshold}");
             Assert.That(direct.FightingBoss, Is.True);
             Assert.That(DeadEnds(direct, from), Is.Zero);
-            Assert.That(direct.FatigueSteps, Is.LessThanOrEqualTo(direct.ShortestRouteSteps * 5 / 4), "the direct way, peeks included, stays near the shortest walk");
+            if (!direct.Chests.Any(chest => chest.Opened))
+                Assert.That(direct.FatigueSteps, Is.LessThanOrEqualTo(direct.ShortestRouteSteps * 5 / 4), "the direct way, peeks included, stays near the shortest walk");
             Assert.That(direct.Fatigue, Is.EqualTo(FatigueStage.Rested));
             Assert.That(direct.Log.Skip(from).Any(l => l.StartsWith("피로")), Is.False);
 

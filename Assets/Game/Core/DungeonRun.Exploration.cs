@@ -169,7 +169,18 @@ namespace DungeonTycoon.Core
             routeToBoss = false;
             routeToFeature = false;
             var leader = LeaderTile;
-            // A chest, or a spring when tired, a few steps away is simply visited, not argued over.
+            var chestPath = chests.Where(Wanted)
+                .Select(chest => Map.FindPath(leader, chest.Tile, Known))
+                .Where(path => path.Count > 0)
+                .OrderBy(path => path.Count)
+                .FirstOrDefault();
+            if (chestPath != null)
+            {
+                if (chestPath.Count == 1) VisitFeatures(leader);
+                else FollowFeature(chestPath);
+                return true;
+            }
+            // A nearby spring is visited without a discussion when the party is tired.
             var near = FeatureWays(true).Where(way => way.Path.Count - 1 <= FeatureDetour).OrderBy(way => way.Path.Count).ToList();
             if (near.Count > 0)
             {

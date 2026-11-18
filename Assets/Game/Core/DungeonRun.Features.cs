@@ -41,8 +41,6 @@ namespace DungeonTycoon.Core
         public bool Opened { get; internal set; }
         /// <summary>What it held once opened, else null.</summary>
         public Equipment Item { get; internal set; }
-        /// <summary>The party argued about it at a fork and went elsewhere; it is not raised again from afar.</summary>
-        internal bool Passed { get; set; }
     }
 
     /// <summary>A spring fixed on the current stage's map. Drinking from it once eases the party's fatigue.</summary>
@@ -70,7 +68,7 @@ namespace DungeonTycoon.Core
         public const int PatrolClearance = 8;
         /// <summary>Fatigue steps a spring takes away. From <see cref="BalanceTable"/>.</summary>
         public static int SpringRelief => BalanceTable.Current.springRelief;
-        /// <summary>A chest or spring this many steps away or fewer is visited without a discussion. Balance value.</summary>
+        /// <summary>A wanted spring this many steps away or fewer is visited without a discussion. Balance value.</summary>
         public const int FeatureDetour = 4;
 
         private static readonly MonsterKind[] FullRoster = { MonsterKind.Skeleton, MonsterKind.Ghost, MonsterKind.Zombie, MonsterKind.Archer };
@@ -208,7 +206,7 @@ namespace DungeonTycoon.Core
             foreach (var chest in chests)
                 if (!chest.Opened && fresh.Contains(chest.Tile))
                 {
-                    freshFeature = true;
+                    route.Clear();
                     log.Add($"발견 • 용사들이 보물 상자를 보았습니다.");
                 }
             foreach (var spring in springs)
@@ -255,19 +253,13 @@ namespace DungeonTycoon.Core
         internal Func<TreasureChest, Equipment> ChestOverride { get; set; }
 
         /// <summary>
-        /// Chests and springs the party remembers and would go out of its way for, as ways to argue over.
+        /// Springs the party remembers and would go out of its way for, as ways to argue over.
         /// <paramref name="includePassed"/> also lists those the party argued past before.
         /// </summary>
         private List<(ForkFeature Feature, int Index, IReadOnlyList<TilePoint> Path)> FeatureWays(bool includePassed)
         {
             var ways = new List<(ForkFeature, int, IReadOnlyList<TilePoint>)>();
             var leader = LeaderTile;
-            foreach (var chest in chests)
-            {
-                if (!Wanted(chest) || (chest.Passed && !includePassed)) continue;
-                var path = Map.FindPath(leader, chest.Tile, Known);
-                if (path.Count >= 2) ways.Add((ForkFeature.Chest, chest.Index, path));
-            }
             foreach (var spring in springs)
             {
                 if (!Wanted(spring) || (spring.Passed && !includePassed)) continue;
@@ -279,8 +271,7 @@ namespace DungeonTycoon.Core
 
         private void PassFeature(ForkOption option)
         {
-            if (option.Feature == ForkFeature.Chest) chests[option.FeatureIndex].Passed = true;
-            else if (option.Feature == ForkFeature.Spring) springs[option.FeatureIndex].Passed = true;
+            if (option.Feature == ForkFeature.Spring) springs[option.FeatureIndex].Passed = true;
         }
     }
 }

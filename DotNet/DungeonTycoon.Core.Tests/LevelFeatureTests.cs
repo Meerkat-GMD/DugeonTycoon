@@ -215,28 +215,21 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void ASeenChestBecomesAWayToArgueOverAndTheGreedyWantIt()
+        public void SeenChestsAreCollectedBeforeAnotherForkOrTheBoss()
         {
-            for (int seed = 1; seed <= 30; seed++)
+            var run = DungeonRun.Sandbox(features: true);
+            run.Start();
+            bool sawDistantChest = false;
+            DungeonRunTests.Drive(run, () =>
             {
-                var run = DungeonRun.Sandbox(seed, features: true);
-                run.SetBuild(HeroRole.MeleeDamage, run.BuildOf(HeroRole.MeleeDamage).With(PersonalityTrait.Greedy));
-                run.Start();
-                ForkDiscussion fork = null;
-                DungeonRunTests.Drive(run, () =>
-                {
-                    if (run.PendingFork != null && run.PendingFork.Options.Any(o => o.Feature == ForkFeature.Chest)) fork = run.PendingFork;
-                    return fork != null || run.FightingBoss || !DungeonRunTests.InDungeon(run);
-                });
-                if (fork == null) continue;
-                var chest = fork.Options.First(o => o.Feature == ForkFeature.Chest);
-                Assert.That(chest.Label, Does.EndWith("상자 길"));
-                Assert.That(run.Chests[chest.FeatureIndex].Opened, Is.False);
-                var greedy = fork.LocalOpinions.Single(o => o.Role == HeroRole.MeleeDamage);
-                Assert.That(fork.Options[greedy.Option].Feature, Is.EqualTo(ForkFeature.Chest), "the greedy hero argues for the chest");
-                return;
-            }
-            Assert.Fail("no seed brought a chest into a fork discussion");
+                var remembered = run.Chests.Where(chest => run.IsSeen(chest.Tile) && !chest.Opened).ToList();
+                if (remembered.Any(chest => run.Map.FindPath(run.LeaderTile, chest.Tile).Count - 1 > DungeonRun.FeatureDetour))
+                    sawDistantChest = true;
+                if (run.PendingFork != null || run.FightingBoss) Assert.That(remembered, Is.Empty);
+                return run.FightingBoss || !DungeonRunTests.InDungeon(run);
+            });
+            Assert.That(sawDistantChest, Is.True);
+            Assert.That(run.Chests.Any(chest => chest.Opened), Is.True);
         }
 
         [Test]
