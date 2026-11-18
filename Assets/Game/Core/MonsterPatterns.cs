@@ -160,7 +160,7 @@ namespace DungeonTycoon.Core
         internal readonly List<int> hits = new List<int>();
         /// <summary>Heroes who have already said how they meet this cast, so each speaks once.</summary>
         internal readonly HashSet<int> answered = new HashSet<int>();
-        /// <summary>The tile the area is aimed through.</summary>
-        internal TilePoint Aim { get; set; }
+        /// <summary>The tile the area is aimed through: the target's tile for lines and the meteor, the caster's own for the slam.</summary>
+        public TilePoint Aim { get; internal set; }
     }
 }
