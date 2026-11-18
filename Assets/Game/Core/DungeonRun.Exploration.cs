@@ -451,13 +451,11 @@ namespace DungeonTycoon.Core
                 all.Add((feature.Feature, feature.Index, feature.Path, new HashSet<TilePoint> { feature.Path[feature.Path.Count - 1] }));
             string Noun(ForkFeature feature) =>
                 feature == ForkFeature.Chest ? "상자 " : feature == ForkFeature.Spring ? "샘물 " : feature == ForkFeature.Boss ? "보스방 " : "";
-            var labels = all.Select(way => DepartureDirection(way.Path) + "쪽 " + Noun(way.Feature) + "길").ToList();
+            var paths = all.Select(way => way.Path).ToList();
             var options = new List<ForkOption>();
             for (int i = 0; i < all.Count; i++)
             {
-                string label = labels.Count(other => other == labels[i]) > 1
-                    ? labels[i].Replace(" 길", $" {labels.Take(i + 1).Count(other => other == labels[i])}번 길")
-                    : labels[i];
+                string label = ForkBranchName(paths, i) + " " + Noun(all[i].Feature) + "길";
                 int seenMonsters = VisibleMonstersAlong(new Frontier { Path = all[i].Path, Tiles = all[i].Tiles });
                 var end = all[i].Path[all[i].Path.Count - 1];
                 fromEntrance.TryGetValue(end, out int depth);
@@ -496,6 +494,23 @@ namespace DungeonTycoon.Core
                 if (near) count++;
             }
             return count;
+        }
+
+        // Name the turns that distinguish this route. A shared approach is not a choice.
+        internal static string ForkBranchName(IReadOnlyList<IReadOnlyList<TilePoint>> paths, int index)
+        {
+            var path = paths[index];
+            var shared = paths.ToList();
+            var turns = new List<string>();
+            for (int step = 1; step < path.Count && shared.Count > 1; step++)
+            {
+                var same = shared.Where(other => other.Count > step && other[step] == path[step]).ToList();
+                if (same.Count < shared.Count)
+                    turns.Add(Direction(path[step - 1], path[step]) + "쪽");
+                shared = same;
+            }
+            if (turns.Count == 0) return DepartureDirection(path) + "쪽";
+            return string.Join("으로 간 뒤 ", turns);
         }
 
         private static string Describe(IReadOnlyList<TilePoint> path) =>

@@ -90,22 +90,24 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void ForkLabelsMatchTheFirstStepOnScreen()
+        public void ForkLabelsUseTheBranchAfterASharedApproach()
         {
-            var run = new DungeonRun();
-            run.Start();
-            Assert.That(TickToFirstFork(run), Is.True);
-            var directions = new Dictionary<(int, int), string>
-            {
-                [(0, -1)] = "북쪽", [(0, 1)] = "남쪽",
-                [(1, 0)] = "동쪽", [(-1, 0)] = "서쪽"
+            var start = new TilePoint(3, 5);
+            var fork = new TilePoint(3, 4);
+            var east = new TilePoint(4, 4);
+            IReadOnlyList<TilePoint>[] routes = {
+                new[] { start, fork, new TilePoint(3, 3) },
+                new[] { start, fork, east }
             };
-            foreach (var option in run.PendingFork.Options)
-            {
-                var start = option.Route[0];
-                var step = option.Route[1];
-                Assert.That(option.Label, Does.StartWith(directions[(step.X - start.X, step.Y - start.Y)]));
-            }
+            Assert.That(DungeonRun.ForkBranchName(routes, 0), Is.EqualTo("북쪽"));
+            Assert.That(DungeonRun.ForkBranchName(routes, 1), Is.EqualTo("동쪽"));
+
+            routes = new IReadOnlyList<TilePoint>[] {
+                routes[0], new[] { start, fork, east, new TilePoint(4, 5) },
+                new[] { start, fork, east, new TilePoint(5, 4) }
+            };
+            Assert.That(DungeonRun.ForkBranchName(routes, 1), Is.EqualTo("동쪽으로 간 뒤 남쪽"));
+            Assert.That(DungeonRun.ForkBranchName(routes, 2), Is.EqualTo("동쪽으로 간 뒤 동쪽"));
         }
 
         [Test]
