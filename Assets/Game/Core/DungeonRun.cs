@@ -160,6 +160,7 @@ namespace DungeonTycoon.Core
             ClearCasts();
             ResetSkills();
             ResetFatigue();
+            ResetPrayer();
             Phase = RunPhase.Travel;
             log.Add($"{Stage} 스테이지 출발 • 용사들이 던전에 들어섰습니다.");
             Reveal();
@@ -175,11 +176,12 @@ namespace DungeonTycoon.Core
 
         /// <summary>
         /// Advances the expedition by one tick: monsters notice heroes, heroes explore or fight, monsters act.
-        /// Nothing moves while an adversity is being resolved, the party is debating at a fork or sharing out armour.
+        /// Nothing moves while an adversity is being resolved, the party is debating at a fork, sharing out armour
+        /// or waiting on a prayer. A hero who despairs during the tick is asked to pray at its end.
         /// </summary>
         public bool Tick()
         {
-            if (!InDungeon || PendingAdversity || PendingFork != null || PendingLoot != null) return false;
+            if (!InDungeon || PendingAdversity || PendingFork != null || PendingLoot != null || PendingPrayer != null) return false;
             Ticks++;
             foreach (var monster in monsters) Perceive(monster);
             UpdateEngagement();
@@ -199,6 +201,7 @@ namespace DungeonTycoon.Core
                 MonsterTick(monster);
             }
             if (InDungeon) UpdateEngagement();
+            CheckDesperation();
             return true;
         }
 
@@ -235,7 +238,7 @@ namespace DungeonTycoon.Core
 
         public int BeginAdversity()
         {
-            if (!InDungeon || PendingAdversity || PendingLoot != null || TrialsLeft == 0) return 0;
+            if (!InDungeon || PendingAdversity || PendingLoot != null || PendingPrayer != null || TrialsLeft == 0) return 0;
             TrialsLeft--;
             pendingTrial = ++nextTrialToken;
             log.Add("낙석! • 용사들이 대응을 선언합니다.");
@@ -350,6 +353,7 @@ namespace DungeonTycoon.Core
             Stage++;
             ReviveUsed = false;
             ClearCasts();
+            ResetPrayer();
             placements.Clear();
             monsters.Clear();
             LoadMap(DungeonMap.ForStage(Stage));

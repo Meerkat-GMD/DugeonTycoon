@@ -42,6 +42,12 @@ namespace DungeonTycoon.Unity
             "wants(\"yes\" 또는 \"no\"), line(30자 이내의 한국어 1인칭 말)을 넣어 JSON으로 답하라. 원하는 사람이 여럿이면 " +
             "게임이 주사위로 정하니 양보하거나 욕심내는 것은 성격대로 하고, 용사마다 말투가 겹치지 않게 하라.";
 
+        private const string PrayerPrompt =
+            "던전 TRPG의 용사 한 명이 죽음 직전이다. 이 용사가 지금 신에게 기도할지 성격대로 정하라. 기도는 절박할 때만 하는 " +
+            "드문 일이고, 신이 응답할지는 알 수 없다. 무모한 용사는 대개 자존심 때문에 기도하지 않고 버티지만 정말 절망적이면 " +
+            "기도할 수도 있다. JSON 객체에 pray(\"yes\" 또는 \"no\")와 line(기도한다면 신에게 직접 외치는 40자 이내의 한국어 " +
+            "1인칭 기도, 기도하지 않으면 빈 문자열)을 넣어 답하라.";
+
         private readonly string apiKey;
         private readonly string model = "gpt-5.4-mini";
         private DateTime retryAfter;
@@ -249,6 +255,41 @@ namespace DungeonTycoon.Unity
             return text.ToString();
         }
 
+        /// <summary>
+        /// Asks whether the desperate hero prays and with what words. Returns null offline or on failure; the run
+        /// then uses the hero's local choice. The request leaves out the GM's faith: the hero cannot know it.
+        /// </summary>
+        public async UniTask<PrayerProposal> PrayAsync(DungeonRun run, PrayerRequest prayer, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            if (!Online || prayer == null) return null;
+            var answer = await RequestAsync<PrayerReply>(run, PrayerPrompt, token, DescribePrayer(run, prayer));
+            if (answer == null) return null;
+            if (answer.pray == "no") return new PrayerProposal(false, "");
+            if (answer.pray != "yes" || string.IsNullOrWhiteSpace(answer.line)) return null;
+            return new PrayerProposal(true, CleanLine(answer.line));
+        }
+
+        private static string DescribePrayer(DungeonRun run, PrayerRequest prayer)
+        {
+            var hero = run.Party[(int)prayer.Role];
+            var tags = new List<string>();
+            foreach (var tag in hero.Tags) tags.Add(HeroTraits.Name(tag));
+            var text = new StringBuilder();
+            text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}" +
+                            (run.FightingBoss ? ", 보스와 싸우는 중" : run.Phase == RunPhase.Combat ? ", 전투 중" : ", 탐색 중"));
+            text.AppendLine($"기도할지 정할 용사: {hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 성격 {string.Join("·", tags)}, " +
+                            $"신을 향한 믿음 {DungeonRun.BeliefName(hero.Belief)}");
+            foreach (var ally in run.Party)
+            {
+                if (ally == hero) continue;
+                text.AppendLine(ally.Hp == 0 ? $"동료 {ally.Name}: 쓰러짐" : $"동료 {ally.Name}: HP {ally.Hp}/{ally.MaxHp}");
+            }
+            text.AppendLine($"파티의 피로: {DungeonRun.FatigueName(run.Fatigue)}");
+            text.Append("이 용사가 기도할지 JSON으로 작성해.");
+            return text.ToString();
+        }
+
         private async UniTask<T> RequestAsync<T>(DungeonRun run, string instructions, CancellationToken token, string input = null)
             where T : class
         {
@@ -366,6 +407,8 @@ namespace DungeonTycoon.Unity
         [Serializable] private sealed class LootPlan { public Wish[] wishes; }
         // item and wants stay strings so a missing field is not silently read as armour 0 or "no".
         [Serializable] private sealed class Wish { public string role, item, wants, line; }
+        // pray stays a string so a missing field is not silently read as "no".
+        [Serializable] private sealed class PrayerReply { public string pray, line; }
 #pragma warning restore CS0649
     }
 }

@@ -361,9 +361,13 @@ namespace DungeonTycoon.Unity
                 card.Heard = line;
                 card.HeardAt = Time.unscaledTime;
             }
-            bool speaking = !down && !string.IsNullOrWhiteSpace(line) && Time.unscaledTime-card.HeardAt <= LineSeconds;
+            // While a desperate hero decides whether to pray, the dungeon is frozen and "…" hangs beside their card.
+            bool asking = !down && game.AskingPrayer == index;
+            bool speaking = asking || (!down && !string.IsNullOrWhiteSpace(line) && Time.unscaledTime-card.HeardAt <= LineSeconds);
             Show(card.Bubble,speaking);
-            if (speaking) card.Line.text = line;
+            if (speaking) card.Line.text = asking ? "…" : line;
+            card.Root.EnableInClassList("belief-firm",hero.Belief == Belief.Firm);
+            card.Root.EnableInClassList("belief-shaken",hero.Belief == Belief.Shaken);
             RefreshKit(run,hero,card);
         }
 

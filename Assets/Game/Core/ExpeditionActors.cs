@@ -113,6 +113,8 @@ namespace DungeonTycoon.Core
         /// <summary>Attack reach in tiles; 1 means an adjacent tile.</summary>
         public int Range { get; }
         public string LastLine { get; internal set; } = "";
+        /// <summary>Trust in the god, set by how the GM answered this hero's prayer. Lasts the whole expedition.</summary>
+        public Belief Belief { get; internal set; } = Belief.Steady;
         private const int MinAttackTicks = 5;
         internal int BaseAttack { get; }
         internal int BaseArmor { get; }

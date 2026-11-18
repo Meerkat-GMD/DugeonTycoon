@@ -85,16 +85,30 @@ namespace DungeonTycoon.Core
                 foreach (var opinion in opinions)
                 {
                     var hero = party[(int)opinion.Role];
-                    string reaction = DialogueLines.OracleReaction(hero.Tags[0], opinion.Option == oracle);
+                    bool accepts = opinion.Option == oracle || hero.Belief == Belief.Firm;
+                    string reaction = DialogueLines.OracleReaction(hero.Tags[0], accepts);
                     hero.LastLine = reaction;
                     scene.Add(DialogueBeat.Line(hero.Role, reaction));
                 }
             }
             else oracle = -1;
 
+            // A hero whose prayer the god answered does not argue with it: they drop their own way and back the
+            // oracle without rolling. A hero the god ignored holds their ground harder against it.
+            bool Yields(ForkOpinion o) => oracle >= 0 && o.Option != oracle && party[(int)o.Role].Belief == Belief.Firm;
+            bool Defies(ForkOpinion o) => oracle >= 0 && o.Option != oracle && party[(int)o.Role].Belief == Belief.Shaken;
+            int Backs(ForkOpinion o) => Yields(o) ? oracle : o.Option;
+            var yielding = opinions.Where(Yields).ToList();
+            if (yielding.Count > 0)
+            {
+                string names = string.Join(", ", yielding.Select(o => party[(int)o.Role].Name));
+                scene.Add(DialogueBeat.Narration($"{HeroTraits.Subject(names)} 굳건한 믿음으로 계시를 따른다."));
+                log.Add($"믿음 • {names} 굳건 — 신탁을 따른다");
+            }
+
             int chosen;
             var summary = new StringBuilder();
-            var ways = opinions.Select(o => o.Option).Distinct().ToList();
+            var ways = opinions.Select(Backs).Distinct().ToList();
             if (ways.Count == 1 && (oracle < 0 || ways[0] == oracle))
             {
                 chosen = ways[0];
@@ -105,10 +119,14 @@ namespace DungeonTycoon.Core
             }
             else
             {
-                // A later belief rule (prayer feature) changes who rolls and with what here.
                 string charisma = HeroTraits.Name(Ability.Charisma);
-                var rolls = opinions.Select(opinion => (Opinion: opinion,
-                    Die: new DiceRoll(opinion.Role, ForkRoll(), party[(int)opinion.Role].Modifier(Ability.Charisma), charisma))).ToList();
+                var rolls = opinions.Where(o => !Yields(o)).Select(opinion => (Opinion: opinion,
+                    Die: new DiceRoll(opinion.Role, ForkRoll(),
+                        party[(int)opinion.Role].Modifier(Ability.Charisma) + (Defies(opinion) ? ShakenBonus : 0),
+                        Defies(opinion) ? charisma + "·흔들림" : charisma))).ToList();
+                var defiant = rolls.Where(r => Defies(r.Opinion)).Select(r => party[(int)r.Opinion.Role].Name).ToList();
+                if (defiant.Count > 0)
+                    scene.Add(DialogueBeat.Narration($"흔들리는 믿음 — {HeroTraits.Subject(string.Join(", ", defiant))} 계시에 맞선다. 설득 굴림 +{ShakenBonus}"));
                 var god = oracle >= 0 ? DiceRoll.ForGod(ForkRoll(), OracleBonus) : null;
                 int top = Math.Max(rolls.Max(r => r.Die.Total), god?.Total ?? int.MinValue);
                 var leaders = rolls.Where(r => r.Die.Total == top).ToList();
@@ -118,7 +136,10 @@ namespace DungeonTycoon.Core
 
                 summary.Append(god != null ? $"설득 d20 + 매력 · 신 d20 + {OracleBonus}  " : "설득 d20 + 매력  ");
                 summary.Append(string.Join("  ", rolls.Select(r =>
-                    $"{party[(int)r.Die.Role].Name} [{r.Die.Face}]{(r.Die.Modifier >= 0 ? "+" : "")}{r.Die.Modifier}={r.Die.Total}")));
+                    $"{party[(int)r.Die.Role].Name} [{r.Die.Face}]{(r.Die.Modifier >= 0 ? "+" : "")}{r.Die.Modifier}={r.Die.Total}" +
+                    (Defies(r.Opinion) ? $"(흔들림 +{ShakenBonus})" : ""))));
+                if (yielding.Count > 0)
+                    summary.Append("  " + string.Join(", ", yielding.Select(o => party[(int)o.Role].Name)) + " 굳건 — 신탁 지지");
                 if (god != null) summary.Append($"  신 [{god.Face}]+{god.Modifier}={god.Total}");
 
                 if (godWins)
@@ -131,7 +152,7 @@ namespace DungeonTycoon.Core
                 }
                 else
                 {
-                    int Supporters(int option) => opinions.Count(o => o.Option == option);
+                    int Supporters(int option) => opinions.Count(o => Backs(o) == option);
                     var winner = leaders.OrderByDescending(r => Supporters(r.Opinion.Option))
                         .ThenBy(r => Array.IndexOf(MarchOrder, r.Opinion.Role)).First();
                     chosen = winner.Opinion.Option;
@@ -162,6 +183,7 @@ namespace DungeonTycoon.Core
             log.Add("결정 • " + LastFork.Replace('\n', ' '));
             ForkCount++;
             PendingFork = null;
+            ReleasePrayerHolds(combatEnded: false);
 
             // Ways not taken are remembered so the party comes back to them only from a dead end.
             for (int i = 0; i < fork.Options.Count; i++)

@@ -1,0 +1,301 @@
+/*
+    Prayer scene. Panel units, like the HUD (about 640 tall). Every rule is prefixed with .hud so it wins over
+    the default runtime theme. Moods are classes on the root: mood-pray, mood-radiant, mood-despair.
+*/
+
+.hud .prayer-scene {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    background-color: rgb(6, 9, 18);
+    overflow: hidden;
+}
+
+.hud .prayer-bg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("/Assets/Art/Prayer/prayer_bg.png");
+    -unity-background-scale-mode: scale-and-crop;
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+    transition-property: -unity-background-image-tint-color;
+    transition-duration: 0.9s;
+}
+
+.hud .mood-radiant .prayer-bg { -unity-background-image-tint-color: rgb(255, 236, 196); }
+.hud .mood-despair .prayer-bg { -unity-background-image-tint-color: rgb(78, 58, 68); }
+
+/* The gold shaft of an answered prayer, over the blue one painted in the background. */
+.hud .prayer-beam {
+    position: absolute;
+    left: 9%;
+    top: -12%;
+    width: 24%;
+    height: 112%;
+    rotate: -13deg;
+    opacity: 0;
+    -unity-background-scale-mode: stretch-to-fill;
+    transition-property: opacity, scale;
+    transition-duration: 0.9s;
+    scale: 0.8 1;
+}
+
+.hud .mood-radiant .prayer-beam {
+    opacity: 1;
+    scale: 1.15 1;
+}
+
+.hud .prayer-vignette {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    -unity-background-scale-mode: stretch-to-fill;
+    transition-property: opacity;
+    transition-duration: 0.9s;
+}
+
+.hud .mood-despair .prayer-vignette { opacity: 1; }
+
+/* The hero kneels on the dais, which sits about 28% across the background. */
+.hud .prayer-hero {
+    position: absolute;
+    left: 10%;
+    width: 36%;
+    top: 14%;
+    bottom: 9%;
+}
+
+.hud .hero-art {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-to-fit;
+    opacity: 0;
+    transition-property: opacity, -unity-background-image-tint-color, translate, scale;
+    transition-duration: 0.45s, 0.9s, 0.9s, 0.9s;
+}
+
+.hud .hero-art.show { opacity: 1; }
+.hud .mood-despair .hero-art.despair {
+    translate: 0 10px;
+    scale: 0.97 0.97;
+}
+
+.hud .role-0 .hero-art.pray { background-image: url("/Assets/Art/Prayer/tank_pray.png"); }
+.hud .role-0 .hero-art.radiant { background-image: url("/Assets/Art/Prayer/tank_radiant.png"); }
+.hud .role-0 .hero-art.despair { background-image: url("/Assets/Art/Prayer/tank_despair.png"); }
+.hud .role-1 .hero-art.pray { background-image: url("/Assets/Art/Prayer/healer_pray.png"); }
+.hud .role-1 .hero-art.radiant { background-image: url("/Assets/Art/Prayer/healer_radiant.png"); }
+.hud .role-1 .hero-art.despair { background-image: url("/Assets/Art/Prayer/healer_despair.png"); }
+.hud .role-2 .hero-art.pray { background-image: url("/Assets/Art/Prayer/melee_pray.png"); }
+.hud .role-2 .hero-art.radiant { background-image: url("/Assets/Art/Prayer/melee_radiant.png"); }
+.hud .role-2 .hero-art.despair { background-image: url("/Assets/Art/Prayer/melee_despair.png"); }
+.hud .role-3 .hero-art.pray { background-image: url("/Assets/Art/Prayer/ranged_pray.png"); }
+.hud .role-3 .hero-art.radiant { background-image: url("/Assets/Art/Prayer/ranged_radiant.png"); }
+.hud .role-3 .hero-art.despair { background-image: url("/Assets/Art/Prayer/ranged_despair.png"); }
+
+.hud .sparkles {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.hud .spark {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+    background-color: rgb(255, 246, 200);
+}
+
+/* ── Words ─────────────────────────────────────────────────────── */
+
+.hud .prayer-narration {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 5%;
+    font-size: 17px;
+    color: rgb(222, 214, 196);
+    -unity-text-align: middle-center;
+    text-shadow: 1px 2px 2px rgba(0, 0, 0, 0.9);
+    white-space: normal;
+}
+
+.hud .prayer-bubble {
+    position: absolute;
+    left: 34%;
+    top: 13%;
+    width: 27%;
+    padding: 10px 14px 12px 14px;
+    border-radius: 14px;
+    background-color: rgb(240, 234, 224);
+    opacity: 0;
+    transition-property: opacity, background-color;
+    transition-duration: 0.25s, 0.6s;
+}
+
+.hud .prayer-bubble.show { opacity: 1; }
+.hud .mood-radiant .prayer-bubble { background-color: rgb(255, 243, 196); }
+.hud .mood-despair .prayer-bubble { background-color: rgb(58, 52, 56); }
+
+.hud .prayer-who {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(21, 27, 32);
+    margin-bottom: 3px;
+}
+
+.hud .prayer-line {
+    font-size: 16px;
+    color: rgb(21, 27, 32);
+    white-space: normal;
+}
+
+.hud .mood-despair .prayer-who,
+.hud .mood-despair .prayer-line { color: rgb(207, 198, 198); }
+
+/* ── The GM's answers ──────────────────────────────────────────── */
+
+.hud .prayer-choices {
+    position: absolute;
+    right: 4%;
+    top: 27%;
+    width: 33%;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.35s;
+}
+
+.hud .prayer-choices.show { opacity: 1; }
+
+.hud .prayer-choice {
+    flex-direction: row;
+    align-items: center;
+    margin: 0 0 14px 0;
+    padding: 12px 14px;
+    border-width: 2px;
+    border-radius: 6px;
+    border-color: rgb(75, 90, 95);
+    background-color: rgb(32, 40, 44);
+    color: var(--paper);
+    transition-property: translate, border-color, opacity;
+    transition-duration: 0.15s, 0.15s, 0.3s;
+}
+
+.hud .prayer-choice:hover {
+    translate: -6px 0;
+    border-color: var(--gold);
+    background-color: rgb(40, 50, 55);
+}
+
+.hud .prayer-choice:disabled { opacity: 0.35; }
+.hud .prayer-choice.picked { border-color: var(--gold); }
+.hud .prayer-choices.done .prayer-choice { opacity: 0.15; }
+.hud .prayer-choices.done .prayer-choice.picked { opacity: 1; }
+
+.hud .choice-key {
+    width: 28px;
+    height: 28px;
+    margin-right: 12px;
+    border-radius: 14px;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .prayer-choice.ignore .choice-key {
+    background-color: rgb(90, 74, 74);
+    color: var(--paper);
+}
+
+.hud .choice-body { flex-grow: 1; }
+
+.hud .choice-title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}
+
+.hud .choice-desc {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted);
+    -unity-text-align: middle-left;
+    white-space: normal;
+}
+
+.hud .choice-cost {
+    margin-left: 8px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--gold);
+}
+
+/* ── Outcome ───────────────────────────────────────────────────── */
+
+.hud .prayer-stamp {
+    position: absolute;
+    left: 19%;
+    bottom: 5%;
+    padding: 4px 16px;
+    border-width: 3px;
+    border-radius: 6px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    rotate: -6deg;
+    scale: 1.8 1.8;
+    opacity: 0;
+    transition-property: opacity, scale;
+    transition-duration: 0.25s;
+    transition-timing-function: ease-out-back;
+}
+
+.hud .prayer-stamp.show {
+    opacity: 1;
+    scale: 1 1;
+}
+
+.hud .prayer-stamp.firm {
+    color: rgb(255, 215, 102);
+    border-color: rgb(255, 215, 102);
+}
+
+.hud .prayer-stamp.shaken {
+    color: var(--ember);
+    border-color: var(--ember);
+}
+
+.hud .prayer-flash {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(255, 255, 255);
+    opacity: 0;
+}
+
+.hud .prayer-next {
+    position: absolute;
+    right: 18px;
+    bottom: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0;
+}

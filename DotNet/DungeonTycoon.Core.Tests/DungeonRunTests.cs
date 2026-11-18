@@ -21,11 +21,25 @@ namespace DungeonTycoon.Core.Tests
 
         internal static bool InDungeon(DungeonRun run) => run.Phase == RunPhase.Travel || run.Phase == RunPhase.Combat;
 
+        /// <summary>
+        /// A hero waiting on a prayer is heard on local rules and, if they pray, the god looks away: that changes
+        /// only the hero's belief, so whole-run tests keep the outcome they had before prayer existed.
+        /// </summary>
+        internal static bool SettlePrayer(DungeonRun run)
+        {
+            var prayer = run.PendingPrayer;
+            if (prayer == null) return false;
+            if (!prayer.Praying) run.HearPrayer(prayer.Token);
+            if (run.PendingPrayer != null) run.AnswerPrayer(prayer.Token, PrayerAnswer.Ignore);
+            return true;
+        }
+
         /// <summary>Runs the expedition with local decisions until the condition holds or nothing can advance.</summary>
         internal static void Drive(DungeonRun run, Func<bool> until, int limit = 20000)
         {
             for (int tick = 0; tick < limit && !until(); tick++)
             {
+                if (SettlePrayer(run)) continue;
                 if (run.PendingLoot != null) run.ResolveLoot(run.PendingLoot.Token);
                 else if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
                 else if (InDungeon(run)) run.Tick();

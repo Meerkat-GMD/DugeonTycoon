@@ -447,6 +447,20 @@
     background-color: rgba(41, 52, 58, 0.78);
 }
 
+/* Belief (gamerules.md "용사"): bright gold once the god answered this hero's prayer, dark red once it looked away. */
+.hud .hero-card.belief-firm {
+    padding: 0 0 16px 0;
+    border-width: 2px;
+    border-color: rgb(255, 236, 160);
+}
+
+.hud .hero-card.belief-shaken {
+    padding: 0 0 16px 0;
+    border-width: 2px;
+    border-color: rgb(122, 42, 32);
+    background-color: rgba(34, 14, 14, 0.82);
+}
+
 .hud .hero-card.picked {
     padding: 0;
     border-width: 2px;
