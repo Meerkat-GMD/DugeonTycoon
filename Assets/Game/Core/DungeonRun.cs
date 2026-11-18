@@ -28,12 +28,18 @@ namespace DungeonTycoon.Core
             new HeroState(HeroRole.RangedDamage, "리아", 32, 7, 0, 4, new[] { 0, 2, 1, 1 }, PersonalityTag.Curious)
         };
         private readonly Random dice;
+        /// <summary>
+        /// Drops and loot rolls have their own seeded dice, so adding loot never shifts the rolls that decide
+        /// wandering, forks and adversities.
+        /// </summary>
+        private readonly Random lootDice;
         private int nextTrialToken;
         private int pendingTrial;
 
         public DungeonRun(int seed = 20261118)
         {
             dice = new Random(seed);
+            lootDice = new Random(unchecked(seed * 31 + 7));
             Placements = placements.AsReadOnly();
             Monsters = monsters.AsReadOnly();
             Party = Array.AsReadOnly(party);
@@ -143,7 +149,7 @@ namespace DungeonTycoon.Core
 
         public bool Start()
         {
-            if (Phase != RunPhase.Planning) return false;
+            if (Phase != RunPhase.Planning || PendingLoot != null) return false;
             monsters.Clear();
             for (int i = 0; i < placements.Count; i++) monsters.Add(CreateMonster(i, placements[i].Kind, placements[i].Tile));
             monsters.Add(CreateBoss());
@@ -163,11 +169,11 @@ namespace DungeonTycoon.Core
 
         /// <summary>
         /// Advances the expedition by one tick: monsters notice heroes, heroes explore or fight, monsters act.
-        /// Nothing moves while an adversity is being resolved or the party is debating at a fork.
+        /// Nothing moves while an adversity is being resolved, the party is debating at a fork or sharing out armour.
         /// </summary>
         public bool Tick()
         {
-            if (!InDungeon || PendingAdversity || PendingFork != null) return false;
+            if (!InDungeon || PendingAdversity || PendingFork != null || PendingLoot != null) return false;
             Ticks++;
             foreach (var monster in monsters) Perceive(monster);
             UpdateEngagement();
@@ -221,7 +227,7 @@ namespace DungeonTycoon.Core
 
         public int BeginAdversity()
         {
-            if (!InDungeon || PendingAdversity || TrialsLeft == 0) return 0;
+            if (!InDungeon || PendingAdversity || PendingLoot != null || TrialsLeft == 0) return 0;
             TrialsLeft--;
             pendingTrial = ++nextTrialToken;
             log.Add("낙석! • 용사들이 대응을 선언합니다.");
@@ -294,7 +300,7 @@ namespace DungeonTycoon.Core
         public const int TrialDamage = 8;
 
         /// <summary>
-        /// The beats of the latest fork debate or adversity, in the order the stage shows them. The outcome they
+        /// The beats of the latest fork debate, adversity or loot sharing, in the order the stage shows them. The outcome they
         /// show is already applied to the run.
         /// </summary>
         public IReadOnlyList<DialogueBeat> LastScene { get; private set; } = new DialogueBeat[0];

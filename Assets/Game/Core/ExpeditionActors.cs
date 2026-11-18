@@ -77,7 +77,7 @@ namespace DungeonTycoon.Core
             Name = name;
             Hp = MaxHp = maxHp;
             BaseAttack = attack;
-            Armor = armor;
+            BaseArmor = armor;
             Range = range;
             this.abilities = (int[])abilities.Clone();
             Tags = Array.AsReadOnly((PersonalityTag[])tags.Clone());
@@ -89,11 +89,42 @@ namespace DungeonTycoon.Core
         public int Modifier(Ability ability) => abilities[(int)ability];
         public int Hp { get; internal set; }
         public int MaxHp { get; internal set; }
-        public int Armor { get; }
+        /// <summary>Defence including the worn armour.</summary>
+        public int Armor => BaseArmor + (BodyArmor?.ArmorBonus ?? 0);
+        /// <summary>Attack before the party level bonus, including the weapon.</summary>
+        public int Attack => BaseAttack + (Weapon?.AttackBonus ?? 0);
+        /// <summary>Ticks between this hero's attacks or heals, including the weapon.</summary>
+        public int AttackTicks => Math.Max(MinAttackTicks, DungeonRun.HeroAttackTicks + (Weapon?.AttackTicksBonus ?? 0));
+        public Equipment Weapon { get; private set; }
+        public Equipment BodyArmor { get; private set; }
         /// <summary>Attack reach in tiles; 1 means an adjacent tile.</summary>
         public int Range { get; }
         public string LastLine { get; internal set; } = "";
+        private const int MinAttackTicks = 5;
         internal int BaseAttack { get; }
+        internal int BaseArmor { get; }
+
+        /// <summary>What the hero has on in the slot this item would take.</summary>
+        public Equipment WornIn(EquipmentSlot slot) => slot == EquipmentSlot.Weapon ? Weapon : BodyArmor;
+
+        /// <summary>
+        /// Puts the item on; the old one in that slot is gone. A higher maximum health heals by the difference, a
+        /// lower one only trims the current health.
+        /// </summary>
+        internal void Equip(Equipment item)
+        {
+            if (!item.Fits(Role)) throw new InvalidOperationException($"{Name} cannot use {item.Name}.");
+            if (item.Slot == EquipmentSlot.Weapon)
+            {
+                Weapon = item;
+                return;
+            }
+            int gain = item.MaxHpBonus - (BodyArmor?.MaxHpBonus ?? 0);
+            BodyArmor = item;
+            MaxHp += gain;
+            if (gain > 0) Hp += gain;
+            Hp = Math.Min(Hp, MaxHp);
+        }
         internal int MoveReady { get; set; }
         internal int ActReady { get; set; }
         internal int TauntReady { get; set; }

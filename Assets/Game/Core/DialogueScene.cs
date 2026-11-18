@@ -40,7 +40,8 @@ namespace DungeonTycoon.Core
         private static readonly IReadOnlyList<DiceRoll> NoRolls = new DiceRoll[0];
 
         private DialogueBeat(BeatKind kind, HeroRole? speaker, string text, IReadOnlyList<DiceRoll> rolls,
-            int difficulty, bool success, HeroRole? winner)
+            int difficulty, bool success, HeroRole? winner, HeroRole? markRole = null, string mark = null,
+            Equipment item = null)
         {
             Kind = kind;
             Speaker = speaker;
@@ -49,13 +50,28 @@ namespace DungeonTycoon.Core
             Difficulty = difficulty;
             Success = success;
             Winner = winner;
+            MarkRole = markRole;
+            Mark = mark;
+            Item = item;
         }
 
         public static DialogueBeat Narration(string text) =>
             new DialogueBeat(BeatKind.Narration, null, text, null, 0, false, null);
 
+        /// <summary>Narration that puts an item on show beside the stage, such as the armour being shared out.</summary>
+        public static DialogueBeat Narration(string text, Equipment item) =>
+            new DialogueBeat(BeatKind.Narration, null, text, null, 0, false, null, item: item);
+
+        /// <summary>Narration that pins a short mark above one hero's portrait, such as "손해".</summary>
+        public static DialogueBeat Narration(string text, HeroRole markRole, string mark) =>
+            new DialogueBeat(BeatKind.Narration, null, text, null, 0, false, null, markRole, mark);
+
         public static DialogueBeat Line(HeroRole speaker, string text) =>
             new DialogueBeat(BeatKind.Line, speaker, text, null, 0, false, null);
+
+        /// <summary>A line with a mark above the speaker's portrait, such as "원함" or "패스".</summary>
+        public static DialogueBeat Line(HeroRole speaker, string text, string mark) =>
+            new DialogueBeat(BeatKind.Line, speaker, text, null, 0, false, null, speaker, mark);
 
         /// <summary>A roll against a difficulty, such as an adversity.</summary>
         public static DialogueBeat Check(string title, DiceRoll roll, int difficulty, bool success) =>
@@ -64,6 +80,10 @@ namespace DungeonTycoon.Core
         /// <summary>Several heroes roll and the highest total wins, such as persuasion at a fork.</summary>
         public static DialogueBeat Contest(string title, IReadOnlyList<DiceRoll> rolls, HeroRole winner) =>
             new DialogueBeat(BeatKind.Roll, null, title, rolls, 0, false, winner);
+
+        /// <summary>A contest whose highest face is shared, so the tied heroes roll again.</summary>
+        public static DialogueBeat Tie(string title, IReadOnlyList<DiceRoll> rolls) =>
+            new DialogueBeat(BeatKind.Roll, null, title, rolls, 0, false, null);
 
         public BeatKind Kind { get; }
         public HeroRole? Speaker { get; }
@@ -74,8 +94,14 @@ namespace DungeonTycoon.Core
         public int Difficulty { get; }
         /// <summary>Whether a check succeeded. Unused for a contest.</summary>
         public bool Success { get; }
-        /// <summary>Whose opinion a contest settled on. Null for a check.</summary>
+        /// <summary>Whose opinion a contest settled on. Null for a check or a tied round.</summary>
         public HeroRole? Winner { get; }
+        /// <summary>The hero whose portrait gets <see cref="Mark"/>, or null.</summary>
+        public HeroRole? MarkRole { get; }
+        /// <summary>A short tag above a portrait, such as "원함", "패스" or "손해".</summary>
+        public string Mark { get; }
+        /// <summary>An item to show beside the stage from this beat on, or null.</summary>
+        public Equipment Item { get; }
     }
 
     /// <summary>Fixed narration and the local lines heroes say around a debate or an adversity.</summary>
@@ -99,6 +125,37 @@ namespace DungeonTycoon.Core
                 case HeroRole.Healer: return "고마워요. 조심해서 가요.";
                 case HeroRole.MeleeDamage: return "결정 났다. 따라와!";
                 default: return "내 말 믿어. 후회 안 할 거야.";
+            }
+        }
+
+        public const string LootOpening = "전투가 끝났다. 용사들이 전리품을 나눈다.";
+        public const string LootRollTitle = "전리품 주사위 — d20";
+        public const string LootRerollTitle = "다시 굴림 — d20";
+        public const string Wants = "원함";
+        public const string Passes = "패스";
+        public const string Worse = "손해";
+
+        /// <summary>A hero's local answer when the party shares out armour.</summary>
+        public static string LootWish(HeroRole role, bool wants)
+        {
+            switch (role)
+            {
+                case HeroRole.Tank: return wants ? "이 갑옷이면 앞에서 더 오래 버틴다. 내가 입겠다." : "난 지금 것으로 충분하다.";
+                case HeroRole.Healer: return wants ? "저도 하나쯤은… 입어 보고 싶어요." : "무거워서 못 움직여요. 사양할게요.";
+                case HeroRole.MeleeDamage: return wants ? "나도 맞으면서 싸우거든? 그거 내 거야." : "무거운 건 질색이야. 패스.";
+                default: return wants ? "가벼워 보이는데, 나한테 줘." : "난 됐어. 활 쏘는 데 방해돼.";
+            }
+        }
+
+        /// <summary>What the hero who gets the armour says.</summary>
+        public static string LootTaken(HeroRole role)
+        {
+            switch (role)
+            {
+                case HeroRole.Tank: return "고맙다. 이걸로 모두를 지키지.";
+                case HeroRole.Healer: return "소중히 입을게요.";
+                case HeroRole.MeleeDamage: return "역시 내 운이지!";
+                default: return "어때, 잘 어울리지?";
             }
         }
 

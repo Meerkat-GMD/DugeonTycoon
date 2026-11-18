@@ -20,6 +20,7 @@ namespace DungeonTycoon.Unity
         private int fogVersion = -1;
         private float accumulator;
         private int discussedFork;
+        private int sharedLoot;
         private int plannedSituation;
         private int thinkers;
 
@@ -104,6 +105,13 @@ namespace DungeonTycoon.Unity
         private void Update()
         {
             var run = Run;
+            // Checked before the dungeon test: armour from the first boss is shared out after the stage has cleared.
+            var loot = run?.PendingLoot;
+            if (loot != null && loot.Token != sharedLoot && !Presenting)
+            {
+                sharedLoot = loot.Token;
+                ShareLootAsync(run, loot, lifetime).Forget();
+            }
             if (run == null || !InDungeon(run)) return;
             int stage = run.Stage;
             if (run.PendingAdversity || Speed == 0 || Presenting) accumulator = 0;
@@ -162,6 +170,25 @@ namespace DungeonTycoon.Unity
                 stage.SetThinking(Array.Empty<HeroRole>());
                 if (Run != expedition || !expedition.ResolveFork(fork.Token, proposals)) return;
                 Spotlight(fork.Backtracking ? "막다른 길 · 결정" : "갈림길 · 결정", expedition.LastFork);
+                await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
+            }
+            finally
+            {
+                if (stage) stage.Close();
+            }
+        }
+
+        /// <summary>
+        /// Plays the armour sharing on the stage: Core settles it from each hero's local wish (the AI request comes
+        /// later) and the stage shows who wants it, the loot dice and who wears it. The dungeon is frozen throughout.
+        /// </summary>
+        private async UniTask ShareLootAsync(DungeonRun expedition, LootDistribution loot, CancellationToken token)
+        {
+            stage.Open(expedition);
+            try
+            {
+                await stage.SayAsync(null, DialogueLines.LootOpening, token);
+                if (Run != expedition || !expedition.ResolveLoot(loot.Token)) return;
                 await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
             }
             finally
@@ -269,6 +296,7 @@ namespace DungeonTycoon.Unity
         {
             if (Run.Phase != RunPhase.Victory && Run.Phase != RunPhase.Defeat) return;
             Run = new DungeonRun(Environment.TickCount);
+            sharedLoot = 0;
             ClearTrialDisplay();
             RefreshLayout();
         }

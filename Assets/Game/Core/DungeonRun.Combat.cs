@@ -88,6 +88,7 @@ namespace DungeonTycoon.Core
                 Phase = RunPhase.Combat;
                 CancelFork();
                 route.Clear();
+                BeginSpoils();
                 log.Add("교전 • " + HeroTraits.Subject(string.Join(", ", joined.Select(m => m.Name))) + " 용사들을 발견했다!");
                 SetBattleCries();
                 BumpSituation();
@@ -111,6 +112,7 @@ namespace DungeonTycoon.Core
                 Regroup();
                 int hp = party.Sum(h => h.Hp), max = party.Sum(h => h.MaxHp);
                 log.Add($"전투 종료 • 파티 체력 {hp} / {max}");
+                SettleSpoils();
             }
         }
 
@@ -279,15 +281,20 @@ namespace DungeonTycoon.Core
 
         private void Strike(HeroState hero, MonsterState monster)
         {
-            hero.ActReady = Ticks + HeroAttackTicks;
-            int damage = Math.Max(0, hero.BaseAttack + 2 * (Level - 1) - monster.Armor);
+            hero.ActReady = Ticks + hero.AttackTicks;
+            int damage = Math.Max(0, hero.Attack + 2 * (Level - 1) - monster.Armor);
             events.Add(new CombatEvent(CombatEventKind.Attack, true, (int)hero.Role, false, monster.Id, damage));
             monster.Hp = Math.Max(0, monster.Hp - damage);
             if (monster.Hp > 0) return;
             monster.Mood = MonsterMood.Defeated;
             log.Add($"{hero.Name} → {monster.Name} 격파 • 경험치 +{monster.Experience}");
             GainExperience(monster.Experience);
-            if (monster.IsBoss) ClearStage();
+            DropLoot(monster);
+            if (!monster.IsBoss) return;
+            // The last boss ends the expedition; there is nothing left to share its loot for.
+            if (Stage == 1) SettleSpoils();
+            else spoils.Clear();
+            ClearStage();
         }
 
         private void HeroStep(HeroState hero, TilePoint goal, int range)
@@ -364,7 +371,7 @@ namespace DungeonTycoon.Core
                 return true;
             }
             if (healer.ActReady > Ticks) return true;
-            healer.ActReady = Ticks + HeroAttackTicks;
+            healer.ActReady = Ticks + healer.AttackTicks;
             int before = patient.Hp;
             patient.Hp = Math.Min(patient.MaxHp, patient.Hp + 7 + Level);
             if (patient.Hp * 10 >= patient.MaxHp * 3) patient.Critical = false;
@@ -393,6 +400,7 @@ namespace DungeonTycoon.Core
                 Phase = RunPhase.Defeat;
                 pendingTrial = 0;
                 PendingFork = null;
+                spoils.Clear();
                 log.Add("파티 전멸 • 원정이 끝났습니다.");
             }
         }

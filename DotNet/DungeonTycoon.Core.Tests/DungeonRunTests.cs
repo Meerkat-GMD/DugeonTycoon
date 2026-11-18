@@ -26,7 +26,8 @@ namespace DungeonTycoon.Core.Tests
         {
             for (int tick = 0; tick < limit && !until(); tick++)
             {
-                if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
+                if (run.PendingLoot != null) run.ResolveLoot(run.PendingLoot.Token);
+                else if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
                 else if (InDungeon(run)) run.Tick();
                 else return;
             }
@@ -218,6 +219,7 @@ namespace DungeonTycoon.Core.Tests
                 {
                     for (int i = 0; i < ticksPerFrame && run.Stage == 1 && InDungeon(run); i++)
                     {
+                        if (run.PendingLoot != null) run.ResolveLoot(run.PendingLoot.Token);
                         if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
                         run.Tick();
                         if (!trialDone && run.Ticks >= 40)
@@ -273,6 +275,11 @@ namespace DungeonTycoon.Core.Tests
             for (int step = 0; step < 40000; step++)
             {
                 if (run.Phase == RunPhase.Victory || run.Phase == RunPhase.Defeat) break;
+                if (run.PendingLoot != null)
+                {
+                    run.ResolveLoot(run.PendingLoot.Token);
+                    continue;
+                }
                 if (run.Phase == RunPhase.Planning)
                 {
                     if (run.Stage == 2)

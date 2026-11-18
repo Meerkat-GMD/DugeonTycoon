@@ -33,12 +33,15 @@ namespace DungeonTycoon.Core
         }
 
         /// <summary>Appends 이 or 가 depending on whether the word ends in a final consonant.</summary>
-        public static string Subject(string word)
+        public static string Subject(string word) => Particle(word, "이", "가");
+
+        /// <summary>Appends the particle that fits the last syllable: <paramref name="afterConsonant"/> after a final consonant.</summary>
+        public static string Particle(string word, string afterConsonant, string afterVowel)
         {
             if (string.IsNullOrEmpty(word)) return word;
             char last = word[word.Length - 1];
             bool batchim = last >= '가' && last <= '힣' && (last - '가') % 28 != 0;
-            return word + (batchim ? "이" : "가");
+            return word + (batchim ? afterConsonant : afterVowel);
         }
 
         /// <summary>The ability each role leans on when answering an adversity.</summary>
