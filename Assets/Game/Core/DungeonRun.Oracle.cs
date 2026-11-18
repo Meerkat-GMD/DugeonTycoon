@@ -207,13 +207,16 @@ namespace DungeonTycoon.Core
             // Ways not taken are remembered so the party comes back to them only from a dead end; chests and springs
             // not taken are not raised again from afar.
             var taken = fork.Options[chosen];
+            lastPassed.Clear();
             for (int i = 0; i < fork.Options.Count; i++)
             {
                 if (i == chosen) continue;
                 var option = fork.Options[i];
                 if (option.Feature == ForkFeature.Way)
                 {
-                    if (!MatchesSkipped(option.Frontier)) skipped.Add(new HashSet<TilePoint>(option.Frontier));
+                    var memory = skipped.FirstOrDefault(set => Touches(set, option.Frontier));
+                    if (memory == null) skipped.Add(memory = new HashSet<TilePoint>(option.Frontier));
+                    lastPassed.Add(memory);
                 }
                 else PassFeature(option);
             }
@@ -222,6 +225,13 @@ namespace DungeonTycoon.Core
                 ForgetSkipped(taken.Frontier);
                 Head(new HashSet<TilePoint>(taken.Frontier));
             }
+            else
+            {
+                // No way was chosen, so the ways passed over keep growing as the party walks to the spring or the boss
+                // room and stay the same ways when it comes back to them.
+                heading.Clear();
+            }
+            resumePassed = taken.Feature == ForkFeature.Spring && lastPassed.Count > 0;
             route.Clear();
             var path = Map.FindPath(LeaderTile, taken.Target, Known);
             if (path.Count >= 2)

@@ -24,6 +24,12 @@ Unity를 열지 않고 `Assets/Game/Core`의 실제 소스를 컴파일해 NUnit
 dotnet test DotNet/DungeonTycoon.Core.Tests/DungeonTycoon.Core.Tests.csproj --filter FullyQualifiedName~D20CheckTests
 ```
 
+맵을 새로 만들거나 고치면 맵 검사를 돌린다. 파티가 보스방에 들어가지 않고 맵의 다른 모든 칸을 볼 때까지 걷는다. 갈림길마다 첫 길만 고르는 경우와 마지막 길만 고르는 경우를 한 번씩 돌린다. 방을 떠나지 않고 같은 방에서 논의가 두 번 열리거나, 못 본 칸이 남거나, 빈 던전에서 전투가 나면 실패하고, 그때까지의 논의 기록을 보여 준다. 스테이지마다 1초 안에 끝난다. [DungeonLayouts](Assets/Game/Core/DungeonLayouts.cs)에 넣기 전의 초안 맵은 테스트에서 `MapCheckTests.Check(DungeonMap.Parse(초안), 스테이지, 마지막길여부)`로 검사한다.
+
+```powershell
+dotnet test DotNet/DungeonTycoon.Core.Tests/DungeonTycoon.Core.Tests.csproj --filter FullyQualifiedName~MapCheckTests
+```
+
 ## 밸런스 수치를 바꿀 때
 
 몬스터·보스 능력치, 경험치와 레벨 성장, 위협 예산, 역경 난이도, 상자 희귀 확률, 샘물 회복량은 [balance.json](Assets/Game/Unity/Resources/Balance/balance.json) 한 파일에 있다. 값을 바꾸고 아래 명령으로 결과를 본다.

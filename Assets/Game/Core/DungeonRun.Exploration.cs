@@ -23,6 +23,13 @@ namespace DungeonTycoon.Core
         private readonly List<HashSet<TilePoint>> skipped = new List<HashSet<TilePoint>>();
         /// <summary>The way the party last chose to take; it grows like a skipped way and outranks them.</summary>
         private readonly HashSet<TilePoint> heading = new HashSet<TilePoint>();
+        /// <summary>
+        /// The skipped ways the latest fork passed over. When the way chosen there closes, the party turns to the nearest
+        /// of these without a new discussion: they were just argued over, often in the very same room.
+        /// </summary>
+        private readonly List<HashSet<TilePoint>> lastPassed = new List<HashSet<TilePoint>>();
+        /// <summary>The latest fork chose a spring: once there, go on by the nearest way passed over without arguing again.</summary>
+        private bool resumePassed;
         private bool[,] seen;
         private bool[,] visible;
         private bool routeToBoss;
@@ -60,6 +67,9 @@ namespace DungeonTycoon.Core
             routeToFeature = false;
             skipped.Clear();
             heading.Clear();
+            lastPassed.Clear();
+            resumePassed = false;
+            ExploredAll = false;
             PendingFork = null;
             ReachedBoss = false;
             Array.Clear(tactics, 0, tactics.Length);
@@ -114,7 +124,7 @@ namespace DungeonTycoon.Core
             route.Clear();
         }
 
-        private bool Known(TilePoint tile) => Map.IsFloor(tile) && seen[tile.X, tile.Y];
+        private bool Known(TilePoint tile) => Map.IsFloor(tile) && seen[tile.X, tile.Y] && !(exploreAll && Map.IsBossRoom(tile));
 
         /// <summary>
         /// A known floor tile that opens onto floor the party has not seen yet. Heroes standing at the edge of
@@ -126,7 +136,7 @@ namespace DungeonTycoon.Core
             bool Opens(int dx, int dy)
             {
                 var next = new TilePoint(tile.X + dx, tile.Y + dy);
-                return Map.IsFloor(next) && !seen[next.X, next.Y];
+                return Map.IsFloor(next) && !seen[next.X, next.Y] && !(exploreAll && Map.IsBossRoom(next));
             }
             return Opens(0, -1) || Opens(1, 0) || Opens(0, 1) || Opens(-1, 0);
         }
@@ -197,7 +207,7 @@ namespace DungeonTycoon.Core
                 return true;
             }
             var far = FeatureWays(false);
-            if (IsSeen(Map.BossTile))
+            if (!exploreAll && IsSeen(Map.BossTile))
             {
                 var toBoss = Map.FindPath(leader, Map.BossTile, Known);
                 if (toBoss.Count >= 2)
@@ -219,9 +229,24 @@ namespace DungeonTycoon.Core
                 (MatchesSkipped(option.Tiles) && !Touches(heading, option.Tiles) ? behind : ahead).Add(option);
             RefreshSkipped(options);
 
-            // A corner a couple of steps away is simply looked around, not argued over.
+            if (resumePassed && far.Count == 0)
+            {
+                resumePassed = false;
+                var resume = options.Where(way => lastPassed.Any(set => Touches(set, way.Tiles))).OrderBy(way => way.Path.Count).FirstOrDefault();
+                if (resume != null)
+                {
+                    log.Add($"다시 출발 • 아까 논의한 {Describe(resume.Path)}로 갑니다.");
+                    ForgetSkipped(resume.Tiles);
+                    Head(resume.Tiles);
+                    FollowPath(resume.Path, false);
+                    return true;
+                }
+            }
+
+            // A corner a couple of steps away is simply looked around, not argued over. A single way on is not a fork:
+            // a remembered spring joins the next real fork instead of making one here.
             var peek = ahead.Where(way => way.Path.Count - 1 <= PeekDistance).OrderBy(way => way.Path.Count).FirstOrDefault();
-            if ((ahead.Count == 1 && far.Count == 0) || peek != null)
+            if (ahead.Count == 1 || peek != null)
             {
                 FollowPath((peek ?? ahead[0]).Path, false);
                 return true;
@@ -230,6 +255,17 @@ namespace DungeonTycoon.Core
             {
                 OpenFork(ahead, false, far);
                 return false;
+            }
+            // The way chosen at the latest fork has closed: take the nearest way passed over there, which the party
+            // has just argued about, instead of arguing again.
+            var passed = behind.Where(way => lastPassed.Any(set => Touches(set, way.Tiles))).OrderBy(way => way.Path.Count).FirstOrDefault();
+            if (passed != null && far.Count == 0)
+            {
+                log.Add($"막다른 길 • 방금 고르지 않은 {Describe(passed.Path)}로 갑니다.");
+                ForgetSkipped(passed.Tiles);
+                Head(passed.Tiles);
+                FollowPath(passed.Path, false);
+                return true;
             }
             if (behind.Count + far.Count >= 2)
             {
@@ -243,13 +279,18 @@ namespace DungeonTycoon.Core
             }
             if (behind.Count == 1)
             {
-                log.Add($"막다른 길 • 지나쳐 온 {Describe(leader, behind[0].Path)}로 되돌아갑니다.");
+                log.Add($"막다른 길 • 지나쳐 온 {Describe(behind[0].Path)}로 되돌아갑니다.");
                 ForgetSkipped(behind[0].Tiles);
                 Head(behind[0].Tiles);
                 FollowPath(behind[0].Path, false);
                 return true;
             }
 
+            if (exploreAll)
+            {
+                ExploredAll = true;
+                return true;
+            }
             // Every reachable edge is explored but the boss room is still unseen. Valid maps cannot get here;
             // walk on by the real map so the expedition never stalls.
             var fallback = Map.FindPath(leader, Map.BossTile);
@@ -410,7 +451,7 @@ namespace DungeonTycoon.Core
                 all.Add((feature.Feature, feature.Index, feature.Path, new HashSet<TilePoint> { feature.Path[feature.Path.Count - 1] }));
             string Noun(ForkFeature feature) =>
                 feature == ForkFeature.Chest ? "상자 " : feature == ForkFeature.Spring ? "샘물 " : feature == ForkFeature.Boss ? "보스방 " : "";
-            var labels = all.Select(way => Direction(leader, way.Path[way.Path.Count - 1]) + "쪽 " + Noun(way.Feature) + "길").ToList();
+            var labels = all.Select(way => DepartureDirection(way.Path) + "쪽 " + Noun(way.Feature) + "길").ToList();
             var options = new List<ForkOption>();
             for (int i = 0; i < all.Count; i++)
             {
@@ -457,8 +498,11 @@ namespace DungeonTycoon.Core
             return count;
         }
 
-        private static string Describe(TilePoint from, IReadOnlyList<TilePoint> path) =>
-            Direction(from, path[path.Count - 1]) + "쪽 길";
+        private static string Describe(IReadOnlyList<TilePoint> path) =>
+            DepartureDirection(path) + "쪽 길";
+
+        // Paths include the starting tile and each subsequent four-way step.
+        private static string DepartureDirection(IReadOnlyList<TilePoint> path) => Direction(path[0], path[1]);
 
         /// <summary>The compass direction from one tile to another, north up: "동", "북동", ….</summary>
         private static string Direction(TilePoint from, TilePoint to)

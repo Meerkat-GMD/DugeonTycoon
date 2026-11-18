@@ -90,6 +90,25 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
+        public void ForkLabelsMatchTheFirstStepOnScreen()
+        {
+            var run = new DungeonRun();
+            run.Start();
+            Assert.That(TickToFirstFork(run), Is.True);
+            var directions = new Dictionary<(int, int), string>
+            {
+                [(0, -1)] = "북쪽", [(0, 1)] = "남쪽",
+                [(1, 0)] = "동쪽", [(-1, 0)] = "서쪽"
+            };
+            foreach (var option in run.PendingFork.Options)
+            {
+                var start = option.Route[0];
+                var step = option.Route[1];
+                Assert.That(option.Label, Does.StartWith(directions[(step.X - start.X, step.Y - start.Y)]));
+            }
+        }
+
+        [Test]
         public void ForksOnlyDescribeWhatThePartyCanSee()
         {
             var blind = new DungeonRun();

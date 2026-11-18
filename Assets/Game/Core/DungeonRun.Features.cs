@@ -79,15 +79,21 @@ namespace DungeonTycoon.Core
         /// <summary>A test run: any monster kind on any stage and no patrols; chests and springs only when <see cref="sandboxFeatures"/>.</summary>
         private bool sandbox;
         private bool sandboxFeatures;
+        /// <summary>A map check: the party never heads for the boss room and walks until every other tile is seen.</summary>
+        private bool exploreAll;
+        /// <summary>With <see cref="exploreAll"/>, true once no way is left to explore.</summary>
+        internal bool ExploredAll { get; private set; }
 
         /// <summary>
         /// For tests that set up their own monsters or only check the maps: the stage maps without patrols, every
         /// monster kind placeable from the first stage, and chests and springs only when <paramref name="features"/>.
-        /// <paramref name="map"/> replaces the stage's map, so a draft layout can be checked before it joins the game.
+        /// <paramref name="map"/> replaces the stage's map, so a draft layout can be checked before it joins the game;
+        /// <paramref name="exploreAll"/> keeps the party out of the boss room until it has seen everything else.
         /// </summary>
-        internal static DungeonRun Sandbox(int seed = 20261118, bool features = false, int stage = 1, DungeonMap map = null)
+        internal static DungeonRun Sandbox(int seed = 20261118, bool features = false, int stage = 1, DungeonMap map = null,
+            bool exploreAll = false)
         {
-            var run = new DungeonRun(seed) { sandbox = true, sandboxFeatures = features, Stage = stage };
+            var run = new DungeonRun(seed) { sandbox = true, sandboxFeatures = features, Stage = stage, exploreAll = exploreAll };
             run.Budget = BudgetFor(stage);
             run.LoadMap(map ?? DungeonMap.ForStage(stage));
             return run;
