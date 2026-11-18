@@ -63,5 +63,7 @@ namespace DungeonTycoon.Core
         public IReadOnlyList<ForkOption> Options { get; }
         /// <summary>What each living hero would say without an AI response.</summary>
         public IReadOnlyList<ForkOpinion> LocalOpinions { get; }
+        /// <summary>The opinions the party settled on, in march order, once <see cref="DungeonRun.HearFork"/> ran; else null.</summary>
+        public IReadOnlyList<ForkOpinion> Heard { get; internal set; }
     }
 }
