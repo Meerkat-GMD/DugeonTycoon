@@ -142,7 +142,7 @@ namespace DungeonTycoon.Core.Tests
             TickUntilFired(run, cast, later);
             Assert.That(cast.Hits, Is.EqualTo(new[] { (int)HeroRole.Tank }));
             Assert.That(cast.Area, Does.Not.Contain(run.StandingTile(HeroRole.MeleeDamage)));
-            Assert.That(tank.Hp, Is.EqualTo(tank.MaxHp - (zombie.Attack * 150 / 100 - tank.Armor)));
+            Assert.That(tank.Hp, Is.EqualTo(tank.MaxHp - DungeonRun.Mitigate(zombie.Attack * 150 / 100, tank.Armor)));
             Assert.That(melee.Hp, Is.EqualTo(melee.MaxHp));
             Assert.That(HitsBy(later, HeroRole.MeleeDamage), Is.Empty, "dodging cost the melee hero its blows");
             Assert.That(run.Log, Has.Some.EqualTo($"{melee.Name} • 내려찍기 회피"));

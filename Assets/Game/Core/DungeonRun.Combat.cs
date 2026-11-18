@@ -41,21 +41,19 @@ namespace DungeonTycoon.Core
         /// <summary>Tiles from which a skeleton archer shoots. From <see cref="BalanceTable"/>.</summary>
         public static int ArcherRange => BalanceTable.Current.archer.range;
 
-        /// <summary>
-        /// Health, attack and armour of a monster kind on a stage, from <see cref="BalanceTable"/>. Each stage is tuned for
-        /// the party that should arrive there: no gear on stage 1, common weapons and some armour with one rare piece on
-        /// stage 2, a full common set and two or more rare pieces on stage 3.
-        /// </summary>
-        public static (int Hp, int Attack, int Armor) MonsterStats(MonsterKind kind, int stage)
+        /// <summary>Health, attack and armour of a monster kind, the same on every stage. From <see cref="BalanceTable"/>.</summary>
+        public static (int Hp, int Attack, int Armor) MonsterStats(MonsterKind kind)
         {
             var numbers = BalanceTable.Current.Of(kind);
-            return (BalanceTable.ForStage(numbers.hp, stage), BalanceTable.ForStage(numbers.attack, stage),
-                BalanceTable.ForStage(numbers.armor, stage));
+            return (numbers.hp, numbers.attack, numbers.armor);
         }
+
+        /// <summary>What a blow of <paramref name="attack"/> does through <paramref name="armor"/>; see <see cref="BalanceTable.armorScale"/>.</summary>
+        public static int Mitigate(int attack, int armor) => BalanceTable.Current.Mitigate(attack, armor);
 
         private MonsterState CreateMonster(int id, MonsterKind kind, TilePoint tile)
         {
-            var (hp, attack, armor) = MonsterStats(kind, Stage);
+            var (hp, attack, armor) = MonsterStats(kind);
             var n = BalanceTable.Current.Of(kind);
             MonsterState Make(string name, params MonsterPattern[] patterns) =>
                 new MonsterState(id, kind, false, name, hp, attack, armor, n.experience, n.moveTicks, n.attackTicks, tile, patterns) { Range = n.range };
@@ -228,7 +226,7 @@ namespace DungeonTycoon.Core
                     {
                         if (monster.AttackReady > Ticks) return;
                         monster.AttackReady = Ticks + monster.AttackTicks;
-                        int damage = Shielded(target, Math.Max(0, monster.Attack - target.Armor));
+                        int damage = Shielded(target, Mitigate(monster.Attack, target.Armor));
                         events.Add(new CombatEvent(CombatEventKind.Attack, false, monster.Id, true, (int)target.Role, damage));
                         Hurt(target, damage, monster.Name, false, monster);
                     }
@@ -362,7 +360,7 @@ namespace DungeonTycoon.Core
         }
 
         private int HitDamage(HeroState hero, MonsterState monster) =>
-            Math.Max(0, hero.Attack + LevelAttackGain * (Level - 1) - FatigueAttackPenalty - monster.Armor);
+            Mitigate(hero.Attack + LevelAttackGain * (Level - 1) - FatigueAttackPenalty, monster.Armor);
 
         /// <summary>Deals the damage; a monster brought down gives experience and loot, and the boss clears the stage.</summary>
         private void Hit(HeroState hero, MonsterState monster, int damage)

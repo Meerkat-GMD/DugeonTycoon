@@ -81,7 +81,7 @@ namespace DungeonTycoon.Core.Tests
             events.Where(e => e.Kind == CombatEventKind.Attack && e.FromHero && e.Source == (int)role).ToList();
 
         private static int NormalHit(DungeonRun run, HeroRole role, MonsterState monster) =>
-            Math.Max(0, Hero(run, role).Attack + 2 * (run.Level - 1) - monster.Armor);
+            DungeonRun.Mitigate(Hero(run, role).Attack + DungeonRun.LevelAttackGain * (run.Level - 1), monster.Armor);
 
         [Test]
         public void TheSecondSkillOpensAtTheUnlockLevel()
@@ -293,8 +293,8 @@ namespace DungeonTycoon.Core.Tests
             int skeleton = Skeleton(probe, 0).Attack;
             Assert.That(bare, Is.EqualTo(new[]
             {
-                Math.Max(0, skeleton - Hero(probe, HeroRole.Tank).Armor),
-                Math.Max(0, skeleton - Hero(probe, HeroRole.MeleeDamage).Armor)
+                DungeonRun.Mitigate(skeleton, Hero(probe, HeroRole.Tank).Armor),
+                DungeonRun.Mitigate(skeleton, Hero(probe, HeroRole.MeleeDamage).Armor)
             }));
             Assert.That(bare[1], Is.Positive, "the melee hero must take a blow for the wall to show");
             Assert.That(walled, Is.EqualTo(bare.Select(d => d * (100 - DungeonRun.ShieldWallReductionPercent) / 100).ToArray()));

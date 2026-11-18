@@ -194,7 +194,7 @@ namespace DungeonTycoon.Core
             {
                 var hero = party[(int)role];
                 if (hero.Hp == 0 || !cast.area.Contains(StandingTile(role))) continue;
-                int damage = Shielded(hero, Math.Max(0, caster.Attack * MonsterPatterns.DamagePercent(cast.Pattern) / 100 - hero.Armor));
+                int damage = Shielded(hero, Mitigate(caster.Attack * MonsterPatterns.DamagePercent(cast.Pattern) / 100, hero.Armor));
                 cast.hits.Add((int)role);
                 struck.Add($"{hero.Name} {damage}");
                 events.Add(new CombatEvent(CombatEventKind.Attack, false, caster.Id, true, (int)role, damage));

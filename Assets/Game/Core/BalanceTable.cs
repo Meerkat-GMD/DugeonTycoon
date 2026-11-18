@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace DungeonTycoon.Core
 {
-    /// <summary>Numbers for one ordinary monster kind. Per-stage lists hold stages 1, 2 and 3 in order.</summary>
+    /// <summary>Numbers for one ordinary monster kind. The same kind has the same numbers on every stage.</summary>
     [Serializable]
     public sealed class MonsterBalance
     {
@@ -15,9 +15,9 @@ namespace DungeonTycoon.Core
         public int attackTicks;
         /// <summary>Tiles from which its plain blow lands; 1 is melee.</summary>
         public int range = 1;
-        public int[] hp;
-        public int[] attack;
-        public int[] armor;
+        public int hp;
+        public int attack;
+        public int armor;
     }
 
     /// <summary>Numbers for one stage boss.</summary>
@@ -41,6 +41,11 @@ namespace DungeonTycoon.Core
     [Serializable]
     public sealed class BalanceTable
     {
+        /// <summary>
+        /// How armour turns into damage taken: damage = attack × armorScale ÷ (armorScale + armour). Armour equal to the
+        /// scale halves a blow; it never takes a blow below 1.
+        /// </summary>
+        public int armorScale = 20;
         public int experiencePerLevel = 10;
         public int levelAttackGain = 3;
         public int levelHpGain = 5;
@@ -50,22 +55,22 @@ namespace DungeonTycoon.Core
         public MonsterBalance skeleton = new MonsterBalance
         {
             cost = 1, experience = 4, moveTicks = 3, attackTicks = 15,
-            hp = new[] { 85, 120, 150 }, attack = new[] { 17, 21, 25 }, armor = new[] { 2, 4, 5 }
+            hp = 100, attack = 22, armor = 3
         };
         public MonsterBalance ghost = new MonsterBalance
         {
             cost = 2, experience = 5, moveTicks = 2, attackTicks = 15,
-            hp = new[] { 80, 100, 120 }, attack = new[] { 18, 22, 26 }, armor = new[] { 0, 2, 3 }
+            hp = 90, attack = 22, armor = 1
         };
         public MonsterBalance zombie = new MonsterBalance
         {
             cost = 3, experience = 8, moveTicks = 5, attackTicks = 18,
-            hp = new[] { 160, 200, 250 }, attack = new[] { 22, 25, 30 }, armor = new[] { 4, 6, 8 }
+            hp = 220, attack = 28, armor = 6
         };
         public MonsterBalance archer = new MonsterBalance
         {
             cost = 2, experience = 5, moveTicks = 3, attackTicks = 18, range = 4,
-            hp = new[] { 70, 80, 90 }, attack = new[] { 18, 21, 24 }, armor = new[] { 0, 1, 2 }
+            hp = 85, attack = 24, armor = 2
         };
 
         public BossBalance graveKnight = new BossBalance { hp = 450, attack = 22, armor = 4, experience = 2, moveTicks = 4, attackTicks = 15 };
@@ -109,6 +114,14 @@ namespace DungeonTycoon.Core
             }
         }
 
+        /// <summary>A blow of <paramref name="attack"/> against <paramref name="armor"/>, rounded; at least 1 for any attack above 0.</summary>
+        public int Mitigate(int attack, int armor)
+        {
+            if (attack <= 0) return 0;
+            int divisor = armorScale + Math.Max(0, armor);
+            return Math.Max(1, (attack * armorScale + divisor / 2) / divisor);
+        }
+
         /// <summary>The value for a stage from a per-stage list.</summary>
         public static int ForStage(int[] values, int stage) => values[Math.Max(1, Math.Min(values.Length, stage)) - 1];
 
@@ -128,6 +141,7 @@ namespace DungeonTycoon.Core
                     foreach (int value in values)
                         if (value < min) problems.Add($"{name} has {value}; values must be at least {min}.");
             }
+            Positive(nameof(armorScale), armorScale);
             Positive(nameof(experiencePerLevel), experiencePerLevel);
             Stages(nameof(budget), budget, 0);
             Stages(nameof(trialDifficulty), trialDifficulty, 1);
@@ -143,9 +157,9 @@ namespace DungeonTycoon.Core
                 Positive(name + ".moveTicks", monster.moveTicks);
                 Positive(name + ".attackTicks", monster.attackTicks);
                 Positive(name + ".range", monster.range);
-                Stages(name + ".hp", monster.hp, 1);
-                Stages(name + ".attack", monster.attack, 0);
-                Stages(name + ".armor", monster.armor, 0);
+                Positive(name + ".hp", monster.hp);
+                if (monster.attack < 0) problems.Add($"{name}.attack must not be negative.");
+                if (monster.armor < 0) problems.Add($"{name}.armor must not be negative.");
             }
             foreach (var (name, boss) in new[] { (nameof(graveKnight), graveKnight), (nameof(cryptPriest), cryptPriest), (nameof(necromancer), necromancer) })
             {

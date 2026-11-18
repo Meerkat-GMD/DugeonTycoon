@@ -50,16 +50,24 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void SameMonsterGrowsStrongerOnLaterStages()
+        public void TheSameMonsterHasTheSameNumbersOnEveryStage()
         {
-            foreach (var kind in new[] { MonsterKind.Skeleton, MonsterKind.Ghost, MonsterKind.Zombie, MonsterKind.Archer })
-                for (int stage = 2; stage <= DungeonRun.FinalStage; stage++)
+            var seen = new Dictionary<MonsterKind, (int Hp, int Attack, int Armor)>();
+            // Two kinds per run so the first stage's budget covers them.
+            for (int stage = 1; stage <= DungeonRun.FinalStage; stage++)
+            foreach (var pair in new[] { new[] { MonsterKind.Skeleton, MonsterKind.Ghost }, new[] { MonsterKind.Zombie, MonsterKind.Archer } })
+            {
+                var run = AtStage(DungeonRun.Sandbox(features: true), stage);
+                foreach (var kind in pair) Assert.That(run.Place(run.Map.BossTile, kind), Is.True, $"{kind} on stage {stage}");
+                run.Start();
+                foreach (var monster in run.Monsters.Where(m => !m.IsBoss))
                 {
-                    var before = DungeonRun.MonsterStats(kind, stage - 1);
-                    var now = DungeonRun.MonsterStats(kind, stage);
-                    Assert.That(now.Hp, Is.GreaterThan(before.Hp), kind.ToString());
-                    Assert.That(now.Attack, Is.GreaterThan(before.Attack), kind.ToString());
+                    var numbers = (monster.MaxHp, monster.Attack, monster.Armor);
+                    if (seen.TryGetValue(monster.Kind, out var before)) Assert.That(numbers, Is.EqualTo(before), $"{monster.Name} on stage {stage}");
+                    else seen[monster.Kind] = numbers;
                 }
+            }
+            Assert.That(seen.Count, Is.EqualTo(4));
         }
 
         [Test]
