@@ -128,6 +128,7 @@ namespace DungeonTycoon.Unity
         private const float PatrolPlanningAlpha = .6f, PatrolExpeditionAlpha = .2f;
         private readonly List<Material> patrolMaterials = new List<Material>();
         private Transform chestPrototype, openChestPrototype, springPrototype, drySpringPrototype, haloPrototype;
+        private GameObject statuePrefab, bossGatePrefab;
         private bool planningView = true;
         private readonly Transform[] heroes = new Transform[4];
         private readonly Animator[] heroAnimators = new Animator[4];
@@ -305,10 +306,14 @@ namespace DungeonTycoon.Unity
                 model.GetComponentInChildren<Animator>().applyRootMotion = false;
                 models[tier] = piece;
             }
-            chestPrototype = Draw("보물 상자", DungeonFigures.Chest(false), meshes, stock.transform);
+            chestPrototype = InstantiateProp(Resources.Load<GameObject>("DungeonProps/TreasureChest"), "보물 상자", stock.transform)
+                ?? Draw("보물 상자", DungeonFigures.Chest(false), meshes, stock.transform);
             openChestPrototype = Draw("빈 상자", DungeonFigures.Chest(true), meshes, stock.transform);
-            springPrototype = Draw("샘물", DungeonFigures.Spring(false), meshes, stock.transform);
+            springPrototype = InstantiateProp(Resources.Load<GameObject>("DungeonProps/Spring"), "샘물", stock.transform)
+                ?? Draw("샘물", DungeonFigures.Spring(false), meshes, stock.transform);
             drySpringPrototype = Draw("마른 샘물", DungeonFigures.Spring(true), meshes, stock.transform);
+            statuePrefab = Resources.Load<GameObject>("DungeonProps/PrayingKnight");
+            bossGatePrefab = Resources.Load<GameObject>("DungeonProps/BossGate");
             var halo = new DungeonMesh();
             halo.Ring(0,.01f,0,1.2f,1.2f,.01f,Finish.Ink,16);
             haloPrototype = Draw("순회조 표시", halo, meshes, stock.transform);
@@ -327,6 +332,14 @@ namespace DungeonTycoon.Unity
                 heroAnimators[i].SetBool(IdleParameter, true);
             }
             CreateFeedback(stock.transform);
+        }
+
+        private static Transform InstantiateProp(GameObject prefab, string objectName, Transform parent)
+        {
+            if (!prefab) return null;
+            var model = Instantiate(prefab, parent, false);
+            model.name = objectName;
+            return model.transform;
         }
 
         private Transform Draw(string objectName, DungeonMesh geometry, List<Mesh> owner, Transform parent = null, Material[] materials = null)
@@ -576,7 +589,9 @@ namespace DungeonTycoon.Unity
 
         private Transform DrawPlanningEncounter(bool merchant, TilePoint tile)
         {
-            var prop = Draw(merchant ? "떠돌이 상인" : "조각상", DungeonFigures.Encounter(merchant), stageMeshes, scenery);
+            string objectName = merchant ? "떠돌이 상인" : "조각상";
+            var prop = InstantiateProp(merchant ? null : statuePrefab, objectName, scenery)
+                ?? Draw(objectName, DungeonFigures.Encounter(merchant), stageMeshes, scenery);
             prop.localPosition = TileCenter(tile);
             fixedPlanningTargets.Add(CreateTarget(prop, merchant ? PlanningKind.Merchant : PlanningKind.Statue));
             return prop;
@@ -669,7 +684,9 @@ namespace DungeonTycoon.Unity
             fog = null;
             scenery = new GameObject("던전").transform;
             scenery.SetParent(transform,false);
-            Draw("바닥과 벽", DungeonScenery.Dungeon(map, Tile, TileCenter), stageMeshes, scenery);
+            Draw("바닥과 벽", DungeonScenery.Dungeon(map, Tile, TileCenter, !bossGatePrefab, out var gatePosition), stageMeshes, scenery);
+            if (bossGatePrefab)
+                InstantiateProp(bossGatePrefab, "보스방 입구", scenery).localPosition = gatePosition;
             entranceZone = Draw("입구 보호 구역",
                 DungeonScenery.EntranceZone(map, Tile, TileCenter, tile => !placeable(tile)), stageMeshes, scenery);
             StageLight("입구 수정빛", TileCenter(map.Entrance)+new Vector3(0,1.3f,.2f), new Color32(113,222,204,255), 4.5f);
