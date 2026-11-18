@@ -82,6 +82,7 @@ namespace DungeonTycoon.Core
                 heroTiles[(int)marching[rank]] = trail[Math.Max(0, trail.Count - 1 - rank)];
             leader.MoveReady = Ticks + HeroMoveTicks;
             StepsTaken++;
+            TireFromStep();
             bool bossWasSeen = IsSeen(Map.BossTile);
             Reveal();
 
@@ -370,18 +371,31 @@ namespace DungeonTycoon.Core
                 best = option.Index;
             }
             var choice = options[best];
+            // Fatigue colours what the heroes say, never which way they vote.
+            var fatigue = Fatigue;
+            bool exhausted = fatigue == FatigueStage.Exhausted;
             string line;
             switch (hero.Tags[0])
             {
                 case PersonalityTag.Reckless:
-                    line = choice.VisibleMonsters > 0 ? $"{choice.Label}에 적이 있어. 정면 돌파다!" : $"{choice.Label}로 깊이 들어가자!";
+                    if (fatigue != FatigueStage.Rested)
+                        line = choice.VisibleMonsters > 0
+                            ? (exhausted ? $"숨이 턱까지 찼지만 {choice.Label}의 적은 내가 벤다!" : $"다리가 무거워도 {choice.Label}의 적쯤은 문제없어!")
+                            : (exhausted ? $"헉헉… 그래도 멈출 순 없지. {choice.Label}로 간다!" : $"좀 지쳤지만 {choice.Label}로 밀고 나가자!");
+                    else
+                        line = choice.VisibleMonsters > 0 ? $"{choice.Label}에 적이 있어. 정면 돌파다!" : $"{choice.Label}로 깊이 들어가자!";
                     break;
                 case PersonalityTag.Cautious:
-                    line = hurt ? $"다들 지쳤어요. {choice.Label}로 조심히 가요." :
-                        choice.VisibleMonsters == 0 ? $"{choice.Label}은 조용해 보여요." : $"적을 살피며 {choice.Label}로 가죠.";
+                    if (hurt) line = $"다들 지쳤어요. {choice.Label}로 조심히 가요.";
+                    else if (fatigue != FatigueStage.Rested)
+                        line = exhausted ? $"이대로 더 헤매면 쓰러져요. {choice.Label}로 가요." :
+                            choice.VisibleMonsters == 0 ? $"발이 무거워요. 조용한 {choice.Label}로 가요." : $"지친 몸으로는 위험해요. 적을 살피며 {choice.Label}로 가죠.";
+                    else
+                        line = choice.VisibleMonsters == 0 ? $"{choice.Label}은 조용해 보여요." : $"적을 살피며 {choice.Label}로 가죠.";
                     break;
                 default:
-                    line = $"{choice.Label}이 더 넓게 트였어. 가 보자.";
+                    line = fatigue == FatigueStage.Rested ? $"{choice.Label}이 더 넓게 트였어. 가 보자." :
+                        exhausted ? $"구경할 기운도 없지만… {choice.Label}이 제일 트였어." : $"좀 지치긴 했어도 {choice.Label}은 궁금한걸.";
                     break;
             }
             return new ForkOpinion(hero.Role, best, line);

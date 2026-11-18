@@ -156,6 +156,7 @@ namespace DungeonTycoon.Core
             foreach (var monster in monsters) monster.WanderWait = 5 + dice.Next(0, 20);
             foreach (var hero in party) hero.MoveReady = hero.ActReady = 0;
             ResetSkills();
+            ResetFatigue();
             Phase = RunPhase.Travel;
             log.Add($"{Stage} 스테이지 출발 • 용사들이 던전에 들어섰습니다.");
             Reveal();
@@ -166,6 +167,7 @@ namespace DungeonTycoon.Core
         {
             Map = map;
             ResetExploration();
+            ResetFatigue();
         }
 
         /// <summary>

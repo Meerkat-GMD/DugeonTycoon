@@ -24,6 +24,8 @@ namespace DungeonTycoon.Core.Tests
             int needed = (level - 1) * DungeonRun.ExperiencePerLevel - run.Experience;
             if (needed > 0) run.GrantExperience(needed);
             Assert.That(run.Level, Is.EqualTo(level));
+            // Skill numbers are checked without the travel-fatigue attack penalty.
+            run.ReduceFatigue(run.FatigueSteps);
             foreach (var monster in run.Monsters)
             {
                 monster.Mood = monster.IsBoss ? MonsterMood.Defeated : MonsterMood.Chasing;
