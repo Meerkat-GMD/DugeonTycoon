@@ -10,8 +10,6 @@ namespace DungeonTycoon.Core
         public const int DetectRadius = 4;
         /// <summary>How far from its placement a monster wanders, in steps. Balance value.</summary>
         public const int WanderRadius = 3;
-        /// <summary>Ticks a chasing monster keeps going without seeing a hero. Balance value.</summary>
-        public const int GiveUpTicks = 50;
         /// <summary>Ticks between a hero's attacks or heals. Balance value.</summary>
         public const int HeroAttackTicks = 15;
         public const int TauntRadius = 3;
@@ -64,31 +62,22 @@ namespace DungeonTycoon.Core
             return dx * dx + dy * dy <= range * range && Map.HasLineOfSight(from, to);
         }
 
+        /// <summary>Where a monster may walk: an idle boss keeps to its room, anyone on the hunt goes anywhere.</summary>
         private Func<TilePoint, bool> Walkable(MonsterState monster) =>
-            monster.IsBoss ? (Func<TilePoint, bool>)Map.IsBossRoom : Map.IsFloor;
+            monster.IsBoss && monster.Mood != MonsterMood.Chasing ? (Func<TilePoint, bool>)Map.IsBossRoom : Map.IsFloor;
 
         // ── Monsters ─────────────────────────────────────────────────────
 
+        /// <summary>A monster that notices a hero hunts the party until it or the party falls.</summary>
         private void Perceive(MonsterState monster)
         {
-            if (!monster.Alive) return;
+            if (!monster.Alive || monster.Mood == MonsterMood.Chasing) return;
             bool seesHero = party.Any(hero => hero.Hp > 0 &&
                 InReach(monster.Tile, heroTiles[(int)hero.Role], DetectRadius));
-            if (seesHero)
-            {
-                monster.LastSawHero = Ticks;
-                if (monster.Mood != MonsterMood.Chasing)
-                {
-                    monster.Mood = MonsterMood.Chasing;
-                    monster.WanderGoal = null;
-                    joined.Add(monster);
-                }
-            }
-            else if (monster.Mood == MonsterMood.Chasing && Ticks - monster.LastSawHero > GiveUpTicks)
-            {
-                monster.Mood = MonsterMood.Returning;
-                log.Add($"{monster.Name} • 용사들을 놓치고 제자리로 돌아갑니다.");
-            }
+            if (!seesHero) return;
+            monster.Mood = MonsterMood.Chasing;
+            monster.WanderGoal = null;
+            joined.Add(monster);
         }
 
         private void UpdateEngagement()
@@ -185,10 +174,6 @@ namespace DungeonTycoon.Core
                     }
                     else MonsterStep(monster, tile);
                     break;
-                case MonsterMood.Returning:
-                    if (monster.Tile == monster.Home) monster.Mood = MonsterMood.Wandering;
-                    else MonsterStep(monster, monster.Home);
-                    break;
                 default:
                     Wander(monster);
                     break;
@@ -204,7 +189,7 @@ namespace DungeonTycoon.Core
             if (next.HasValue && !walkable(next.Value)) next = null;
             if (next == null)
             {
-                // The boss cannot leave its room: shuffle to the room tile nearest the hero instead.
+                // No open path (e.g. the goal is a wall): shuffle to the neighbouring tile nearest the goal instead.
                 int best = Chebyshev(monster.Tile, goal);
                 foreach (var step in new[] { new TilePoint(0, -1), new TilePoint(1, 0), new TilePoint(0, 1), new TilePoint(-1, 0) })
                 {
@@ -265,20 +250,6 @@ namespace DungeonTycoon.Core
             if (engaged.Count == 0) return;
             var tactic = tactics[(int)hero.Role];
             var here = heroTiles[(int)hero.Role];
-            // Once the boss fights, its door shuts: heroes outside step in and nobody backs out of the room.
-            if (FightingBoss && !Map.IsBossRoom(here))
-            {
-                if (hero.MoveReady <= Ticks)
-                {
-                    var inside = Map.FindPath(here, Boss.Tile);
-                    if (inside.Count >= 2)
-                    {
-                        heroTiles[(int)hero.Role] = inside[1];
-                        hero.MoveReady = Ticks + HeroMoveTicks;
-                    }
-                }
-                return;
-            }
             if (hero.Role == HeroRole.Tank) TryTaunt(hero, engaged);
             if (hero.Role == HeroRole.Healer && TryHeal(hero, tactic)) return;
             var target = PickTarget(hero, engaged, tactic);
@@ -340,7 +311,6 @@ namespace DungeonTycoon.Core
             {
                 var candidate = new TilePoint(here.X + step.X, here.Y + step.Y);
                 if (!Map.IsFloor(candidate) || Room(candidate) <= best) continue;
-                if (FightingBoss && !Map.IsBossRoom(candidate)) continue;
                 best = Room(candidate);
                 choice = candidate;
             }

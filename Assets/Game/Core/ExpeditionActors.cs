@@ -6,7 +6,7 @@ namespace DungeonTycoon.Core
     public enum RunPhase { Planning, Travel, Combat, Victory, Defeat }
     public enum MonsterKind { None, Goblin, Ogre }
     public enum PlacementCheck { Allowed, Locked, InvalidKind, NotFloor, NearEntrance, OverBudget, NothingToRemove }
-    public enum MonsterMood { Wandering, Chasing, Returning, Defeated }
+    public enum MonsterMood { Wandering, Chasing, Defeated }
     public enum CombatEventKind { Attack, Heal, Taunt }
 
     public sealed class MonsterPlacement
@@ -138,7 +138,6 @@ namespace DungeonTycoon.Core
         internal int AttackTicks { get; }
         internal int MoveReady { get; set; }
         internal int AttackReady { get; set; }
-        internal int LastSawHero { get; set; }
         internal int TauntedUntil { get; set; }
         internal int WanderWait { get; set; }
         internal TilePoint? WanderGoal { get; set; }

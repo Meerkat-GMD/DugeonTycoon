@@ -20,7 +20,7 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void IdleMonstersWanderNearTheirPostAndTheBossNeverLeavesItsRoom()
+        public void IdleMonstersWanderNearTheirPostAndAnIdleBossStaysInItsRoom()
         {
             var run = Crowded();
             bool roamed = false;
@@ -30,7 +30,8 @@ namespace DungeonTycoon.Core.Tests
                 {
                     if (!monster.Alive) continue;
                     if (!monster.IsBoss && monster.Mood == MonsterMood.Wandering && monster.Tile != monster.Home) roamed = true;
-                    if (monster.IsBoss) Assert.That(run.Map.IsBossRoom(monster.Tile), Is.True, "boss left its room");
+                    if (monster.IsBoss && monster.Mood == MonsterMood.Wandering)
+                        Assert.That(run.Map.IsBossRoom(monster.Tile), Is.True, "an idle boss left its room");
                     if (monster.Mood == MonsterMood.Wandering)
                     {
                         var within = run.Map.Distances(monster.Home, run.Map.IsFloor, DungeonRun.WanderRadius);
@@ -40,6 +41,29 @@ namespace DungeonTycoon.Core.Tests
                 return !DungeonRunTests.InDungeon(run);
             });
             Assert.That(roamed, Is.True, "idle monsters should move around their post");
+        }
+
+        [Test]
+        public void MonstersNeverGiveUpTheHuntAndTheBossChasesOutOfItsRoom()
+        {
+            var run = new DungeonRun();
+            var hunting = new HashSet<int>();
+            bool bossLeftRoom = false;
+            DungeonRunTests.Drive(run, () =>
+            {
+                if (run.Phase == RunPhase.Planning) run.Start();
+                foreach (var monster in run.Monsters)
+                {
+                    int key = run.Stage * 1000 + monster.Id;
+                    if (monster.Mood == MonsterMood.Chasing) hunting.Add(key);
+                    else if (hunting.Contains(key))
+                        Assert.That(monster.Mood, Is.EqualTo(MonsterMood.Defeated), $"{monster.Name} stopped chasing");
+                    if (monster.IsBoss && monster.Mood == MonsterMood.Chasing && !run.Map.IsBossRoom(monster.Tile)) bossLeftRoom = true;
+                }
+                return run.Phase == RunPhase.Victory || run.Phase == RunPhase.Defeat;
+            }, 60000);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Defeat), "an empty dungeon still ends, in defeat at the latest");
+            Assert.That(bossLeftRoom, Is.True, "the boss should follow heroes who stand outside its room");
         }
 
         [Test]
