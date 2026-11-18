@@ -42,6 +42,7 @@ namespace DungeonTycoon.Core.Tests
                 if (SettlePrayer(run)) continue;
                 if (run.PendingLoot != null) run.ResolveLoot(run.PendingLoot.Token);
                 else if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
+                else if (run.Phase == RunPhase.StageCleared) run.AdvanceToNextStage();
                 else if (InDungeon(run)) run.Tick();
                 else return;
             }
@@ -116,8 +117,19 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = DungeonRun.Sandbox();
             var firstMap = run.Map;
+            run.DropOverride = monster => monster.IsBoss
+                ? EquipmentCatalog.Rare.First(item => item.Slot == EquipmentSlot.Armor) : null;
             run.Start();
-            Drive(run, () => run.Stage == 2 || run.Phase == RunPhase.Defeat);
+            Drive(run, () => run.Phase == RunPhase.StageCleared);
+            Assert.That(run.Stage, Is.EqualTo(1));
+            Assert.That(run.Map, Is.SameAs(firstMap));
+            Assert.That(run.PendingLoot, Is.Not.Null);
+            Assert.That(run.AdvanceToNextStage(), Is.False);
+            Assert.That(run.ResolveLoot(run.PendingLoot.Token), Is.True);
+            Assert.That(run.Tick(), Is.False);
+            Assert.That(run.Stage, Is.EqualTo(1));
+            Assert.That(run.AdvanceToNextStage(), Is.True);
+            Assert.That(run.AdvanceToNextStage(), Is.False);
             Assert.That(run.Stage, Is.EqualTo(2));
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Planning));
             Assert.That(run.Map, Is.Not.SameAs(firstMap));

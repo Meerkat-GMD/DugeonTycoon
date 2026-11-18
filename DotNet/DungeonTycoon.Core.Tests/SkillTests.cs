@@ -349,6 +349,10 @@ namespace DungeonTycoon.Core.Tests
             Put(boss, 35, 3);
             Hero(run, HeroRole.Tank).ActReady = 0;
             run.Tick();
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.StageCleared));
+            Assert.That(melee.Hp, Is.Zero);
+            if (run.PendingLoot != null) run.ResolveLoot(run.PendingLoot.Token);
+            Assert.That(run.AdvanceToNextStage(), Is.True);
             Assert.That(run.Stage, Is.EqualTo(2));
             Assert.That(run.ReviveUsed, Is.False);
             Assert.That(melee.Hp, Is.EqualTo(melee.MaxHp));

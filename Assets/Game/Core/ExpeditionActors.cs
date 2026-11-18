@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace DungeonTycoon.Core
 {
-    public enum RunPhase { Planning, Travel, Combat, Victory, Defeat }
+    public enum RunPhase { Planning, Travel, Combat, Victory, Defeat, StageCleared }
     public enum MonsterKind { None, Skeleton, Ghost, Zombie, Archer }
     /// <summary>NotInRoster: this stage's roster does not have that monster yet.</summary>
     public enum PlacementCheck { Allowed, Locked, InvalidKind, NotFloor, NearEntrance, OverBudget, NothingToRemove, NotInRoster }

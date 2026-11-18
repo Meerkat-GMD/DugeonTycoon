@@ -141,7 +141,7 @@ namespace DungeonTycoon.Core.Tests
         {
             var first = DungeonRun.Sandbox(7);
             first.Start();
-            DungeonRunTests.Drive(first, () => first.Stage == 2 || !DungeonRunTests.InDungeon(first), 60000);
+            DungeonRunTests.Drive(first, () => first.Stage == 2 || first.Phase == RunPhase.Defeat, 60000);
             Assume.That(first.Stage, Is.EqualTo(2));
             var tile = DungeonRunTests.PlaceableTiles(first).First();
             Assert.That(first.Place(tile, MonsterKind.Zombie), Is.True);
@@ -149,7 +149,7 @@ namespace DungeonTycoon.Core.Tests
             var next = first.Rematch(99);
             Assert.That(next.Placements, Is.Empty, "the first stage was left empty");
             next.Start();
-            DungeonRunTests.Drive(next, () => next.Stage == 2 || !DungeonRunTests.InDungeon(next), 60000);
+            DungeonRunTests.Drive(next, () => next.Stage == 2 || next.Phase == RunPhase.Defeat, 60000);
             Assume.That(next.Stage, Is.EqualTo(2));
             Assert.That(next.Placements.Select(p => (p.Tile, p.Kind)), Is.EqualTo(new[] { (tile, MonsterKind.Zombie) }));
         }

@@ -88,7 +88,7 @@ namespace DungeonTycoon.Core.Tests
             DungeonRunTests.Drive(run, () => run.Phase != RunPhase.Combat);
             Assert.That(run.StepsTaken, Is.EqualTo(steps), "the party does not explore while fighting");
             Assert.That(run.Engaged, Is.Empty);
-            Assert.That(run.Log.Any(l => l.StartsWith("전투 종료") || l.StartsWith("야영") || l.StartsWith("파티 전멸")), Is.True);
+            Assert.That(run.Log.Any(l => l.StartsWith("전투 종료") || l.Contains("스테이지 클리어") || l.StartsWith("파티 전멸")), Is.True);
         }
 
         [Test]

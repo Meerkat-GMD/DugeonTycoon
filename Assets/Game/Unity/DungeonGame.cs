@@ -82,6 +82,13 @@ namespace DungeonTycoon.Unity
             else Depart();
         }
 
+        public void AdvanceToNextStage()
+        {
+            if (Presenting || !Run.AdvanceToNextStage()) return;
+            ClearTrialDisplay();
+            RefreshLayout();
+        }
+
         public void SetSpeed(int speed)
         {
             Speed = Mathf.Clamp(speed, 0, 2);
@@ -138,7 +145,7 @@ namespace DungeonTycoon.Unity
                 ShareLootAsync(run, loot, lifetime).Forget();
             }
             if (run == null || !InDungeon(run)) return;
-            int stage = run.Stage;
+
             if (run.PendingAdversity || run.PendingPrayer != null || Speed == 0 || Presenting) accumulator = 0;
             else
             {
@@ -148,18 +155,12 @@ namespace DungeonTycoon.Unity
                 {
                     accumulator -= TickSeconds;
                     run.Tick();
-                    if (!InDungeon(run) || run.Stage != stage || run.PendingAdversity || run.PendingPrayer != null) break;
+                    if (!InDungeon(run) || run.PendingAdversity || run.PendingPrayer != null) break;
                 }
                 if (accumulator > TickSeconds*budget) accumulator = 0;
             }
             if (SelectedHero >= 0 && run.Party[SelectedHero].Hp == 0) SelectHero(-1);
 
-            if (run.Stage != stage)
-            {
-                ClearTrialDisplay();
-                RefreshLayout();
-                return;
-            }
             // The result is already applied in Core; the board catches up once the stage has shown it.
             if (Presenting) return;
             RefreshParty();

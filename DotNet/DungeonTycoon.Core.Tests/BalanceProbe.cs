@@ -76,6 +76,7 @@ namespace DungeonTycoon.Core.Tests
                     run.ResolveLoot(run.PendingLoot.Token);
                     continue;
                 }
+                if (run.Phase == RunPhase.StageCleared) run.AdvanceToNextStage();
                 if (run.Phase == RunPhase.Planning)
                 {
                     if (plan)
@@ -137,6 +138,7 @@ namespace DungeonTycoon.Core.Tests
                 {
                     if (DungeonRunTests.SettlePrayer(run)) continue;
                     if (run.PendingLoot != null) { run.ResolveLoot(run.PendingLoot.Token); continue; }
+                    if (run.AdvanceToNextStage()) continue;
                     if (run.TrialsLeft > 0 && DungeonRunTests.InDungeon(run)) { run.ResolveAdversity(run.BeginAdversity(), HeroRole.Tank, 20); continue; }
                     if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
                     else run.Tick();

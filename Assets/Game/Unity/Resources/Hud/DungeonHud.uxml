@@ -282,6 +282,11 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <ui:VisualElement name="stage-clear" class="stage-clear">
+            <ui:Label name="stage-clear-title" class="result-title" />
+            <ui:Button name="stage-continue" class="primary" text="다음 스테이지 준비" focusable="false" />
+        </ui:VisualElement>
+
         <ui:VisualElement name="result" class="result">
             <ui:Label name="result-title" class="result-title" text="마왕을 쓰러뜨렸습니다" />
             <ui:Label name="result-text" class="result-text" text="최종 파티 레벨 1" />

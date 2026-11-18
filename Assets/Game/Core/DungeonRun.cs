@@ -413,6 +413,13 @@ namespace DungeonTycoon.Core
                 log.Add("마왕 토벌 • 살아남은 용사들이 왕국으로 귀환합니다!");
                 return;
             }
+            Phase = RunPhase.StageCleared;
+            log.Add($"{Stage}스테이지 클리어 • {BossName} 격파");
+        }
+
+        public bool AdvanceToNextStage()
+        {
+            if (Phase != RunPhase.StageCleared || PendingLoot != null) return false;
             Stage++;
             ReviveUsed = false;
             ClearCasts();
@@ -432,6 +439,7 @@ namespace DungeonTycoon.Core
             log.Add(Stage == FinalStage
                 ? "야영 완료 • 용사들이 회복하고 쓰러진 동료도 복귀했습니다. 마왕성을 준비하세요."
                 : $"야영 완료 • 용사들이 회복하고 쓰러진 동료도 복귀했습니다. {Stage} 스테이지를 준비하세요.");
+            return true;
         }
     }
 }

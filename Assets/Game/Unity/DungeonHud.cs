@@ -29,6 +29,8 @@ namespace DungeonTycoon.Unity
         private VisualElement interventionPage, resultPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
+        private VisualElement stageClearPage;
+        private Label stageClearTitle;
         private Label resultTitle, resultText;
         private Button follow, primary, collapse, removeCard, trialCard, blessCard;
         private Label summaryNote;
@@ -145,6 +147,9 @@ namespace DungeonTycoon.Unity
             collapse = root.Q<Button>("collapse");
             interventionPage = root.Q("intervention");
             resultPage = root.Q("result");
+            stageClearPage = root.Q("stage-clear");
+            stageClearTitle = root.Q<Label>("stage-clear-title");
+            root.Q<Button>("stage-continue").clicked += game.AdvanceToNextStage;
             foreach (var (kind, cardName) in Brushes)
             {
                 var card = root.Q<Button>(cardName);
@@ -359,6 +364,9 @@ namespace DungeonTycoon.Unity
 
             Show(bottom,planning && !game.Presenting);
             Show(interventionPage,exploring && !game.Presenting);
+            bool showClear = run.Phase == RunPhase.StageCleared && run.PendingLoot == null && !game.Presenting;
+            Show(stageClearPage,showClear);
+            if (showClear) stageClearTitle.text = $"{run.Stage}스테이지 클리어";
             Show(resultPage,finished && !game.Presenting);
             if (planning) RefreshPlanning(run);
             else if (finished) RefreshResult(run);
