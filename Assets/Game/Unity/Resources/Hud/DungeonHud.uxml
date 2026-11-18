@@ -15,7 +15,7 @@
         <ui:VisualElement name="boss-bar" class="boss-bar">
             <ui:VisualElement class="boss-row" picking-mode="Ignore">
                 <ui:Label name="boss-tag" class="boss-tag" text="BOSS" picking-mode="Ignore" />
-                <ui:Label name="boss-name" class="boss-name" text="성문 수호자" picking-mode="Ignore" />
+                <ui:Label name="boss-name" class="boss-name" text="무덤 기사" picking-mode="Ignore" />
                 <ui:Label name="boss-hp" class="boss-hp" text="64 / 64" picking-mode="Ignore" />
             </ui:VisualElement>
             <ui:VisualElement class="meter boss-meter" picking-mode="Ignore">
@@ -207,15 +207,20 @@
 
             <ui:VisualElement name="content" class="content">
                 <ui:VisualElement name="planning" class="page">
-                    <ui:Button name="brush-goblin" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-goblin" text="고" picking-mode="Ignore" />
-                        <ui:Label class="card-title" text="고블린" picking-mode="Ignore" />
+                    <ui:Button name="brush-skeleton" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-skeleton" text="해" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="해골" picking-mode="Ignore" />
                         <ui:Label name="detail" class="card-detail" text="비용 1" picking-mode="Ignore" />
                     </ui:Button>
-                    <ui:Button name="brush-ogre" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-ogre" text="오" picking-mode="Ignore" />
-                        <ui:Label class="card-title" text="오우거" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="비용 2" picking-mode="Ignore" />
+                    <ui:Button name="brush-ghost" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-ghost" text="유" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="유령" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="비용 2 · 영혼 화살" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:Button name="brush-zombie" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-zombie" text="좀" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="좀비" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="비용 3 · 내려찍기" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-remove" class="card" focusable="false">
                         <ui:Label class="card-icon icon-remove" text="×" picking-mode="Ignore" />

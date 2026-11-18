@@ -31,7 +31,7 @@ namespace DungeonTycoon.Unity
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label category, hint, budget, faith, trials, summaryTitle, summaryDetail;
         private Label infoHeading, infoText, infoNote, resultTitle, resultText;
-        private Button follow, primary, collapse, goblinCard, ogreCard, removeCard, trialCard, blessCard;
+        private Button follow, primary, collapse, skeletonCard, ghostCard, zombieCard, removeCard, trialCard, blessCard;
         private Label trialDetail, blessDetail, restDetail, fatigueStage, fatigueEffect;
         private Button restCard;
         private VisualElement fatigue, fatigueFill, fatigueTick1, fatigueTick2;
@@ -39,7 +39,7 @@ namespace DungeonTycoon.Unity
         private ScrollView historyList;
         private readonly HeroCard[] heroes = new HeroCard[4];
 
-        private MonsterKind brush = MonsterKind.Goblin;
+        private MonsterKind brush = MonsterKind.Skeleton;
         private bool panning, fitPending;
         private Vector2 lastMouse;
         private string notice = "";
@@ -123,8 +123,9 @@ namespace DungeonTycoon.Unity
             planningPage = root.Q("planning");
             interventionPage = root.Q("intervention");
             resultPage = root.Q("result");
-            goblinCard = root.Q<Button>("brush-goblin");
-            ogreCard = root.Q<Button>("brush-ogre");
+            skeletonCard = root.Q<Button>("brush-skeleton");
+            ghostCard = root.Q<Button>("brush-ghost");
+            zombieCard = root.Q<Button>("brush-zombie");
             removeCard = root.Q<Button>("brush-remove");
             summaryTitle = root.Q<Label>("summary-title");
             summaryDetail = root.Q<Label>("summary-detail");
@@ -187,8 +188,9 @@ namespace DungeonTycoon.Unity
                 if (game.Run.Phase == RunPhase.Planning) game.RequestDeparture();
                 else game.Restart();
             };
-            goblinCard.clicked += () => brush = MonsterKind.Goblin;
-            ogreCard.clicked += () => brush = MonsterKind.Ogre;
+            skeletonCard.clicked += () => brush = MonsterKind.Skeleton;
+            ghostCard.clicked += () => brush = MonsterKind.Ghost;
+            zombieCard.clicked += () => brush = MonsterKind.Zombie;
             removeCard.clicked += () => brush = MonsterKind.None;
             // A new expedition from the same formation and monster plan, with new dice or the same ones.
             root.Q<Button>("result-copy").clicked += () => game.Restart(keepPlan: true);
@@ -241,7 +243,7 @@ namespace DungeonTycoon.Unity
             deadFoes.Clear();
             foreach (var pop in livePops) pop.Label.RemoveFromHierarchy();
             livePops.Clear();
-            brush = MonsterKind.Goblin;
+            brush = MonsterKind.Skeleton;
             panning = false;
             notice = "";
             history.RemoveFromClassList("open");
@@ -481,6 +483,12 @@ namespace DungeonTycoon.Unity
                     AddPop(HeroSkills.Name((HeroSkill)e.Amount)+"!","skill",hero,PopSeconds);
                     continue;
                 }
+                // A pattern's name flashes over the monster that started it; the tiles show where it lands.
+                if (e.Kind == CombatEventKind.Pattern && game.Board.TryFoeScreenPoint(e.Source,out var caster))
+                {
+                    AddPop(MonsterPatterns.Name((MonsterPattern)e.Amount)+"!","skill foe",caster,PopSeconds);
+                    continue;
+                }
                 if (e.Kind != CombatEventKind.Drop || e.Amount < 0 || e.Amount >= run.Drops.Count) continue;
                 if (!game.Board.TryFoeScreenPoint(e.Source,out var at)) continue;
                 var item = run.Drops[e.Amount];
@@ -576,15 +584,15 @@ namespace DungeonTycoon.Unity
 
         private void RefreshPlanning(DungeonRun run)
         {
-            goblinCard.EnableInClassList("chosen",brush == MonsterKind.Goblin);
-            ogreCard.EnableInClassList("chosen",brush == MonsterKind.Ogre);
+            skeletonCard.EnableInClassList("chosen",brush == MonsterKind.Skeleton);
+            ghostCard.EnableInClassList("chosen",brush == MonsterKind.Ghost);
+            zombieCard.EnableInClassList("chosen",brush == MonsterKind.Zombie);
             removeCard.EnableInClassList("chosen",brush == MonsterKind.None);
-            int goblins = 0, ogres = 0;
-            foreach (var placement in run.Placements)
-                if (placement.Kind == MonsterKind.Ogre) ogres++; else goblins++;
+            int Placed(MonsterKind kind) => run.Placements.Count(p => p.Kind == kind);
             bool empty = run.Placements.Count == 0;
             summaryTitle.text = empty ? "배치한 몬스터 없음" : "배치 "+run.Placements.Count+"마리";
-            summaryDetail.text = empty ? "비워 두고 출발할 수도 있습니다" : "고블린 "+goblins+"   ·   오우거 "+ogres;
+            summaryDetail.text = empty ? "비워 두고 출발할 수도 있습니다"
+                : "해골 "+Placed(MonsterKind.Skeleton)+"  ·  유령 "+Placed(MonsterKind.Ghost)+"  ·  좀비 "+Placed(MonsterKind.Zombie);
         }
 
         private void RefreshIntervention(DungeonRun run)

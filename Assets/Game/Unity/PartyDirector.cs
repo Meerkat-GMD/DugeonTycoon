@@ -20,7 +20,10 @@ namespace DungeonTycoon.Unity
         private const int TimeoutSeconds = 6;
         private const string CombatContext =
             "던전 TRPG 용사들의 실시간 전투다. 상황이 바뀌었고, 살아 있는 용사마다 다음 상황 변화까지 따를 작전을 정한다. " +
-            "Tank는 주변 적을 도발해 공격을 받아내고, Healer는 지킬 동료를 먼저 치료한다. 이동·공격·피해는 게임이 판정한다.";
+            "Tank는 주변 적을 도발해 공격을 받아내고, Healer는 지킬 동료를 먼저 치료한다. " +
+            "적의 예고 공격에는 용사마다 성향과 역할에 맞춰 대응을 고른다. Dodge는 범위 밖으로 피하지만 그동안 공격하지 못하고, " +
+            "Hold는 맞더라도 제자리에서 하던 일을 계속하며, Lure는 자기를 노리는 TrackingBeam을 동료가 없는 쪽으로 끌고 가 혼자 맞는다. " +
+            "이동·공격·피해는 게임이 판정한다.";
         private const string TrialPrompt =
             "던전에서 낙석이 떨어진다. 살아 있는 용사 중 한 명을 골라 동료를 지킬 행동을 선언하라. " +
             "JSON 객체에 role(입력의 영문 역할 ID)과 line(40자 이내의 한국어 1인칭 대응 선언)을 넣어라. " +
@@ -104,6 +107,25 @@ namespace DungeonTycoon.Unity
                         .Append(new DecisionChoice { value = "none", description = "따로 지킬 동료 없음" }).ToArray()
                 });
             }
+            // Only patterns the party has watched these monsters use: the heroes cannot plan for the rest.
+            var known = engaged.SelectMany(m => m.Patterns.Where(p => run.PartyKnows(m, p))).Distinct().OrderBy(p => p).ToList();
+            foreach (var hero in living)
+            foreach (var pattern in known)
+            {
+                var answers = new List<DecisionChoice>
+                {
+                    new DecisionChoice { value = nameof(PatternResponse.Dodge), description = "범위 밖으로 피한다" },
+                    new DecisionChoice { value = nameof(PatternResponse.Hold), description = "맞더라도 하던 일을 계속한다" }
+                };
+                if (pattern == MonsterPattern.TrackingBeam)
+                    answers.Add(new DecisionChoice { value = nameof(PatternResponse.Lure), description = "자기를 노리면 동료가 없는 쪽으로 끌고 간다" });
+                questions.Add(new DecisionQuestion
+                {
+                    name = hero.Role + PatternInfix + pattern,
+                    instructions = $"{hero.Role}({hero.Name})는 {MonsterPatterns.Name(pattern)}에 어떻게 대응하나?",
+                    choices = answers.ToArray()
+                });
+            }
 
             var body = new DecisionsRequest
             {
@@ -119,11 +141,26 @@ namespace DungeonTycoon.Unity
             if (reply?.answers == null) return null;
 
             var picks = new Dictionary<HeroRole, (int Focus, double FocusSure, int Protect, double ProtectSure)>();
-            foreach (var hero in living) picks[hero.Role] = (-1, 0, -1, 0);
+            var responses = new Dictionary<HeroRole, Dictionary<MonsterPattern, (PatternResponse Response, double Sure)>>();
+            foreach (var hero in living)
+            {
+                picks[hero.Role] = (-1, 0, -1, 0);
+                responses[hero.Role] = new Dictionary<MonsterPattern, (PatternResponse, double)>();
+            }
             foreach (var answer in reply.answers)
             {
                 // A refusal, or any answer that does not parse, leaves that part to the local rules.
                 if (answer?.type != "choice" || string.IsNullOrEmpty(answer.name) || string.IsNullOrEmpty(answer.choice)) continue;
+                int infix = answer.name.IndexOf(PatternInfix, StringComparison.Ordinal);
+                if (infix >= 0)
+                {
+                    if (TryRole(answer.name.Substring(0, infix), out var who) && responses.TryGetValue(who, out var plan) &&
+                        Enum.TryParse(answer.name.Substring(infix + PatternInfix.Length), out MonsterPattern pattern) &&
+                        Enum.IsDefined(typeof(MonsterPattern), pattern) &&
+                        Enum.TryParse(answer.choice, out PatternResponse response) && Enum.IsDefined(typeof(PatternResponse), response))
+                        plan[pattern] = (response, answer.confidence);
+                    continue;
+                }
                 bool focus = answer.name.EndsWith(FocusSuffix, StringComparison.Ordinal);
                 string id = answer.name.Substring(0, answer.name.Length - (focus ? FocusSuffix.Length : ProtectSuffix.Length));
                 if ((!focus && !answer.name.EndsWith(ProtectSuffix, StringComparison.Ordinal)) ||
@@ -136,7 +173,8 @@ namespace DungeonTycoon.Unity
             var tactics = new List<HeroTactic>();
             foreach (var pair in picks)
             {
-                var tactic = run.DecidedTactic(pair.Key, pair.Value.Focus, pair.Value.FocusSure, pair.Value.Protect, pair.Value.ProtectSure);
+                var tactic = run.DecidedTactic(pair.Key, pair.Value.Focus, pair.Value.FocusSure, pair.Value.Protect, pair.Value.ProtectSure,
+                    responses[pair.Key]);
                 if (tactic != null) tactics.Add(tactic);
             }
             return tactics;
@@ -144,6 +182,7 @@ namespace DungeonTycoon.Unity
 
         private const string FocusSuffix = "_focus";
         private const string ProtectSuffix = "_protect";
+        private const string PatternInfix = "_pattern_";
 
         private static int Chebyshev(TilePoint a, TilePoint b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
 
@@ -153,8 +192,12 @@ namespace DungeonTycoon.Unity
             text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}{(run.FightingBoss ? ", 보스전" : "")}");
             var engaged = run.Engaged.ToList();
             foreach (var monster in engaged)
+            {
+                var known = monster.Patterns.Where(p => run.PartyKnows(monster, p)).Select(MonsterPatterns.Name).ToList();
                 text.AppendLine($"적 {monster.Id}: {monster.Name}{(monster.IsBoss ? "(보스)" : "")} HP {monster.Hp}/{monster.MaxHp}, " +
-                                $"방어 {monster.Armor}, 공격 {monster.Attack}");
+                                $"방어 {monster.Armor}, 공격 {monster.Attack}" +
+                                (known.Count > 0 ? $", 본 적 있는 예고 공격 {string.Join(", ", known)}" : ""));
+            }
             foreach (var hero in run.Party)
             {
                 if (hero.Hp == 0)

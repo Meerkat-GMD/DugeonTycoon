@@ -311,7 +311,7 @@ namespace DungeonTycoon.Core
                 HeroStep(healer, there, healer.Range);
                 return true;
             }
-            if (healer.ActReady > Ticks) return true;
+            if (healer.ActReady > Ticks || Moving(healer)) return true;
             healer.ActReady = Ticks + AttackCycle(healer);
             ReviveUsed = true;
             fallen.Hp = Math.Max(1, fallen.MaxHp * ReviveHpPercent / 100);

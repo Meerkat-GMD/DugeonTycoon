@@ -4,15 +4,18 @@ using System.Collections.Generic;
 namespace DungeonTycoon.Core
 {
     public enum RunPhase { Planning, Travel, Combat, Victory, Defeat }
-    public enum MonsterKind { None, Goblin, Ogre }
+    public enum MonsterKind { None, Skeleton, Ghost, Zombie }
     public enum PlacementCheck { Allowed, Locked, InvalidKind, NotFloor, NearEntrance, OverBudget, NothingToRemove }
     public enum MonsterMood { Wandering, Chasing, Defeated }
     /// <summary>
     /// Attack, Heal and Taunt go from a source to a target. Drop: monster <see cref="CombatEvent.Source"/> left
     /// <see cref="DungeonRun.Drops"/>[<see cref="CombatEvent.Amount"/>]. Skill: hero <see cref="CombatEvent.Source"/>
     /// used the <see cref="HeroSkill"/> in <see cref="CombatEvent.Amount"/>; Target is the main target if any.
+    /// Pattern: monster <see cref="CombatEvent.Source"/> began the <see cref="MonsterPattern"/> in
+    /// <see cref="CombatEvent.Amount"/> at hero <see cref="CombatEvent.Target"/> (-1 for none); its blows arrive
+    /// later as Attack events.
     /// </summary>
-    public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill }
+    public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill, Pattern }
 
     public sealed class MonsterPlacement
     {
@@ -32,13 +35,18 @@ namespace DungeonTycoon.Core
     /// </summary>
     public sealed class HeroTactic
     {
-        public HeroTactic(HeroRole role, int focus, int protect, string line)
+        public HeroTactic(HeroRole role, int focus, int protect, string line,
+            IReadOnlyDictionary<MonsterPattern, PatternResponse> responses = null)
         {
             Role = role;
             Focus = focus;
             Protect = protect;
             Line = line;
+            Responses = responses ?? new Dictionary<MonsterPattern, PatternResponse>();
         }
+
+        /// <summary>How to meet each enemy pattern until the situation changes; missing ones follow trait and role.</summary>
+        public IReadOnlyDictionary<MonsterPattern, PatternResponse> Responses { get; }
 
         public HeroRole Role { get; }
         /// <summary>Monster id to attack first, or -1 to let the rules pick.</summary>
@@ -158,13 +166,18 @@ namespace DungeonTycoon.Core
         /// <summary>The tank's shield wall lasts until this tick.</summary>
         internal int ShieldWallUntil { get; set; }
         internal bool Critical { get; set; }
+        /// <summary>Where the hero's current step started; it still counts as standing there until <see cref="StepUntil"/>.</summary>
+        internal TilePoint StepFrom { get; set; }
+        internal int StepUntil { get; set; }
     }
 
     public sealed class MonsterState
     {
         internal MonsterState(int id, MonsterKind kind, bool boss, string name, int maxHp, int attack, int armor,
-            int reward, int moveTicks, int attackTicks, TilePoint home)
+            int reward, int moveTicks, int attackTicks, TilePoint home, params MonsterPattern[] patterns)
         {
+            Patterns = Array.AsReadOnly((MonsterPattern[])patterns.Clone());
+            PatternReady = new int[patterns.Length];
             Id = id;
             Kind = kind;
             IsBoss = boss;
@@ -197,9 +210,15 @@ namespace DungeonTycoon.Core
         internal int MoveTicks { get; }
         internal int AttackTicks { get; }
         internal int MoveReady { get; set; }
+        /// <summary>The monster's current step lands on this tick.</summary>
+        internal int StepUntil { get; set; }
         internal int AttackReady { get; set; }
         internal int TauntedUntil { get; set; }
         internal int WanderWait { get; set; }
         internal TilePoint? WanderGoal { get; set; }
+        /// <summary>Telegraphed attacks besides the plain blow, in the order the rules list them.</summary>
+        public IReadOnlyList<MonsterPattern> Patterns { get; }
+        /// <summary>Tick at which each of <see cref="Patterns"/> can be cast again.</summary>
+        internal int[] PatternReady { get; }
     }
 }

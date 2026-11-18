@@ -92,31 +92,31 @@ namespace DungeonTycoon.Core
             new Equipment("축복받은 로브", EquipmentSlot.Armor, EquipmentGrade.Rare, null, armor: 1, maxHp: 14),
         };
 
-        /// <summary>Percent chance that a goblin drops something; always common. Balance value.</summary>
-        public const int GoblinDropPercent = 20;
-        /// <summary>Percent chance that an ogre drops something. Balance value.</summary>
-        public const int OgreDropPercent = 45;
-        /// <summary>Percent of an ogre's drops that are rare. Balance value.</summary>
-        public const int OgreRarePercent = 25;
+        /// <summary>Percent chance that a skeleton or ghost drops something; always common. Balance value.</summary>
+        public const int SkeletonDropPercent = 20;
+        /// <summary>Percent chance that a zombie drops something. Balance value.</summary>
+        public const int ZombieDropPercent = 45;
+        /// <summary>Percent of a zombie's drops that are rare. Balance value.</summary>
+        public const int ZombieRarePercent = 25;
 
         public static Equipment Find(string name) => Common.Concat(Rare).FirstOrDefault(item => item.Name == name);
 
         /// <summary>
-        /// What a fallen monster leaves, decided by the run's loot dice: goblins sometimes a common item, ogres more
+        /// What a fallen monster leaves, decided by the run's loot dice: skeletons and ghosts sometimes a common item, zombies more
         /// often and sometimes a rare one, a boss always a rare one. Null for nothing.
         /// </summary>
         internal static Equipment Roll(MonsterState monster, Random dice)
         {
             EquipmentGrade grade;
             if (monster.IsBoss) grade = EquipmentGrade.Rare;
-            else if (monster.Kind == MonsterKind.Ogre)
+            else if (monster.Kind == MonsterKind.Zombie)
             {
-                if (dice.Next(100) >= OgreDropPercent) return null;
-                grade = dice.Next(100) < OgreRarePercent ? EquipmentGrade.Rare : EquipmentGrade.Common;
+                if (dice.Next(100) >= ZombieDropPercent) return null;
+                grade = dice.Next(100) < ZombieRarePercent ? EquipmentGrade.Rare : EquipmentGrade.Common;
             }
             else
             {
-                if (dice.Next(100) >= GoblinDropPercent) return null;
+                if (dice.Next(100) >= SkeletonDropPercent) return null;
                 grade = EquipmentGrade.Common;
             }
             var pool = grade == EquipmentGrade.Rare ? Rare : Common;

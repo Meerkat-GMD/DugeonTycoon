@@ -111,7 +111,7 @@ namespace DungeonTycoon.Core.Tests
         {
             var first = new DungeonRun(4242);
             var tiles = DungeonRunTests.PlaceableTiles(first).Take(3).ToList();
-            foreach (var tile in tiles) Assert.That(first.Place(tile, MonsterKind.Goblin), Is.True);
+            foreach (var tile in tiles) Assert.That(first.Place(tile, MonsterKind.Skeleton), Is.True);
             first.SetBuild(HeroRole.MeleeDamage, new HeroBuild(CombatTrait.Avenger, PersonalityTrait.Generous, attack: 10));
             first.Start();
             for (int i = 0; i < 400; i++) Advance(first);
@@ -126,7 +126,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(again.Party.All(h => h.Hp == h.MaxHp && h.Weapon == null && h.BodyArmor == null), Is.True);
 
             var control = new DungeonRun(4242);
-            foreach (var tile in tiles) control.Place(tile, MonsterKind.Goblin);
+            foreach (var tile in tiles) control.Place(tile, MonsterKind.Skeleton);
             control.SetBuild(HeroRole.MeleeDamage, first.BuildOf(HeroRole.MeleeDamage));
             again.Start();
             control.Start();
@@ -146,14 +146,14 @@ namespace DungeonTycoon.Core.Tests
             DungeonRunTests.Drive(first, () => first.Stage == 2 || !DungeonRunTests.InDungeon(first), 60000);
             Assume.That(first.Stage, Is.EqualTo(2));
             var tile = DungeonRunTests.PlaceableTiles(first).First();
-            Assert.That(first.Place(tile, MonsterKind.Ogre), Is.True);
+            Assert.That(first.Place(tile, MonsterKind.Zombie), Is.True);
 
             var next = first.Rematch(99);
             Assert.That(next.Placements, Is.Empty, "the first stage was left empty");
             next.Start();
             DungeonRunTests.Drive(next, () => next.Stage == 2 || !DungeonRunTests.InDungeon(next), 60000);
             Assume.That(next.Stage, Is.EqualTo(2));
-            Assert.That(next.Placements.Select(p => (p.Tile, p.Kind)), Is.EqualTo(new[] { (tile, MonsterKind.Ogre) }));
+            Assert.That(next.Placements.Select(p => (p.Tile, p.Kind)), Is.EqualTo(new[] { (tile, MonsterKind.Zombie) }));
         }
 
         private static void Advance(DungeonRun run)
@@ -204,13 +204,13 @@ namespace DungeonTycoon.Core.Tests
 
         private static Equipment Item(string name) => EquipmentCatalog.Find(name) ?? throw new ArgumentException(name);
 
-        /// <summary>One goblin that drops <paramref name="armour"/>; the fight runs to the loot debate.</summary>
+        /// <summary>One skeleton that drops <paramref name="armour"/>; the fight runs to the loot debate.</summary>
         private static DungeonRun ArmourAfterAFight(string armour, Action<DungeonRun> formation)
         {
             var run = new DungeonRun();
             formation(run);
             var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
-            Assert.That(run.Place(tile, MonsterKind.Goblin), Is.True);
+            Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
             run.DropOverride = _ => Item(armour);
             run.Start();
             DungeonRunTests.Drive(run, () => run.PendingLoot != null || run.Phase == RunPhase.Defeat);

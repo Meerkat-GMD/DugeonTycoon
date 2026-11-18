@@ -87,7 +87,7 @@ namespace DungeonTycoon.Core.Tests
         {
             // Over a whole stage with fights, forks and loot, fatigue moves exactly with the exploring steps.
             var run = new DungeonRun();
-            foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 40 == 0).Take(3)) run.Place(tile, MonsterKind.Goblin);
+            foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 40 == 0).Take(3)) run.Place(tile, MonsterKind.Skeleton);
             run.Start();
             int steps = run.StepsTaken, fatigue = run.FatigueSteps;
             bool fought = false;
@@ -159,7 +159,7 @@ namespace DungeonTycoon.Core.Tests
             var run = DungeonRunTests.RunInCombat();
             foreach (var monster in run.Monsters) monster.Hp = 10000;
             var tank = run.Party[(int)HeroRole.Tank];
-            // The blow plus the target's armour, so blows on the goblin and on the boss compare alike.
+            // The blow plus the target's armour, so blows on the skeleton and on the boss compare alike.
             int NextTankBlow()
             {
                 int amount = -1, armor = 0;

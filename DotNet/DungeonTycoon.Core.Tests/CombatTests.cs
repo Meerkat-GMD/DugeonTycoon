@@ -10,7 +10,7 @@ namespace DungeonTycoon.Core.Tests
         private static int Chebyshev(TilePoint a, TilePoint b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
 
         /// <param name="fragile">
-        /// Builds that strip armour and points, so the goblins draw blood whatever the current balance and the healer
+        /// Builds that strip armour and points, so the skeletons draw blood whatever the current balance and the healer
         /// has someone to heal.
         /// </param>
         private static DungeonRun Crowded(int seed = 11, bool fragile = false)
@@ -20,8 +20,8 @@ namespace DungeonTycoon.Core.Tests
                 foreach (HeroRole role in Enum.GetValues(typeof(HeroRole)))
                     run.SetBuild(role, new HeroBuild(CombatTrait.Cornered, PersonalityTrait.Underdog));
             foreach (var tile in new[] { new TilePoint(21, 23), new TilePoint(6, 11), new TilePoint(22, 7) })
-                run.Place(tile, MonsterKind.Goblin);
-            run.Place(new TilePoint(25, 9), MonsterKind.Ogre);
+                run.Place(tile, MonsterKind.Skeleton);
+            run.Place(new TilePoint(25, 9), MonsterKind.Zombie);
             run.Start();
             return run;
         }
@@ -145,7 +145,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void TacticsAnswerOnlyTheirSituationAndInvalidEntriesAreIgnored()
         {
-            var run = DungeonRunTests.RunInCombat(MonsterKind.Ogre);
+            var run = DungeonRunTests.RunInCombat(MonsterKind.Zombie);
             int situation = run.Situation;
             var foe = run.Engaged.First();
             Assert.That(run.ApplyTactics(situation - 1, new[] { new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "늦은 작전") }), Is.False);
@@ -153,12 +153,12 @@ namespace DungeonTycoon.Core.Tests
             string before = run.Party[(int)HeroRole.MeleeDamage].LastLine;
             Assert.That(run.ApplyTactics(situation, new[]
             {
-                new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "오우거부터 노린다!"),
+                new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "좀비부터 노린다!"),
                 new HeroTactic(HeroRole.MeleeDamage, 999, -1, "없는 적"),
                 new HeroTactic(HeroRole.Healer, -1, (int)HeroRole.Tank, "가론은 내가 지킬게요.")
             }), Is.True);
             Assert.That(run.TacticOf(HeroRole.RangedDamage).Focus, Is.EqualTo(foe.Id));
-            Assert.That(run.Party[(int)HeroRole.RangedDamage].LastLine, Is.EqualTo("오우거부터 노린다!"));
+            Assert.That(run.Party[(int)HeroRole.RangedDamage].LastLine, Is.EqualTo("좀비부터 노린다!"));
             Assert.That(run.TacticOf(HeroRole.MeleeDamage), Is.Null);
             Assert.That(run.Party[(int)HeroRole.MeleeDamage].LastLine, Is.EqualTo(before));
             Assert.That(run.TacticOf(HeroRole.Healer).Protect, Is.EqualTo((int)HeroRole.Tank));
@@ -173,7 +173,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void DecidedTacticsDropUnsureOrMissingTargetsAndSpeakLocalLines()
         {
-            var run = DungeonRunTests.RunInCombat(MonsterKind.Ogre);
+            var run = DungeonRunTests.RunInCombat(MonsterKind.Zombie);
             var foe = run.Engaged.First();
             double sure = DungeonRun.TacticConfidenceFloor, unsure = DungeonRun.TacticConfidenceFloor - 0.01;
 
@@ -203,13 +203,13 @@ namespace DungeonTycoon.Core.Tests
             blind.Start();
             Assert.That(ExplorationTests.TickToFirstFork(blind), Is.True);
             var leader = blind.LeaderTile;
-            // Goblins just outside notice range would wander into sight if the dungeon kept moving.
+            // Skeletons just outside notice range would wander into sight if the dungeon kept moving.
             var spots = DungeonRunTests.PlaceableTiles(blind)
                 .Where(t => Chebyshev(t, leader) > DungeonRun.DetectRadius && Chebyshev(t, leader) <= DungeonRun.DetectRadius + DungeonRun.WanderRadius)
                 .Take(6).ToList();
             Assert.That(spots, Is.Not.Empty);
             var run = new DungeonRun();
-            foreach (var spot in spots) run.Place(spot, MonsterKind.Goblin);
+            foreach (var spot in spots) run.Place(spot, MonsterKind.Skeleton);
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
 

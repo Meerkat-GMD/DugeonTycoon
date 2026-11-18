@@ -103,41 +103,49 @@ namespace DungeonTycoon.Unity
             Stand(m, boss ? 1.22f : .90f, boss ? Finish.Gold : Finish.Crimson);
             if (tier == 1)
             {
-                // Goblin with pointed ears, leather cap and an iron knife.
+                // Skeleton: a bare bone frame with a grey cap, hollow eyes and a rusty blade.
                 Boots(m);
-                m.Ring(0,.55f,0,.51f,.43f,.42f,Finish.Leather,7,.8f);
-                m.Ring(0,.85f,-.02f,.36f,.50f,.33f,Finish.Leaf,7);
-                m.Ring(0,1.04f,.005f,.55f,.16f,.19f,Finish.Leather,7);
+                m.Ring(0,.55f,0,.40f,.34f,.42f,Finish.Ash,7,.8f);
+                m.Ring(0,.85f,-.02f,.36f,.46f,.33f,Finish.Ivory,7);
+                m.Ring(0,1.04f,.005f,.48f,.16f,.19f,Finish.Slate,7);
                 for (int s = -1; s <= 1; s += 2)
                 {
-                    m.Rod(new Vector3(s*.19f,.93f,0), new Vector3(s*.42f,1.10f,0),
-                        .18f, Finish.Leaf, 0);
-                    m.Box(s*.10f,.90f,-.20f,.078f,.04f,.045f,Finish.Gold);
-                    m.Rod(new Vector3(s*.18f,.64f,0),new Vector3(s*.29f,.55f,-.09f),.14f,Finish.Leaf);
+                    m.Box(s*.10f,.90f,-.20f,.078f,.05f,.045f,Finish.Ink);
+                    m.Rod(new Vector3(s*.18f,.64f,0),new Vector3(s*.29f,.55f,-.09f),.09f,Finish.Ivory);
                 }
                 Sword(m, -.31f, .54f);
                 return m;
             }
-            if (tier == 2)
+            if (tier == 3)
             {
-                // Armoured orc with broad shoulders, tusks and a heavy axe.
-                Boots(m);
-                m.Ring(0,.60f,0,.59f,.76f,.52f,Finish.Leaf,7,.80f);
-                m.Ring(0,.46f,0,.59f,.56f,.13f,Finish.Leather,7,.91f);
-                m.Ring(0,1.02f,0,.44f,.46f,.31f,Finish.Leaf,6);
-                m.Ring(.01f,1.20f,.02f,.52f,.25f,.17f,Finish.Basalt,6);
+                // Ghost: a pale shroud that tapers to a wisp above its stand, with glowing eyes.
+                m.Ring(0,.38f,0,.10f,.34f,.36f,Finish.Mint,7);
+                m.Ring(0,.70f,0,.34f,.44f,.36f,Finish.Ivory,7,.9f);
+                m.Ring(0,1.02f,0,.44f,.30f,.30f,Finish.Ivory,7);
                 for (int s = -1; s <= 1; s += 2)
                 {
-                    m.Ring(s*.33f,.81f,0,.31f,.19f,.20f,Finish.Steel,6);
-                    m.Box(s*.13f,1.04f,-.197f,.09f,.048f,.05f,Finish.Ember);
-                    m.Ring(s*.14f,.94f,-.21f,.085f,0,.16f,Finish.Ivory,5);
+                    m.Box(s*.10f,1.02f,-.24f,.07f,.06f,.04f,Finish.Mint);
+                    m.Rod(new Vector3(s*.30f,.82f,0),new Vector3(s*.46f,.66f,-.12f),.10f,Finish.Ivory);
                 }
-                m.Rod(new Vector3(-.37f,.31f,-.12f),new Vector3(-.37f,1.26f,-.12f),.08f,Finish.Wood);
-                m.Cutout(-.37f,1.15f,-.12f,.10f,Finish.Steel,new Vector2(0,.06f),
-                    new Vector2(-.26f,.17f),new Vector2(-.34f,-.10f),new Vector2(0,-.05f));
                 return m;
             }
-            // The gatekeeper carries a crown and greaves; the demon king adds wings and a flaming crest.
+            if (tier == 2)
+            {
+                // Zombie: a hulking rotting body in torn cloth, sunken eyes and a heavy club.
+                Boots(m);
+                m.Ring(0,.60f,0,.59f,.76f,.52f,Finish.Leaf,7,.80f);
+                m.Ring(0,.46f,0,.59f,.56f,.13f,Finish.Slate,7,.91f);
+                m.Ring(0,1.02f,0,.44f,.46f,.31f,Finish.Leaf,6);
+                m.Ring(.01f,1.20f,.02f,.48f,.22f,.12f,Finish.Ash,6);
+                for (int s = -1; s <= 1; s += 2)
+                {
+                    m.Ring(s*.33f,.81f,0,.31f,.19f,.20f,Finish.Slate,6);
+                    m.Box(s*.13f,1.04f,-.197f,.09f,.048f,.05f,Finish.Ember);
+                }
+                m.Rod(new Vector3(-.37f,.31f,-.12f),new Vector3(-.37f,1.20f,-.12f),.13f,Finish.Wood);
+                return m;
+            }
+            // The grave knight carries a crown and greaves; the necromancer adds a tattered cloak and a glowing crest.
             bool demon = tier == 5;
             Finish armor = demon ? Finish.Plum : Finish.Basalt;
             Finish trim = demon ? Finish.Ember : Finish.Brass;
