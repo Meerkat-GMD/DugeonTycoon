@@ -113,6 +113,16 @@ namespace DungeonTycoon.Unity
             return body.z > 0;
         }
 
+        /// <summary>Screen point (origin bottom-left) just above a hero figure.</summary>
+        public bool TryHeroScreenPoint(int hero, out Vector2 point)
+        {
+            point = default;
+            if (!boardCamera || hero < 0 || hero >= heroes.Length || !heroes[hero]) return false;
+            var body = boardCamera.WorldToScreenPoint(transform.TransformPoint(heroes[hero].localPosition+Vector3.up*1.2f));
+            point = new Vector2(body.x, body.y);
+            return body.z > 0;
+        }
+
         /// <summary>Screen point (origin bottom-left) above the middle of the standing heroes.</summary>
         public bool TryPartyScreenPoint(out Vector2 point)
         {

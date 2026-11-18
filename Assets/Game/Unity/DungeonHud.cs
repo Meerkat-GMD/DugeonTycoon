@@ -361,15 +361,21 @@ namespace DungeonTycoon.Unity
             for (int s = 0; s < 2; s++)
             {
                 var skill = HeroSkills.Of(hero.Role,s);
-                bool open = s == 0 || run.Level >= HeroSkills.UnlockLevel;
+                bool open = run.SkillUnlocked(hero.Role,s);
+                // Revive has no cooldown; once used it stays spent for the stage.
+                bool spent = skill == HeroSkill.Revive && run.ReviveUsed;
                 card.Skills[s].text = open ? HeroSkills.Name(skill) : "Lv"+HeroSkills.UnlockLevel;
-                card.Skills[s].EnableInClassList("locked",!open);
-                card.Cooldowns[s].style.height = Length.Percent(open ? 100f*SkillCooling(run,hero.Role,s) : 0);
+                card.Skills[s].EnableInClassList("locked",!open || spent);
+                card.Cooldowns[s].style.height = Length.Percent(open && !spent ? 100f*SkillCooling(run,hero.Role,s) : 0);
             }
         }
 
         /// <summary>How much of a skill's cooldown is left, from 1 just used to 0 ready.</summary>
-        private static float SkillCooling(DungeonRun run,HeroRole role,int index) => 0;
+        private static float SkillCooling(DungeonRun run,HeroRole role,int index)
+        {
+            int total = DungeonRun.SkillCooldownTicks(HeroSkills.Of(role,index));
+            return total <= 0 ? 0 : Mathf.Clamp01((float)run.SkillCooldownLeft(role,index)/total);
+        }
 
         private static void Gear(Label slot,Equipment item,string none)
         {
@@ -427,12 +433,18 @@ namespace DungeonTycoon.Unity
             spoilsLines.Add(label);
         }
 
-        /// <summary>A dropped item pops over the monster, then flies to the party.</summary>
+        /// <summary>A dropped item pops over the monster, then flies to the party; a skill's name pops over its hero.</summary>
         private void OnCombatEvents(IReadOnlyList<CombatEvent> events)
         {
             var run = game.Run;
             foreach (var e in events)
             {
+                // A skill's name flashes over the hero who used it.
+                if (e.Kind == CombatEventKind.Skill && e.FromHero && game.Board.TryHeroScreenPoint(e.Source,out var hero))
+                {
+                    AddPop(HeroSkills.Name((HeroSkill)e.Amount)+"!","skill",hero,PopSeconds);
+                    continue;
+                }
                 if (e.Kind != CombatEventKind.Drop || e.Amount < 0 || e.Amount >= run.Drops.Count) continue;
                 if (!game.Board.TryFoeScreenPoint(e.Source,out var at)) continue;
                 var item = run.Drops[e.Amount];
