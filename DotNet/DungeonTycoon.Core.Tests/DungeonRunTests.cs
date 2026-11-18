@@ -33,7 +33,7 @@ namespace DungeonTycoon.Core.Tests
             }
         }
 
-        /// <summary>A goblin on the boss tile is always met near the boss, whatever way the party takes.</summary>
+        /// <summary>A skeleton on the boss tile is always met near the boss, whatever way the party takes.</summary>
         internal static DungeonRun RunInCombat(MonsterKind kind = MonsterKind.Skeleton)
         {
             var run = new DungeonRun();
@@ -238,7 +238,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(Play(3), Is.EqualTo(single));
         }
 
-        // Monsters on the first goblin-friendly tiles of each main room; the party meets most of them.
+        // Monsters on the first skeleton-friendly tiles of each main room; the party meets most of them.
         private static readonly TilePoint[][] TrainingGrounds =
         {
             new[] { new TilePoint(16, 15), new TilePoint(5, 7), new TilePoint(17, 6), new TilePoint(19, 8) },

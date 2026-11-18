@@ -143,6 +143,7 @@ namespace DungeonTycoon.Unity
             if (Presenting) return;
             RefreshParty();
             Board.SetMonsters(run.Monsters);
+            Board.SetCasts(run.Casts, run.Ticks);
             var events = run.TakeEvents();
             Board.PlayEvents(events);
             EventsPlayed?.Invoke(events);
@@ -354,6 +355,7 @@ namespace DungeonTycoon.Unity
             bool planning = Run.Phase == RunPhase.Planning;
             Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.CanHoldMonster);
             if (!planning) Board.SetMonsters(Run.Monsters);
+            Board.SetCasts(planning ? null : Run.Casts, Run.Ticks);
             fogVersion = -1;
             RefreshParty();
             Board.SetPlanning(planning);

@@ -144,12 +144,12 @@ namespace DungeonTycoon.Core.Tests
             string before = run.Party[(int)HeroRole.MeleeDamage].LastLine;
             Assert.That(run.ApplyTactics(situation, new[]
             {
-                new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "오우거부터 노린다!"),
+                new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "좀비부터 노린다!"),
                 new HeroTactic(HeroRole.MeleeDamage, 999, -1, "없는 적"),
                 new HeroTactic(HeroRole.Healer, -1, (int)HeroRole.Tank, "가론은 내가 지킬게요.")
             }), Is.True);
             Assert.That(run.TacticOf(HeroRole.RangedDamage).Focus, Is.EqualTo(foe.Id));
-            Assert.That(run.Party[(int)HeroRole.RangedDamage].LastLine, Is.EqualTo("오우거부터 노린다!"));
+            Assert.That(run.Party[(int)HeroRole.RangedDamage].LastLine, Is.EqualTo("좀비부터 노린다!"));
             Assert.That(run.TacticOf(HeroRole.MeleeDamage), Is.Null);
             Assert.That(run.Party[(int)HeroRole.MeleeDamage].LastLine, Is.EqualTo(before));
             Assert.That(run.TacticOf(HeroRole.Healer).Protect, Is.EqualTo((int)HeroRole.Tank));
@@ -168,7 +168,7 @@ namespace DungeonTycoon.Core.Tests
             blind.Start();
             Assert.That(ExplorationTests.TickToFirstFork(blind), Is.True);
             var leader = blind.LeaderTile;
-            // Goblins just outside notice range would wander into sight if the dungeon kept moving.
+            // Skeletons just outside notice range would wander into sight if the dungeon kept moving.
             var spots = DungeonRunTests.PlaceableTiles(blind)
                 .Where(t => Chebyshev(t, leader) > DungeonRun.DetectRadius && Chebyshev(t, leader) <= DungeonRun.DetectRadius + DungeonRun.WanderRadius)
                 .Take(6).ToList();

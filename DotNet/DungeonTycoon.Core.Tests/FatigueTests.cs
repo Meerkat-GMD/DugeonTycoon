@@ -158,7 +158,7 @@ namespace DungeonTycoon.Core.Tests
             var run = DungeonRunTests.RunInCombat();
             foreach (var monster in run.Monsters) monster.Hp = 10000;
             var tank = run.Party[(int)HeroRole.Tank];
-            // The blow plus the target's armour, so blows on the goblin and on the boss compare alike.
+            // The blow plus the target's armour, so blows on the skeleton and on the boss compare alike.
             int NextTankBlow()
             {
                 int amount = -1, armor = 0;

@@ -13,7 +13,7 @@ namespace DungeonTycoon.Core.Tests
         private static Equipment Item(string name) => EquipmentCatalog.Find(name) ?? throw new ArgumentException(name);
 
         /// <summary>
-        /// One goblin per drop, all just past the entrance clearance so they are met first whatever the route.
+        /// One skeleton per drop, all just past the entrance clearance so they are met first whatever the route.
         /// Each one drops the next item. The fight runs to its end without settling the loot;
         /// <paramref name="midFight"/> runs once the fight has started.
         /// </summary>
@@ -31,7 +31,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Combat));
             midFight?.Invoke(run);
             for (int i = 0; i < 5000 && run.Phase == RunPhase.Combat; i++) run.Tick();
-            Assert.That(run.Phase, Is.EqualTo(RunPhase.Travel), "the goblin falls and the party walks on");
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Travel), "the skeleton falls and the party walks on");
             return run;
         }
 
@@ -189,7 +189,7 @@ namespace DungeonTycoon.Core.Tests
                 return run.Log.Where(line => line.StartsWith("전리품") || line.StartsWith("장착") || line.StartsWith("버림")).ToList();
             }
             var first = Play();
-            Assert.That(first, Is.Not.Empty, "five ogres drop something");
+            Assert.That(first, Is.Not.Empty, "five zombies drop something");
             Assert.That(Play(), Is.EqualTo(first));
         }
 

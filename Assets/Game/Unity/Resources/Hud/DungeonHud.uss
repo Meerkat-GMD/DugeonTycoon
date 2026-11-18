@@ -382,6 +382,11 @@
     color: var(--teal);
 }
 
+.hud .pop.skill.foe {
+    border-color: var(--ember);
+    color: var(--ember);
+}
+
 .hud .pop.level {
     font-size: 24px;
     color: var(--growth);
@@ -703,8 +708,9 @@
     -unity-text-align: middle-center;
 }
 
-.hud .icon-goblin { background-color: #A2CD88; }
-.hud .icon-ogre { background-color: var(--ember); }
+.hud .icon-skeleton { background-color: #D9D2BD; }
+.hud .icon-ghost { background-color: #9FC9D8; }
+.hud .icon-zombie { background-color: #8FA978; }
 .hud .icon-remove { background-color: var(--muted); }
 .hud .icon-trial { background-color: var(--gold); font-size: 13px; }
 .hud .icon-bless { background-color: var(--teal); }

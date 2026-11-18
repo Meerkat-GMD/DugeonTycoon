@@ -18,7 +18,11 @@ namespace DungeonTycoon.Unity
             "던전 TRPG 용사들을 연기한다. 실시간 전투의 상황이 바뀌었다. 살아 있는 용사마다 다음 상황 변화까지 따를 작전을 정해 JSON으로 답하라. " +
             "tactics 배열에 role(입력의 영문 역할 ID), focus(먼저 노릴 적의 번호 문자열, 없으면 \"-1\"), " +
             "protect(먼저 지킬 동료의 영문 역할 ID, 없으면 빈 문자열), line(24자 이내의 짧은 한국어 전투 대사)을 넣어라. " +
-            "Tank는 주변 적을 도발해 공격을 받아내고, Healer는 protect 동료를 먼저 치료한다. 이동·공격·피해는 게임이 판정한다.";
+            "Tank는 주변 적을 도발해 공격을 받아내고, Healer는 protect 동료를 먼저 치료한다. " +
+            "입력에 적의 예고 공격 패턴이 적혀 있으면 용사마다 성격과 역할에 맞춰 패턴별 대응을 responses 배열에 " +
+            "pattern(입력의 영문 패턴 ID)과 response(Dodge, Hold, Lure 중 하나)로 넣을 수 있다. Dodge는 범위 밖으로 피해 그동안 공격을 멈추고, " +
+            "Hold는 맞더라도 제자리에서 하던 일을 계속하며, Lure는 자기를 노리는 TrackingBeam을 동료가 없는 쪽으로 끌고 가 혼자 맞는다. " +
+            "넣지 않은 패턴은 게임이 정한다. 이동·공격·피해는 게임이 판정한다.";
         private const string TrialPrompt =
             "던전에서 낙석이 떨어진다. 살아 있는 용사 중 한 명을 골라 동료를 지킬 행동을 선언하라. " +
             "JSON 객체에 role(입력의 영문 역할 ID)과 line(40자 이내의 한국어 1인칭 대응 선언)을 넣어라. " +
@@ -78,7 +82,16 @@ namespace DungeonTycoon.Unity
                     if (!TryRole(entry.protect, out var ward)) continue;
                     protect = (int)ward;
                 }
-                tactics.Add(new HeroTactic(role, focus, protect, CleanLine(entry.line)));
+                var responses = new Dictionary<MonsterPattern, PatternResponse>();
+                foreach (var answer in entry.responses ?? Array.Empty<PatternAnswer>())
+                {
+                    if (answer != null && Enum.TryParse(answer.pattern, out MonsterPattern pattern) &&
+                        Enum.IsDefined(typeof(MonsterPattern), pattern) &&
+                        Enum.TryParse(answer.response, out PatternResponse response) &&
+                        Enum.IsDefined(typeof(PatternResponse), response))
+                        responses[pattern] = response;
+                }
+                tactics.Add(new HeroTactic(role, focus, protect, CleanLine(entry.line), responses));
             }
             return tactics;
         }
@@ -88,7 +101,13 @@ namespace DungeonTycoon.Unity
             var text = new StringBuilder();
             text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}{(run.FightingBoss ? ", 보스전" : "")}");
             foreach (var monster in run.Engaged)
-                text.AppendLine($"적 {monster.Id}: {monster.Name} HP {monster.Hp}/{monster.MaxHp}, 방어 {monster.Armor}, 공격 {monster.Attack}");
+            {
+                // Only patterns the party has watched this kind of monster use: the heroes cannot plan for the rest.
+                var known = monster.Patterns.Where(p => run.PartyKnows(monster, p))
+                    .Select(p => $"{p}({MonsterPatterns.Name(p)})").ToList();
+                text.AppendLine($"적 {monster.Id}: {monster.Name} HP {monster.Hp}/{monster.MaxHp}, 방어 {monster.Armor}, 공격 {monster.Attack}" +
+                    (known.Count > 0 ? $", 알려진 예고 공격 {string.Join(", ", known)}" : ""));
+            }
             foreach (var hero in run.Party)
             {
                 if (hero.Hp == 0)
@@ -338,7 +357,8 @@ namespace DungeonTycoon.Unity
         [Serializable] private sealed class OutputPart { public string type; public string text; }
         [Serializable] private sealed class CombatPlan { public Move[] tactics; }
         // Numbers stay strings so a missing field is not silently read as 0.
-        [Serializable] private sealed class Move { public string role, focus, protect, line; }
+        [Serializable] private sealed class Move { public string role, focus, protect, line; public PatternAnswer[] responses; }
+        [Serializable] private sealed class PatternAnswer { public string pattern, response; }
         [Serializable] private sealed class TrialResponse { public string role, line; }
         [Serializable] private sealed class ForkPlan { public Vote[] opinions; }
         // option stays a string so a missing field is not silently read as path 0.

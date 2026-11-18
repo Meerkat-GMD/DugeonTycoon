@@ -179,11 +179,12 @@ namespace DungeonTycoon.Unity
             hoverBlocked.gameObject.SetActive(false);
             heroMarker = Draw("도움 대상", DungeonScenery.TileMarker(Tile*.8f, Finish.Gold), meshes);
             heroMarker.gameObject.SetActive(false);
+            CreateWarnings();
 
             var stock = new GameObject("원형");
             stock.transform.SetParent(transform,false);
             stock.SetActive(false);
-            foreach (int tier in new[] {1, 2, 4, 5})
+            foreach (int tier in new[] {1, 2, 3, 4, 5})
             {
                 var piece = Draw("Monster " + tier, DungeonFigures.Monster(tier), meshes);
                 piece.SetParent(stock.transform,false);
@@ -238,6 +239,95 @@ namespace DungeonTycoon.Unity
         public Vector3 TileCenter(TilePoint tile) =>
             new Vector3((tile.X-(map.Width-1)*.5f)*Tile, 0, ((map.Height-1)*.5f-tile.Y)*Tile);
 
+        // ── Pattern warnings ─────────────────────────────────────────────
+
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        // Indexed by CastPhase: a beam still aiming, an area fixed and about to land, the flash where it landed.
+        private static readonly Color[] WarnColors =
+        {
+            new Color(1f,.62f,.25f,1), new Color(1f,.22f,.18f,1), new Color(1f,.93f,.72f,1)
+        };
+        private readonly List<MeshRenderer> warnTiles = new List<MeshRenderer>();
+        private MaterialPropertyBlock warnBlock;
+        private Material warnMaterial;
+        private Mesh warnMesh;
+        private Transform warnRoot;
+
+        private void CreateWarnings()
+        {
+            warnRoot = new GameObject("예고 범위").transform;
+            warnRoot.SetParent(transform,false);
+            warnBlock = new MaterialPropertyBlock();
+            float h = Tile*.46f;
+            warnMesh = new Mesh { name = "예고 칸" };
+            warnMesh.SetVertices(new[] { new Vector3(-h,0,-h), new Vector3(-h,0,h), new Vector3(h,0,h), new Vector3(h,0,-h) });
+            warnMesh.SetTriangles(new[] { 0,1,2, 0,2,3 },0);
+            warnMesh.RecalculateNormals();
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (!shader)
+            {
+                warnMaterial = palette[(int)Finish.Ember];
+                return;
+            }
+            warnMaterial = new Material(shader) { name = "Warning" };
+            warnMaterial.SetFloat("_Surface",1);
+            warnMaterial.SetFloat("_Blend",0);
+            warnMaterial.SetFloat("_SrcBlend",(float)BlendMode.SrcAlpha);
+            warnMaterial.SetFloat("_DstBlend",(float)BlendMode.OneMinusSrcAlpha);
+            warnMaterial.SetFloat("_SrcBlendAlpha",(float)BlendMode.One);
+            warnMaterial.SetFloat("_DstBlendAlpha",(float)BlendMode.OneMinusSrcAlpha);
+            warnMaterial.SetFloat("_ZWrite",0);
+            warnMaterial.SetFloat("_Cull",0);
+            warnMaterial.SetOverrideTag("RenderType","Transparent");
+            warnMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            warnMaterial.renderQueue = (int)RenderQueue.Transparent;
+        }
+
+        private MeshRenderer WarnTile(int index)
+        {
+            while (warnTiles.Count <= index)
+            {
+                var piece = new GameObject("예고 칸");
+                piece.transform.SetParent(warnRoot,false);
+                piece.AddComponent<MeshFilter>().sharedMesh = warnMesh;
+                var renderer = piece.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = warnMaterial;
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                warnTiles.Add(renderer);
+            }
+            var tile = warnTiles[index];
+            if (!tile.gameObject.activeSelf) tile.gameObject.SetActive(true);
+            return tile;
+        }
+
+        /// <summary>
+        /// Paints the tiles every telegraphed pattern will hit, exactly the ones the rules will check: orange while a
+        /// beam still follows its target, red once fixed and deepening toward the moment it lands, then a brief pale flash.
+        /// </summary>
+        public void SetCasts(IReadOnlyList<PatternCast> casts, int ticks)
+        {
+            int used = 0;
+            if (map != null && casts != null && warnRoot)
+            {
+                foreach (var cast in casts)
+                {
+                    float progress = Mathf.Clamp01((float)(ticks-cast.StartTick)/Mathf.Max(1,cast.FireTick-cast.StartTick));
+                    var color = WarnColors[(int)cast.Phase];
+                    color.a = cast.Phase == CastPhase.Fired ? .75f : Mathf.Lerp(.22f,.55f,progress);
+                    warnBlock.SetColor(BaseColorId,color);
+                    foreach (var tile in cast.Area)
+                    {
+                        var renderer = WarnTile(used++);
+                        renderer.SetPropertyBlock(warnBlock);
+                        renderer.transform.localPosition = TileCenter(tile)+Vector3.up*(.06f+.004f*(int)cast.Phase);
+                    }
+                }
+            }
+            for (int i = used; i < warnTiles.Count; i++)
+                if (warnTiles[i].gameObject.activeSelf) warnTiles[i].gameObject.SetActive(false);
+        }
+
         /// <summary>Rebuilds the floor when the map changes and redraws the placed monsters; the boss is last.</summary>
         public void SetStage(int stage, DungeonMap map, IReadOnlyList<MonsterPlacement> placements, Func<TilePoint,bool> placeable)
         {
@@ -263,7 +353,7 @@ namespace DungeonTycoon.Unity
             var tiles = new List<TilePoint>();
             foreach (var placement in placements)
             {
-                AddFoe(placement.Kind == MonsterKind.Ogre ? 2 : 1);
+                AddFoe(placement.Kind == MonsterKind.Zombie ? 2 : placement.Kind == MonsterKind.Ghost ? 3 : 1);
                 tiles.Add(placement.Tile);
             }
             AddFoe(stage > 1 ? 5 : 4);
@@ -844,6 +934,8 @@ namespace DungeonTycoon.Unity
             foreach (var mesh in stageMeshes) if (mesh) Destroy(mesh);
             if (fogMesh) Destroy(fogMesh);
             if (fogPalette != null && fogPalette.Length > 0 && fogPalette[0]) Destroy(fogPalette[0]);
+            if (warnMesh) Destroy(warnMesh);
+            if (warnMaterial && (palette == null || Array.IndexOf(palette, warnMaterial) < 0)) Destroy(warnMaterial);
             if (palette == null) return;
             foreach (var material in palette) if (material) Destroy(material);
         }

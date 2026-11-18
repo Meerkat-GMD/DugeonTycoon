@@ -70,7 +70,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(TickToFirstFork(blind), Is.True);
 
             var hidden = new DungeonRun();
-            // A goblin in the closet north-west is far outside the party's sight at the first fork.
+            // A skeleton in the closet north-west is far outside the party's sight at the first fork.
             hidden.Place(new TilePoint(2, 1), MonsterKind.Skeleton);
             hidden.Start();
             Assert.That(TickToFirstFork(hidden), Is.True);
@@ -104,11 +104,11 @@ namespace DungeonTycoon.Core.Tests
                 if (marked.Count != 1 || fork.Options.Count < 2) continue;
                 var reckless = fork.LocalOpinions.Single(o => o.Role == HeroRole.MeleeDamage);
                 var cautious = fork.LocalOpinions.Single(o => o.Role == HeroRole.Tank);
-                Assert.That(reckless.Option, Is.EqualTo(marked[0].Index), "카이 is reckless and heads for the goblin");
+                Assert.That(reckless.Option, Is.EqualTo(marked[0].Index), "카이 is reckless and heads for the skeleton");
                 Assert.That(cautious.Option, Is.Not.EqualTo(marked[0].Index), "가론 is cautious and avoids it");
                 return;
             }
-            Assert.Fail("no placement left a single goblin in sight at the first fork");
+            Assert.Fail("no placement left a single skeleton in sight at the first fork");
         }
 
         [Test]
