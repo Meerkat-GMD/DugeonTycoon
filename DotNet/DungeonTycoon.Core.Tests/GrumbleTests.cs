@@ -111,7 +111,7 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void AGrumblingHeroOfFirmBeliefRollsAgainstTheOracleInsteadOfYielding()
+        public void AGrumblingHeroComplainsButFollowsTheOracle()
         {
             var run = AtFirstFork(FatigueStage.Exhausted, role => role == HeroRole.Tank);
             run.SetFaith(3);
@@ -127,10 +127,8 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(scene.Any(b => b.Speaker == HeroRole.Tank && b.Text == DialogueLines.OracleGrumble(tank.Voice, false)), Is.True);
             Assert.That(scene.Any(b => b.Speaker == HeroRole.Healer && b.Text == DialogueLines.OracleReaction(healer.Voice, true)), Is.True,
                 "a firm hero who is not grumbling still welcomes the oracle");
-            var contest = scene.Single(b => b.Kind == BeatKind.Roll);
-            Assert.That(contest.Rolls.Where(r => !r.IsGod).Select(r => r.Role), Does.Contain(HeroRole.Tank), "the worn-out tank rolls");
-            Assert.That(contest.Rolls.Where(r => !r.IsGod).Select(r => r.Role), Does.Not.Contain(HeroRole.Healer), "the calm firm healer yields");
-            Assert.That(scene.Any(b => b.Kind == BeatKind.Narration && b.Text.Contains(tank.Name) && b.Text.Contains("지쳐서 계시를 따르지 않는다")), Is.True);
+            Assert.That(scene.Any(b => b.Kind == BeatKind.Roll), Is.False);
+            Assert.That(run.LastFork, Does.Contain(fork.Options[1].Label));
         }
 
         private static DungeonRun AfterArmourFight(FatigueStage stage, Func<HeroRole, bool> grumbles, params string[] drops)

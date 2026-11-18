@@ -86,8 +86,6 @@ namespace DungeonTycoon.Core
         public const int CrumblingPartyPercent = 40;
         /// <summary>Fatigue steps the rest miracle takes away. Balance value.</summary>
         public const int RestMiracleRelief = 3 * FatigueRelief;
-        /// <summary>What a shaken hero adds to their persuasion roll against an oracle. Balance value.</summary>
-        public const int ShakenBonus = 3;
 
         private enum PrayerHold { None, UntilCombatEnds, UntilNextFork }
 

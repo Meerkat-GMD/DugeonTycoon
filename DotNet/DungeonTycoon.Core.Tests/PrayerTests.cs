@@ -284,26 +284,16 @@ namespace DungeonTycoon.Core.Tests
             run.Party.Select(h => new ForkOpinion(h.Role, option, h.Name + "의 주장")).ToList();
 
         [Test]
-        public void AFirmHeroBacksTheOracleWithoutRollingAndAShakenOneRollsWithABonus()
+        public void FirmAndShakenHeroesBothFollowTheOracle()
         {
             // Party order is Tank, Healer, MeleeDamage, RangedDamage.
             var run = AtFork(Belief.Firm, Belief.Steady, Belief.Steady, Belief.Shaken);
             var fork = run.PendingFork;
             var votes = Votes(run, 0);
             run.HearFork(fork.Token, votes);
-            var faces = new Queue<int>(new[] { 2, 2, 2, 2 });
-            run.ForkRollOverride = () => faces.Dequeue();
             Assert.That(run.ResolveFork(fork.Token, null, oracle: 1), Is.True);
-
-            var roll = run.LastScene.Single(b => b.Kind == BeatKind.Roll);
-            var heroes = roll.Rolls.Where(r => !r.IsGod).ToList();
-            Assert.That(heroes.Select(r => r.Role), Does.Not.Contain(HeroRole.Tank), "the firm tank does not roll");
-            Assert.That(heroes.Count, Is.EqualTo(3));
-            var ranged = heroes.Single(r => r.Role == HeroRole.RangedDamage);
-            Assert.That(ranged.Modifier, Is.EqualTo(run.Party[(int)HeroRole.RangedDamage].Modifier(Ability.Charisma) + DungeonRun.ShakenBonus));
-            Assert.That(ranged.Ability, Does.Contain("흔들림"));
-            Assert.That(run.LastScene.Any(b => b.Kind == BeatKind.Narration && b.Text.Contains("굳건한 믿음")), Is.True);
-            Assert.That(run.LastFork, Does.Contain("흔들림 +" + DungeonRun.ShakenBonus));
+            Assert.That(run.LastScene.Any(b => b.Kind == BeatKind.Roll), Is.False);
+            Assert.That(run.LastFork, Does.Contain(fork.Options[1].Label));
         }
 
         [Test]

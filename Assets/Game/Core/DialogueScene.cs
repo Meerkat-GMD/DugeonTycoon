@@ -178,16 +178,14 @@ namespace DungeonTycoon.Core
         public const string OracleQuestion = "신탁";
         public const string OracleSkip = "넘어간다";
 
-        public static string OracleTitle(int bonus) => $"설득 판정 — 용사 d20 + 매력 · 신 d20 + {bonus}";
-
         /// <summary>A hero's answer to the oracle, by the voice of their personality trait.</summary>
         public static string OracleReaction(Voice voice, bool agrees)
         {
             switch (voice)
             {
-                case Voice.Bold: return agrees ? "봐, 신도 내 편이라고!" : "신이라도 내 감은 못 이기지!";
+                case Voice.Bold: return agrees ? "신탁이다! 앞장은 내가 서지." : "그쪽이라고? 좋아, 내가 앞장서지!";
                 case Voice.Careful: return agrees ? "계시예요… 안심하고 따를게요." : "정말… 그쪽이 맞을까요?";
-                default: return agrees ? "신께서도 같은 생각이시군." : "흠, 계시라니. 그래도 내 생각은 달라.";
+                default: return agrees ? "계시가 가리키는 길로 가세." : "뜻밖이군. 그 길로 가 보세.";
             }
         }
 
@@ -211,8 +209,8 @@ namespace DungeonTycoon.Core
         {
             switch (voice)
             {
-                case Voice.Bold: return agrees ? "그래, 그쪽으로 가지 뭐. 빨리 끝내자." : "지금 와서 계시? 됐어, 내 길로 가.";
-                case Voice.Careful: return agrees ? "계시든 뭐든… 쉴 수만 있으면 좋겠어요." : "신께서 직접 걸어 보시라죠… 전 싫어요.";
+                case Voice.Bold: return agrees ? "그래, 그쪽으로 가지 뭐. 빨리 끝내자." : "이제야 알려 주냐? 가자고.";
+                case Voice.Careful: return agrees ? "계시든 뭐든… 쉴 수만 있으면 좋겠어요." : "그쪽이요? …천천히 좀 가요.";
                 default: return agrees ? "이제야 알려 주시나. 진작 좀 해 주지." : "헤매는 동안엔 조용하더니, 이제 와서?";
             }
         }

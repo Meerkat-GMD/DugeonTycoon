@@ -22,7 +22,7 @@ namespace DungeonTycoon.Core.Tests
         private static List<ForkOpinion> Votes(DungeonRun run, Func<HeroRole, int> option) =>
             run.Party.Where(h => h.Hp > 0).Select(h => new ForkOpinion(h.Role, option(h.Role), h.Name + "의 주장")).ToList();
 
-        /// <summary>Pins the persuasion dice: heroes in march order, then the god.</summary>
+        /// <summary>Pins the persuasion dice: heroes in march order.</summary>
         private static void Faces(DungeonRun run, params int[] faces)
         {
             var queue = new Queue<int>(faces);
@@ -47,72 +47,28 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.LastScene.Last().Text, Does.Contain(fork.Options[0].Label));
         }
 
-        [Test]
-        public void AnOracleCostsFaithMakesEveryoneReactAndTheGodRollsWithItsBonus()
+        [TestCase(0, false)]
+        [TestCase(1, false)]
+        [TestCase(1, true)]
+        public void PaidOracleChoosesTheRouteWithoutRolling(int chosen, bool split)
         {
             var run = AtFirstFork(faith: 2);
             var fork = run.PendingFork;
-            run.HearFork(fork.Token, Votes(run, _ => 0));
-            Faces(run, 3, 3, 3, 3, 10);
-            Assert.That(run.ResolveFork(fork.Token, null, oracle: 1), Is.True);
+            run.HearFork(fork.Token, Votes(run, role => split && role == HeroRole.Healer ? 1 : 0));
+            Faces(run); // Any roll would exhaust the empty queue.
+            Assert.That(run.ResolveFork(fork.Token, null, oracle: chosen), Is.True);
             Assert.That(run.Faith, Is.EqualTo(2 - DungeonRun.OracleCost));
 
             var scene = run.LastScene;
             Assert.That(scene[0].Kind, Is.EqualTo(BeatKind.Narration));
-            Assert.That(scene[0].Text, Does.Contain(fork.Options[1].Label));
-            var reactions = scene.Skip(1).Take(4).ToList();
-            Assert.That(reactions.Select(b => b.Speaker), Is.EqualTo(March.Cast<HeroRole?>()));
-            foreach (var beat in reactions)
-                Assert.That(beat.Text, Is.EqualTo(DialogueLines.OracleReaction(run.Party[(int)beat.Speaker.Value].Voice, false)));
+            Assert.That(scene[0].Text, Does.Contain("신탁이 내려왔다").And.Contain(fork.Options[chosen].Label));
+            Assert.That(scene.Where(b => b.Kind == BeatKind.Line).Select(b => b.Speaker), Is.EqualTo(March.Cast<HeroRole?>()));
+            Assert.That(scene.Any(b => b.Kind == BeatKind.Roll), Is.False);
+            Assert.That(run.LastFork, Does.Contain("신탁대로").And.Contain(fork.Options[chosen].Label));
 
-            var roll = scene.Single(b => b.Kind == BeatKind.Roll);
-            Assert.That(roll.Text, Is.EqualTo(DialogueLines.OracleTitle(DungeonRun.OracleBonus)));
-            var god = roll.Rolls.Single(r => r.IsGod);
-            Assert.That(god.Total, Is.EqualTo(10 + DungeonRun.OracleBonus));
-            Assert.That(roll.Rolls.Where(r => !r.IsGod).Select(r => r.Role), Is.EqualTo(March));
-            Assert.That(roll.GodWon, Is.True);
-            Assert.That(roll.Winner, Is.Null);
-            Assert.That(run.LastFork, Does.Contain("신탁대로").And.Contain(fork.Options[1].Label));
-        }
-
-        [Test]
-        public void TheGodWinsATieButAHighRollingHeroCanDefyTheOracle()
-        {
-            // Tie: the healer (charisma +2) rolls 13 for 15, the god rolls 10 + 5 = 15.
-            var tied = AtFirstFork();
-            var fork = tied.PendingFork;
-            Faces(tied, 1, 1, 13, 1, 10);
-            Assert.That(tied.ResolveFork(fork.Token, Votes(tied, role => role == HeroRole.Healer ? 0 : 1), oracle: 1), Is.True);
-            var roll = tied.LastScene.Single(b => b.Kind == BeatKind.Roll);
-            Assert.That(roll.GodWon, Is.True);
-            Assert.That(tied.LastScene.Any(b => b.Text == "신과 같은 합계 — 신탁을 따른다."), Is.True);
-
-            // Defiance: the healer rolls 18 for 20 against the god's 15 and wins for the other way.
-            var defied = AtFirstFork();
-            fork = defied.PendingFork;
-            Faces(defied, 1, 1, 18, 1, 10);
-            Assert.That(defied.ResolveFork(fork.Token, Votes(defied, role => role == HeroRole.Healer ? 0 : 1), oracle: 1), Is.True);
-            roll = defied.LastScene.Single(b => b.Kind == BeatKind.Roll);
-            Assert.That(roll.GodWon, Is.False);
-            Assert.That(roll.Winner, Is.EqualTo(HeroRole.Healer));
-            Assert.That(defied.LastScene.Any(b => b.Text.EndsWith("반발이 계시를 이겼다.")), Is.True);
-            Assert.That(defied.LastFork, Does.Contain(fork.Options[0].Label));
-        }
-
-        [Test]
-        public void AUnanimousPartyGoesAtOnceWhenTheOracleAgreesButRollsWhenItDisagrees()
-        {
-            var agree = AtFirstFork();
-            Assert.That(agree.ResolveFork(agree.PendingFork.Token, Votes(agree, _ => 0), oracle: 0), Is.True);
-            Assert.That(agree.LastScene.Any(b => b.Kind == BeatKind.Roll), Is.False);
-            Assert.That(agree.Faith, Is.EqualTo(3 - DungeonRun.OracleCost), "an agreeing oracle still costs faith");
-
-            var disagree = AtFirstFork();
-            Faces(disagree, 20, 20, 20, 20, 1);
-            Assert.That(disagree.ResolveFork(disagree.PendingFork.Token, Votes(disagree, _ => 0), oracle: 1), Is.True);
-            var roll = disagree.LastScene.Single(b => b.Kind == BeatKind.Roll);
-            Assert.That(roll.Rolls.Count(r => r.IsGod), Is.EqualTo(1));
-            Assert.That(roll.GodWon, Is.False, "four 20s beat the god's 6");
+            var route = fork.Options[chosen].Route;
+            for (int i = 0; i < 100 && run.LeaderTile == route[0]; i++) run.Tick();
+            Assert.That(run.LeaderTile, Is.EqualTo(route[1]));
         }
 
         [Test]
