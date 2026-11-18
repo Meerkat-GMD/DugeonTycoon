@@ -410,36 +410,55 @@ namespace DungeonTycoon.Core
             }
             if (opinions.Count == 0) return false;
 
+            // The stage shows the debate front to back, the way the party marches.
+            opinions = opinions.OrderBy(o => Array.IndexOf(MarchOrder, o.Role)).ToList();
+            var scene = opinions.Select(o => DialogueBeat.Line(o.Role, o.Line)).ToList();
             int chosen;
             var summary = new StringBuilder();
             if (opinions.Select(o => o.Option).Distinct().Count() == 1)
             {
                 chosen = opinions[0].Option;
                 summary.Append($"의견 일치 → {fork.Options[chosen].Label}");
+                scene.Add(DialogueBeat.Narration($"의견이 모였다. {fork.Options[chosen].Label}로 간다."));
             }
             else
             {
-                var rolls = new List<(ForkOpinion Opinion, int Roll, int Total)>();
-                foreach (var opinion in opinions)
+                string charisma = HeroTraits.Name(Ability.Charisma);
+                var rolls = opinions.Select(opinion =>
                 {
-                    int roll = dice.Next(1, 21);
-                    rolls.Add((opinion, roll, roll + party[(int)opinion.Role].Modifier(Ability.Charisma)));
-                }
-                int top = rolls.Max(r => r.Total);
-                var leaders = rolls.Where(r => r.Total == top).ToList();
+                    int face = dice.Next(1, 21);
+                    return (Opinion: opinion, Die: new DiceRoll(opinion.Role, face, party[(int)opinion.Role].Modifier(Ability.Charisma), charisma));
+                }).ToList();
+                int top = rolls.Max(r => r.Die.Total);
+                var leaders = rolls.Where(r => r.Die.Total == top).ToList();
                 int Supporters(int option) => opinions.Count(o => o.Option == option);
                 var winner = leaders.OrderByDescending(r => Supporters(r.Opinion.Option))
                     .ThenBy(r => Array.IndexOf(MarchOrder, r.Opinion.Role)).First();
                 chosen = winner.Opinion.Option;
+                var speaker = party[(int)winner.Opinion.Role];
+                string way = fork.Options[chosen].Label;
+
                 summary.Append("설득 d20 + 매력  ");
                 summary.Append(string.Join("  ", rolls.Select(r =>
+                    $"{party[(int)r.Die.Role].Name} [{r.Die.Face}]{(r.Die.Modifier >= 0 ? "+" : "")}{r.Die.Modifier}={r.Die.Total}")));
+                summary.Append($"\n→ {speaker.Name}의 의견대로 {way}");
+
+                scene.Add(DialogueBeat.Contest(DialogueLines.PersuasionTitle, rolls.Select(r => r.Die).ToList(), speaker.Role));
+                if (leaders.Select(r => r.Opinion.Option).Distinct().Count() > 1)
                 {
-                    int mod = party[(int)r.Opinion.Role].Modifier(Ability.Charisma);
-                    return $"{party[(int)r.Opinion.Role].Name} [{r.Roll}]{(mod >= 0 ? "+" : "")}{mod}={r.Total}";
-                })));
-                summary.Append($"\n→ {party[(int)winner.Opinion.Role].Name}의 의견대로 {fork.Options[chosen].Label}");
+                    bool bySupport = leaders.Count(r => Supporters(r.Opinion.Option) == Supporters(chosen)) <
+                                     leaders.Count;
+                    scene.Add(DialogueBeat.Narration(bySupport
+                        ? $"합계가 같다. 지지한 용사가 더 많은 {way}로 정한다."
+                        : $"합계도, 지지한 용사 수도 같다. 대형 앞쪽 {speaker.Name}의 의견을 따른다."));
+                }
+                string closing = DialogueLines.Closing(speaker.Role);
+                scene.Add(DialogueBeat.Line(speaker.Role, closing));
+                scene.Add(DialogueBeat.Narration($"{speaker.Name}의 의견대로 {way}로 간다."));
+                log.Add($"{speaker.Name} “{closing}”");
             }
             LastFork = summary.ToString();
+            LastScene = scene.AsReadOnly();
             log.Add("결정 • " + LastFork.Replace('\n', ' '));
             ForkCount++;
             PendingFork = null;

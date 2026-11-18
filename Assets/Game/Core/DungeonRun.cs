@@ -163,11 +163,11 @@ namespace DungeonTycoon.Core
 
         /// <summary>
         /// Advances the expedition by one tick: monsters notice heroes, heroes explore or fight, monsters act.
-        /// Nothing moves while an adversity is being resolved.
+        /// Nothing moves while an adversity is being resolved or the party is debating at a fork.
         /// </summary>
         public bool Tick()
         {
-            if (!InDungeon || PendingAdversity) return false;
+            if (!InDungeon || PendingAdversity || PendingFork != null) return false;
             Ticks++;
             foreach (var monster in monsters) Perceive(monster);
             UpdateEngagement();
@@ -231,6 +231,17 @@ namespace DungeonTycoon.Core
         public int TrialModifier(HeroRole role) =>
             party[(int)role].Modifier(HeroTraits.TrialAbility(role)) + (Level - 1) / 2;
 
+        /// <summary>
+        /// Rolls the d20 for the pending adversity with the run's seeded dice and settles it, so the same seed and
+        /// the same intervention timing always give the same face.
+        /// </summary>
+        public bool RollAdversity(int token, HeroRole role, string declaration = null)
+        {
+            if (token == 0 || token != pendingTrial || !InDungeon) return false;
+            return ResolveAdversity(token, role, dice.Next(1, 21), declaration);
+        }
+
+        /// <summary>Settles the pending adversity with a given face. Tests use it to force a roll.</summary>
         public bool ResolveAdversity(int token, HeroRole role, int roll, string declaration = null)
         {
             if (token == 0 || token != pendingTrial || !InDungeon) return false;
@@ -250,7 +261,7 @@ namespace DungeonTycoon.Core
                 default: fallback = "바위가 떨어지기 전에 피하자!"; break;
             }
             actor.LastLine = string.IsNullOrWhiteSpace(declaration) ? fallback : declaration;
-            string outcome = success ? "성공 • 경험치 +1 / 신앙 +1" : "실패 • 체력 -8";
+            string outcome = success ? "성공 • 경험치 +1 / 신앙 +1" : $"실패 • 체력 -{TrialDamage}";
             LastTrial = $"{actor.Name} “{actor.LastLine}”\nd20 [{roll}] + {ability} {modifier} = {roll + modifier} / 난이도 {TrialDifficulty} → {outcome}";
             log.Add(LastTrial);
             if (success)
@@ -258,9 +269,35 @@ namespace DungeonTycoon.Core
                 Faith++;
                 GainExperience(1);
             }
-            else Hurt(actor, 8, "낙석");
+            else Hurt(actor, TrialDamage, "낙석");
+
+            var scene = new List<DialogueBeat>
+            {
+                DialogueBeat.Line(actor.Role, actor.LastLine),
+                DialogueBeat.Check(DialogueLines.TrialTitle(ability), new DiceRoll(actor.Role, roll, modifier, ability),
+                    TrialDifficulty, success),
+                DialogueBeat.Narration(success ? "성공 — 경험치 +1, 신앙 +1" :
+                    actor.Hp == 0 ? $"실패 — {HeroTraits.Subject(actor.Name)} 피해 {TrialDamage}을 입고 쓰러졌다." :
+                    $"실패 — {HeroTraits.Subject(actor.Name)} 피해 {TrialDamage}을 입었다.")
+            };
+            if (actor.Hp > 0)
+            {
+                string reaction = DialogueLines.Reaction(actor.Role, success);
+                scene.Add(DialogueBeat.Line(actor.Role, reaction));
+                log.Add($"{actor.Name} “{reaction}”");
+            }
+            LastScene = scene.AsReadOnly();
             return true;
         }
+
+        /// <summary>Damage a failed adversity deals to the hero who answered it. Balance value.</summary>
+        public const int TrialDamage = 8;
+
+        /// <summary>
+        /// The beats of the latest fork debate or adversity, in the order the stage shows them. The outcome they
+        /// show is already applied to the run.
+        /// </summary>
+        public IReadOnlyList<DialogueBeat> LastScene { get; private set; } = new DialogueBeat[0];
 
         private HeroState WoundedHero()
         {

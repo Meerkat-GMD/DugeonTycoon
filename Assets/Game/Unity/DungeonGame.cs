@@ -15,6 +15,7 @@ namespace DungeonTycoon.Unity
         private readonly bool[] living = new bool[4];
         private readonly TilePoint[] heroTiles = new TilePoint[4];
         private PartyDirector director;
+        private DialogueStage stage;
         private CancellationToken lifetime;
         private int fogVersion = -1;
         private float accumulator;
@@ -26,6 +27,11 @@ namespace DungeonTycoon.Unity
         public DungeonBoard Board { get; private set; }
         public string AiMode => director.ModeLabel;
         public bool Thinking => thinkers > 0;
+        /// <summary>
+        /// A fork debate or an adversity is playing on the dialogue stage. The dungeon stays still and the HUD keeps
+        /// showing the party as it was until the stage closes, so the cards never give the result away early.
+        /// </summary>
+        public bool Presenting => stage != null && stage.IsOpen;
         public int LastRoll { get; private set; }
         public string TrialAnnouncement { get; private set; } = "";
         /// <summary>The latest fork result or adversity, shown for a few seconds in the intervention panel.</summary>
@@ -48,6 +54,8 @@ namespace DungeonTycoon.Unity
             SetSpeed(1);
             RefreshLayout();
             gameObject.AddComponent<DungeonHud>();
+            // Mounts itself into the HUD document in Start, after the HUD has bound its own elements.
+            stage = gameObject.AddComponent<DialogueStage>();
         }
 
         public void SetSpeed(int speed)
@@ -89,13 +97,16 @@ namespace DungeonTycoon.Unity
 
         private static bool InDungeon(DungeonRun run) => run.Phase == RunPhase.Travel || run.Phase == RunPhase.Combat;
 
-        /// <summary>Feeds fixed ticks to the run at the chosen speed; pausing or an adversity stops the clock.</summary>
+        /// <summary>
+        /// Feeds fixed ticks to the run at the chosen speed. Pausing, an adversity, a fork debate or the dialogue
+        /// stage stops the clock.
+        /// </summary>
         private void Update()
         {
             var run = Run;
             if (run == null || !InDungeon(run)) return;
             int stage = run.Stage;
-            if (run.PendingAdversity || Speed == 0) accumulator = 0;
+            if (run.PendingAdversity || Speed == 0 || Presenting) accumulator = 0;
             else
             {
                 accumulator += Time.deltaTime*Speed;
@@ -116,6 +127,8 @@ namespace DungeonTycoon.Unity
                 RefreshLayout();
                 return;
             }
+            // The result is already applied in Core; the board catches up once the stage has shown it.
+            if (Presenting) return;
             RefreshParty();
             Board.SetMonsters(run.Monsters);
             Board.PlayEvents(run.TakeEvents());
@@ -133,24 +146,54 @@ namespace DungeonTycoon.Unity
             }
         }
 
+        /// <summary>
+        /// Plays a fork debate on the stage: the narrator opens while the heroes think, then Core settles the fork
+        /// and the stage shows the opinions, the persuasion dice and the result. The dungeon is frozen throughout.
+        /// </summary>
         private async UniTask DiscussAsync(DungeonRun expedition, ForkDiscussion fork, CancellationToken token)
+        {
+            stage.Open(expedition);
+            try
+            {
+                stage.SetThinking(LivingRoles(expedition));
+                var discussion = Think(director.DiscussAsync(expedition, fork, token));
+                await stage.SayAsync(null, DialogueLines.Opening(fork), token);
+                var proposals = await discussion;
+                stage.SetThinking(Array.Empty<HeroRole>());
+                if (Run != expedition || !expedition.ResolveFork(fork.Token, proposals)) return;
+                Spotlight(fork.Backtracking ? "막다른 길 · 결정" : "갈림길 · 결정", expedition.LastFork);
+                await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
+            }
+            finally
+            {
+                if (stage) stage.Close();
+            }
+        }
+
+        /// <summary>Counts an AI request as "판단 중" for the HUD until it answers.</summary>
+        private async UniTask<T> Think<T>(UniTask<T> request)
         {
             thinkers++;
             try
             {
-                // Give the GM a moment to read the options even when the answer is local and instant.
-                var discussion = director.DiscussAsync(expedition, fork, token);
-                await UniTask.Delay(TimeSpan.FromSeconds(1.2), cancellationToken: token);
-                var proposals = await discussion;
-                while (expedition.PendingAdversity) await UniTask.Yield(PlayerLoopTiming.Update, token);
-                if (Run != expedition || !expedition.ResolveFork(fork.Token, proposals)) return;
-                Spotlight(fork.Backtracking ? "막다른 길 · 결정" : "갈림길 · 결정", expedition.LastFork);
+                return await request;
             }
             finally
             {
                 thinkers--;
             }
         }
+
+        private static HeroRole[] LivingRoles(DungeonRun run)
+        {
+            var roles = new System.Collections.Generic.List<HeroRole>();
+            foreach (var hero in run.Party)
+                if (hero.Hp > 0) roles.Add(hero.Role);
+            return roles.ToArray();
+        }
+
+        /// <summary>The 3D die over the party spins while the stage rolls its dice.</summary>
+        private void PlayRoll(DialogueBeat roll) => Board.PlayAdversity(roll.Difficulty == 0 || roll.Success);
 
         /// <summary>Asks for tactics for one situation; the fight keeps going on local rules meanwhile.</summary>
         private async UniTask PlanAsync(DungeonRun expedition, int situation, CancellationToken token)
@@ -176,29 +219,42 @@ namespace DungeonTycoon.Unity
 
         public void Trial()
         {
+            if (Presenting) return;
             int ticket = Run.BeginAdversity();
             if (ticket == 0) return;
             LastRoll = 0;
             TrialAnnouncement = "낙석이 떨어진다!  용사가 대응을 선언하는 중…";
+            // Open before the first await so the clock stops this very frame.
+            stage.Open(Run);
             RollAsync(Run, ticket, lifetime).Forget();
         }
 
+        /// <summary>
+        /// Plays an adversity on the stage: the narrator opens while every living hero thinks, the party names a
+        /// representative, Core rolls the seeded d20 and the stage shows the declaration, the check and the outcome.
+        /// </summary>
         private async UniTask RollAsync(DungeonRun expedition, int ticket, CancellationToken token)
         {
-            var response = await director.RespondAsync(expedition, token);
-            if (Run != expedition) return;
-            TrialAnnouncement = response.Line;
-            await UniTask.Delay(TimeSpan.FromSeconds(.85), cancellationToken: token);
-            if (Run != expedition) return;
-            int roll = UnityEngine.Random.Range(1, 21);
-            int modifier = expedition.TrialModifier(response.Role);
-            int difficulty = expedition.TrialDifficulty;
-            if (!expedition.ResolveAdversity(ticket, response.Role, roll, response.Line)) return;
-            LastRoll = roll;
-            TrialAnnouncement = expedition.LastTrial;
-            Spotlight("낙석 역경 · 판정 결과", expedition.LastTrial);
-            Board.PlayAdversity(D20Check.Succeeds(roll, modifier, difficulty));
-            RefreshParty();
+            try
+            {
+                stage.SetThinking(LivingRoles(expedition));
+                var answer = Think(director.RespondAsync(expedition, token));
+                await stage.SayAsync(null, DialogueLines.RockfallOpening, token);
+                var response = await answer;
+                stage.SetThinking(Array.Empty<HeroRole>());
+                if (Run != expedition) return;
+                TrialAnnouncement = response.Line;
+                if (!expedition.RollAdversity(ticket, response.Role, response.Line)) return;
+                foreach (var beat in expedition.LastScene)
+                    if (beat.Kind == BeatKind.Roll) LastRoll = beat.Rolls[0].Face;
+                TrialAnnouncement = expedition.LastTrial;
+                Spotlight("낙석 역경 · 판정 결과", expedition.LastTrial);
+                await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
+            }
+            finally
+            {
+                if (stage) stage.Close();
+            }
         }
 
         /// <summary>Blesses the hero the GM selected. Works while paused.</summary>

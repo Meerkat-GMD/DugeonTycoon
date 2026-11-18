@@ -1,0 +1,322 @@
+/*
+    Fork debate and adversity stage (variant C "무대"). Cloned into the HUD's `hud` element, so the HUD's
+    colour variables, font and panel units (about 640 units tall, at least 1000 wide) apply here too.
+    Every rule is prefixed with .hud so it wins over the default runtime theme.
+*/
+
+.hud .dialogue-stage {
+    position: absolute;
+    left: 15%;
+    right: 15%;
+    bottom: 10px;
+    height: 214px;
+    display: none;
+}
+
+/* ── Dialogue box ────────────────────────────────────────────────── */
+
+.hud .stage-box {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 110px;
+    padding: 16px 24px 30px 24px;
+    background-color: rgba(21, 27, 32, 0.94);
+    border-width: 2px;
+    border-color: var(--edge);
+    border-radius: 8px;
+}
+
+.hud .stage-line {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.hud .stage-speaker {
+    flex-shrink: 0;
+    margin-right: 12px;
+    font-size: 17px;
+    -unity-font-style: bold;
+}
+
+.hud .stage-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 17px;
+    white-space: normal;
+    color: var(--paper);
+}
+
+.hud .stage-box.narration .stage-text {
+    color: var(--gold);
+    -unity-font-style: italic;
+    -unity-text-align: upper-center;
+}
+
+.hud .stage-next {
+    position: absolute;
+    right: 128px;
+    bottom: 9px;
+    font-size: 12px;
+    color: var(--gold);
+    display: none;
+}
+
+.hud .stage-auto {
+    position: absolute;
+    right: 10px;
+    bottom: 7px;
+    height: 22px;
+    min-width: 0;
+    margin: 0;
+    padding: 0 10px;
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 11px;
+    background-color: var(--ink);
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.hud .stage-auto:hover {
+    background-color: var(--card);
+}
+
+.hud .stage-auto.on {
+    border-color: var(--gold);
+    background-color: var(--gold);
+    color: var(--ink);
+    -unity-font-style: bold;
+}
+
+/* ── Portrait slots ──────────────────────────────────────────────── */
+
+.hud .stage-slots {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 102px;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: flex-end;
+}
+
+.hud .stage-slot {
+    width: 92px;
+    align-items: center;
+    opacity: 0.55;
+    transition-property: translate, scale, opacity;
+    transition-duration: 0.25s;
+    transition-timing-function: ease-out;
+}
+
+.hud .stage-slot.thinking {
+    opacity: 0.85;
+}
+
+.hud .stage-slot.rolling {
+    opacity: 1;
+}
+
+/* The same profile art as the hero cards: a round frame with the hero's face on top. */
+.hud .stage-portrait {
+    width: 72px;
+    height: 72px;
+    border-width: 3px;
+    border-radius: 36px;
+    border-color: rgba(0, 0, 0, 0);
+    background-image: url("/Assets/Art/Heroes/Portraits/portrait_frame.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud .stage-face {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    right: 1px;
+    bottom: 1px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud .stage-slot.role-0 .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_tank.png"); }
+.hud .stage-slot.role-1 .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_healer.png"); }
+.hud .stage-slot.role-2 .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_melee.png"); }
+.hud .stage-slot.role-3 .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_ranged.png"); }
+
+.hud .stage-hero-name {
+    margin-top: 3px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background-color: var(--ink);
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.hud .stage-slot.role-0 .stage-hero-name { color: #74C5C4; }
+.hud .stage-slot.role-1 .stage-hero-name { color: #E2C77D; }
+.hud .stage-slot.role-2 .stage-hero-name { color: #DB9AA8; }
+.hud .stage-slot.role-3 .stage-hero-name { color: #A2CD88; }
+
+/* The speaker steps forward with a gold ring. Kept after the role colours so the ring wins. */
+.hud .stage-slot.talk {
+    opacity: 1;
+    translate: 0 -14px;
+    scale: 1.12 1.12;
+}
+
+.hud .stage-slot.talk .stage-portrait {
+    border-color: var(--gold);
+}
+
+.hud .stage-slot.down {
+    opacity: 0.45;
+}
+
+.hud .stage-slot.down .stage-portrait {
+    -unity-background-image-tint-color: rgba(140, 140, 140, 0.6);
+}
+
+.hud .stage-slot.down .stage-face {
+    -unity-background-image-tint-color: rgba(110, 110, 110, 0.55);
+}
+
+.hud .stage-slot.down .stage-hero-name {
+    color: #7E8A88;
+}
+
+/* "생각 중…" or "쓰러짐" floats just above the portrait. */
+.hud .stage-status {
+    position: absolute;
+    top: -22px;
+    left: -24px;
+    right: -24px;
+    -unity-text-align: middle-center;
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--gold);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.85);
+    display: none;
+}
+
+.hud .stage-slot.down .stage-status {
+    color: var(--ember);
+}
+
+/* ── Dice ────────────────────────────────────────────────────────── */
+
+.hud .stage-over {
+    position: absolute;
+    bottom: 100%;
+    left: -40px;
+    right: -40px;
+    margin-bottom: 4px;
+    align-items: center;
+}
+
+.hud .stage-die {
+    width: 54px;
+    height: 54px;
+    align-items: center;
+    justify-content: center;
+}
+
+.hud .stage-die-number {
+    font-size: 21px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: var(--ink);
+}
+
+.hud .stage-die.nat1 .stage-die-number {
+    color: #FFD9CF;
+}
+
+.hud .stage-die.dim {
+    opacity: 0.45;
+}
+
+.hud .stage-calc {
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--paper);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.85);
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.2s;
+}
+
+.hud .stage-calc.show {
+    opacity: 1;
+}
+
+.hud .stage-crown {
+    margin-bottom: 3px;
+    padding: 1px 8px;
+    border-radius: 8px;
+    background-color: var(--gold);
+    color: var(--ink);
+    font-size: 11px;
+    -unity-font-style: bold;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.2s;
+}
+
+.hud .stage-crown.show {
+    opacity: 1;
+}
+
+/* ── Difficulty and stamp, beside the slots ──────────────────────── */
+
+.hud .stage-dc {
+    position: absolute;
+    right: -108px;
+    bottom: 118px;
+    width: 96px;
+    align-items: center;
+    display: none;
+}
+
+.hud .stage-dc-caption {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.hud .stage-dc-value {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: var(--paper);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+.hud .stage-stamp {
+    margin-top: 6px;
+    padding: 2px 10px;
+    border-width: 3px;
+    border-radius: 6px;
+    font-size: 22px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    rotate: -8deg;
+    scale: 2 2;
+    opacity: 0;
+    transition-property: scale, opacity;
+    transition-duration: 0.22s;
+    transition-timing-function: ease-out-back;
+}
+
+.hud .stage-stamp.ok {
+    color: var(--teal);
+    border-color: var(--teal);
+}
+
+.hud .stage-stamp.fail {
+    color: var(--ember);
+    border-color: var(--ember);
+}
+
+.hud .stage-stamp.show {
+    scale: 1 1;
+    opacity: 1;
+}

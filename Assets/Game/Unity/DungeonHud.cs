@@ -27,7 +27,7 @@ namespace DungeonTycoon.Unity
         private UIDocument document;
         private PanelSettings panel;
         private VisualElement hud, bossBar, bossFill, party, bottom, history;
-        private VisualElement planningPage, interventionPage, resultPage, speedGroup, info;
+        private VisualElement planningPage, interventionPage, resultPage, speedGroup, info, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label category, hint, budget, faith, trials, summaryTitle, summaryDetail;
         private Label infoHeading, infoText, infoNote, resultTitle, resultText;
@@ -212,7 +212,8 @@ namespace DungeonTycoon.Unity
                 if (Input.GetKeyDown(KeyCode.Escape)) history.RemoveFromClassList("open");
                 return;
             }
-            if (!Exploring(run)) return;
+            // While the dialogue stage is open, Space and clicks advance its lines instead.
+            if (!Exploring(run) || game.Presenting) return;
             if (Input.GetKeyDown(KeyCode.Space)) game.TogglePause();
             if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) game.SetSpeed(1);
             if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) game.SetSpeed(2);
@@ -246,7 +247,10 @@ namespace DungeonTycoon.Unity
             follow.EnableInClassList("on",game.Board.FollowParty);
 
             float growth = (float)run.ExperienceIntoLevel/DungeonRun.ExperiencePerLevel;
-            for (int i = 0; i < heroes.Length; i++) RefreshHero(run,run.Party[i],i,growth);
+            // The stage shows a result before the cards do, so they hold still until it closes.
+            for (int i = 0; i < heroes.Length; i++)
+                if (game.Presenting) MuteHero(run.Party[i],i);
+                else RefreshHero(run,run.Party[i],i,growth);
             aiMode.text = game.AiMode+(game.Thinking ? "  ·  판단 중" : "");
             aiMode.EnableInClassList("thinking",game.Thinking);
 
@@ -256,7 +260,7 @@ namespace DungeonTycoon.Unity
                 run.Log.Count == 0 ? "" : run.Log[run.Log.Count-1].Replace('\n',' ');
             hint.EnableInClassList("warning",warning);
             budget.text = run.Budget.ToString();
-            faith.text = run.Faith.ToString();
+            if (!game.Presenting) faith.text = run.Faith.ToString();
             trials.text = run.TrialsLeft+" / 2";
 
             Show(speedGroup,exploring);
@@ -265,6 +269,10 @@ namespace DungeonTycoon.Unity
             Show(primary,planning || finished);
             primary.text = planning ? "원정 출발  ›" : "새 원정";
             collapse.text = bottom.ClassListContains("collapsed") ? "▲" : "▼";
+
+            // The dialogue stage replaces the bottom panel while it plays. Hidden rather than removed, so the panel
+            // keeps its layout (the camera reads its bounds) and its hint line cannot give the result away.
+            bottom.style.visibility = game.Presenting ? Visibility.Hidden : Visibility.Visible;
 
             Show(planningPage,planning);
             Show(interventionPage,exploring);
@@ -300,6 +308,18 @@ namespace DungeonTycoon.Unity
             bool speaking = !down && !string.IsNullOrWhiteSpace(line) && Time.unscaledTime-card.HeardAt <= LineSeconds;
             Show(card.Bubble,speaking);
             if (speaking) card.Line.text = line;
+        }
+
+        /// <summary>
+        /// Keeps a card's bubble hidden while the stage speaks, and marks the line as already heard so it does not
+        /// pop up beside the card once the stage closes.
+        /// </summary>
+        private void MuteHero(HeroState hero,int index)
+        {
+            var card = heroes[index];
+            card.Heard = hero.LastLine ?? "";
+            card.HeardAt = -1000;
+            Show(card.Bubble,false);
         }
 
         private void RefreshPlanning(DungeonRun run)
@@ -418,6 +438,13 @@ namespace DungeonTycoon.Unity
             if (screen.width <= 0 || screen.height <= 0 || float.IsNaN(columnRight) || float.IsNaN(panelTop) ||
                 float.IsNaN(bossBottom))
                 return;
+            // The open dialogue stage stands over the bottom panel, so the party is framed above it.
+            dialogueStage ??= hud.Q("dialogue-stage");
+            if (game.Presenting && dialogueStage != null && dialogueStage.resolvedStyle.display == DisplayStyle.Flex)
+            {
+                float stageTop = dialogueStage.worldBound.yMin;
+                if (!float.IsNaN(stageTop) && stageTop > 0) panelTop = Mathf.Min(panelTop,stageTop);
+            }
             float w = screen.width, h = screen.height;
             game.Board.SetClearArea(Rect.MinMaxRect((columnRight+8)/w,(h-panelTop)/h,1,1-(bossBottom+4)/h));
             if (!fitPending) return;
@@ -453,7 +480,8 @@ namespace DungeonTycoon.Unity
             float wheel = Input.mouseScrollDelta.y;
             if (wheel != 0 && overBoard) game.Board.ZoomAt(mouse,Mathf.Clamp(-wheel,-1,1));
 
-            if (Input.GetMouseButtonDown(0) && overBoard)
+            // A left click advances the dialogue stage while it is open; it must not also pick a hero.
+            if (Input.GetMouseButtonDown(0) && overBoard && !game.Presenting)
             {
                 if (onTile) Paint(tile);
                 else if (Exploring(run) && game.Board.TryPickHero(mouse,out int hero))

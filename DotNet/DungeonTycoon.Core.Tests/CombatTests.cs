@@ -162,29 +162,32 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void AFightCancelsAForkThatIsStillBeingDiscussed()
+        public void ADebateFreezesTheWholeDungeonUntilTheForkIsSettled()
         {
             var blind = new DungeonRun();
             blind.Start();
             Assert.That(ExplorationTests.TickToFirstFork(blind), Is.True);
             var leader = blind.LeaderTile;
-            var candidates = DungeonRunTests.PlaceableTiles(blind)
+            // Goblins just outside notice range would wander into sight if the dungeon kept moving.
+            var spots = DungeonRunTests.PlaceableTiles(blind)
                 .Where(t => Chebyshev(t, leader) > DungeonRun.DetectRadius && Chebyshev(t, leader) <= DungeonRun.DetectRadius + DungeonRun.WanderRadius)
-                .ToList();
-            foreach (var spot in candidates)
-            {
-                var probe = new DungeonRun();
-                probe.Place(spot, MonsterKind.Goblin);
-                probe.Start();
-                if (!ExplorationTests.TickToFirstFork(probe)) continue;
-                // Leave the party arguing; a wandering goblin may walk into sight.
-                for (int i = 0; i < 400 && probe.PendingFork != null; i++) probe.Tick();
-                if (probe.Phase != RunPhase.Combat) continue;
-                Assert.That(probe.PendingFork, Is.Null);
-                Assert.That(probe.Log.Any(l => l.StartsWith("논의 중단")), Is.True);
-                return;
-            }
-            Assert.Fail("no wandering goblin interrupted the first fork");
+                .Take(6).ToList();
+            Assert.That(spots, Is.Not.Empty);
+            var run = new DungeonRun();
+            foreach (var spot in spots) run.Place(spot, MonsterKind.Goblin);
+            run.Start();
+            Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
+
+            int ticks = run.Ticks;
+            var tiles = run.Monsters.Select(m => m.Tile).ToList();
+            for (int i = 0; i < 400; i++) Assert.That(run.Tick(), Is.False);
+            Assert.That(run.Ticks, Is.EqualTo(ticks), "no time passes during the debate");
+            Assert.That(run.Monsters.Select(m => m.Tile), Is.EqualTo(tiles), "monsters wait too");
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Travel));
+            Assert.That(run.PendingFork, Is.Not.Null);
+
+            Assert.That(run.ResolveFork(run.PendingFork.Token), Is.True);
+            Assert.That(run.Tick(), Is.True, "time flows again once the party has chosen");
         }
     }
 }

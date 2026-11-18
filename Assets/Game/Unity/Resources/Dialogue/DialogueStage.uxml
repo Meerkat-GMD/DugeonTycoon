@@ -1,0 +1,62 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="DialogueStage.uss" />
+    <!--
+        The fork debate and adversity stage. DialogueStage.cs clones this into the HUD's `hud` element and
+        finds everything by name, so keep the names when restyling. Slots stand left to right in marching
+        order (tank, melee, healer, ranged); slot-N is the hero with HeroRole index N.
+        The stage root blocks the mouse so a click on it advances the dialogue instead of reaching the board.
+    -->
+    <ui:VisualElement name="dialogue-stage" class="dialogue-stage">
+
+        <ui:VisualElement name="stage-box" class="stage-box">
+            <ui:VisualElement class="stage-line" picking-mode="Ignore">
+                <ui:Label name="stage-speaker" class="stage-speaker" text="가론" picking-mode="Ignore" />
+                <ui:Label name="stage-text" class="stage-text" text="" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:Label name="stage-next" class="stage-next" text="▼" picking-mode="Ignore" />
+            <ui:Button name="stage-auto" class="stage-auto" text="자동 진행 ON" focusable="false" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="stage-slots" class="stage-slots" picking-mode="Ignore">
+            <ui:VisualElement name="slot-0" class="stage-slot role-0" picking-mode="Ignore">
+                <ui:VisualElement name="over" class="stage-over" picking-mode="Ignore" />
+                <ui:Label name="status" class="stage-status" picking-mode="Ignore" />
+                <ui:VisualElement name="portrait" class="stage-portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="stage-face" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="name" class="stage-hero-name" text="가론" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="slot-2" class="stage-slot role-2" picking-mode="Ignore">
+                <ui:VisualElement name="over" class="stage-over" picking-mode="Ignore" />
+                <ui:Label name="status" class="stage-status" picking-mode="Ignore" />
+                <ui:VisualElement name="portrait" class="stage-portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="stage-face" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="name" class="stage-hero-name" text="카이" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="slot-1" class="stage-slot role-1" picking-mode="Ignore">
+                <ui:VisualElement name="over" class="stage-over" picking-mode="Ignore" />
+                <ui:Label name="status" class="stage-status" picking-mode="Ignore" />
+                <ui:VisualElement name="portrait" class="stage-portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="stage-face" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="name" class="stage-hero-name" text="세레나" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="slot-3" class="stage-slot role-3" picking-mode="Ignore">
+                <ui:VisualElement name="over" class="stage-over" picking-mode="Ignore" />
+                <ui:Label name="status" class="stage-status" picking-mode="Ignore" />
+                <ui:VisualElement name="portrait" class="stage-portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="stage-face" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Label name="name" class="stage-hero-name" text="리아" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="stage-dc" class="stage-dc" picking-mode="Ignore">
+            <ui:Label class="stage-dc-caption" text="난이도" picking-mode="Ignore" />
+            <ui:Label name="dc-value" class="stage-dc-value" text="13" picking-mode="Ignore" />
+            <ui:Label name="dc-stamp" class="stage-stamp" text="성공" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>
