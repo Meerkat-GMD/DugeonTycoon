@@ -1,6 +1,7 @@
 # 프로토타입 폴더를 http://localhost:8765/ 로 띄우는 정적 파일 서버 (추가 설치 불필요)
-param([int]$Port = 8765)
-$root = $PSScriptRoot
+# -Root 로 다른 폴더를 띄울 수 있다. 기본은 이 스크립트가 있는 폴더다.
+param([int]$Port = 8765, [string]$Root = $PSScriptRoot)
+$root = [IO.Path]::GetFullPath($Root)
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$Port/")
 $listener.Start()

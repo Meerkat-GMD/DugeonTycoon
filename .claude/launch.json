@@ -6,6 +6,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "Prototype/serve.ps1"],
       "port": 8765
+    },
+    {
+      "name": "repo-prototypes",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "Prototype/serve.ps1", "-Port", "8766", "-Root", "."],
+      "port": 8766
     }
   ]
 }

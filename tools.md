@@ -51,6 +51,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Prototype/serve.ps1
 
 실행 후 `http://localhost:8765/`에서 플레이하고, `http://localhost:8765/sim.html`에서 첫 플레이 검증 기준(빈 던전 패배·성장한 파티 승리)을 시드 200개로 확인한다. 규칙 로직은 `Prototype/core.js`, 화면과 실시간 진행·모의 AI는 `Prototype/index.html`에 있다.
 
+연출을 정하려고 만드는 일회용 HTML 프로토타입은 `Prototypes/`에 두고, 실제 초상화(`Assets/Art`)를 쓰도록 저장소 루트를 띄운다. Claude 앱에서는 `.claude/launch.json`의 `repo-prototypes` 설정이 같은 일을 한다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File Prototype/serve.ps1 -Port 8766 -Root .
+```
+
+결정이 나면 프로토타입은 `prototype/<주제>` 브랜치에 커밋해 보관하고 main에서는 지운다. 결정 내용만 [게임 규칙](gamerules.md)에 남긴다. 보관 중인 브랜치는 `prototype/dialogue-dice`(대화 무대), `prototype/loot-oracle-fatigue`(전리품 분배·신탁·피로)다. 다시 보려면 해당 브랜치의 파일을 꺼내 위 명령으로 띄운다.
+
 ## Unity 패키지를 추가하거나 복원이 실패할 때
 
 Unity Package Manager의 직접 의존성은 [manifest.json](Packages/manifest.json), 실제로 해석된 버전은 [packages-lock.json](Packages/packages-lock.json)에서 확인한다. 이 프로젝트는 렌더링에 URP, Unity 비동기 처리에 UniTask를 사용한다. UniTask는 Git URL로 고정되어 있으므로 처음 받으려면 Git과 원격 저장소에 대한 네트워크 연결이 필요하다.
