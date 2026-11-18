@@ -248,6 +248,23 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
+        public void TheBeamAlsoScorchesTheTilesAroundItsCaster()
+        {
+            var run = Arena();
+            var boss = run.Boss;
+            Put(boss, 36, 6);
+            Put(run, HeroRole.Tank, 39, 6);
+            // Diagonally behind the caster: no line toward the tank passes here, only the scorched ring does.
+            Put(run, HeroRole.MeleeDamage, 35, 5);
+            var cast = run.ForceCast(boss, MonsterPattern.TrackingBeam, HeroRole.Tank);
+            for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+                Assert.That(cast.Area, Does.Contain(new TilePoint(36 + dx, 6 + dy)));
+            TickUntilFired(run, cast);
+            Assert.That(cast.Hits, Does.Contain((int)HeroRole.MeleeDamage), "frozen beside the caster, it cannot get out");
+        }
+
+        [Test]
         public void ABeamIsCalledOffWhenItsCasterFalls()
         {
             var (run, cast) = BeamAtTheTank(null);

@@ -333,7 +333,8 @@ namespace DungeonTycoon.Unity
                     Tint(fx.Line, BlastCore, 1 - t * t);
                     Stretch(fx.Trail, from, to, 1.3f * (1 - .5f * t), .8f * (1 - .5f * t));
                     Tint(fx.Trail, LockColor, .5f * (1 - t));
-                    Place(fx.Flash, fx.Origin + Vector3.up * .07f, tile * (.7f + .5f * t));
+                    // The blast also scorches the 3×3 around the caster, so the flash spreads that far.
+                    Place(fx.Flash, fx.Origin + Vector3.up * .07f, tile * (1.3f + .4f * t));
                     Tint(fx.Flash, BlastCore, .7f * (1 - t));
                     poseFoe(cast.Caster.Id, -direction * (.18f * (1 - t)), 1);
                     return true;

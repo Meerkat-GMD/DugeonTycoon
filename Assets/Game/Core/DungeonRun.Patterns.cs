@@ -205,7 +205,10 @@ namespace DungeonTycoon.Core
             log.Add(struck.Count == 0 ? $"{name} 발동 • 아무도 맞지 않았습니다." : $"{name} 발동 • {string.Join(", ", struck)} 피해");
         }
 
-        /// <summary>The tiles a pattern covers when aimed through <paramref name="aim"/>. Walls stop it.</summary>
+        /// <summary>
+        /// The tiles a pattern covers when aimed through <paramref name="aim"/>. Walls stop it. The tracking beam also
+        /// scorches the 3×3 around its caster, so a target cannot slip out of it by hugging the caster.
+        /// </summary>
         private HashSet<TilePoint> AreaOf(MonsterState caster, MonsterPattern pattern, TilePoint aim)
         {
             switch (pattern)
@@ -213,7 +216,10 @@ namespace DungeonTycoon.Core
                 case MonsterPattern.Slam: return Square(caster.Tile);
                 case MonsterPattern.Meteor: return Square(aim);
                 case MonsterPattern.SoulBolt: return Line(caster.Tile, aim, MonsterPatterns.Reach(pattern), BoltHalfWidth);
-                case MonsterPattern.TrackingBeam: return Line(caster.Tile, aim, MonsterPatterns.Reach(pattern), BeamHalfWidth);
+                case MonsterPattern.TrackingBeam:
+                    var beam = Line(caster.Tile, aim, MonsterPatterns.Reach(pattern), BeamHalfWidth);
+                    beam.UnionWith(Square(caster.Tile));
+                    return beam;
                 default: throw new ArgumentOutOfRangeException(nameof(pattern));
             }
         }
