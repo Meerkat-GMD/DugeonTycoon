@@ -25,7 +25,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    -unity-font-definition: url("/Assets/Art/Fonts/NotoSansKR/NotoSansKR-Regular-SDF.asset");
+    -unity-font-definition: url("/Assets/Art/Fonts/Mona10/Mona10-SDF.asset");
     color: var(--paper);
     font-size: 12px;
 }

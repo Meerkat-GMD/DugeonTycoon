@@ -40,7 +40,8 @@ HUD는 UI Toolkit으로 만든다. 모양은 [DungeonHud.uxml](Assets/Game/Unity
 - 크기 단위는 화면 높이 약 640 단위 기준이다. 실행 중에는 `DungeonHud.cs`가 [HudPanel](Assets/Game/Unity/Resources/Hud/HudPanel.asset)의 복사본 배율을 화면에 맞게 바꾸고, 에셋 자체는 배율 1로 둔다.
 - `picking-mode="Ignore"`인 요소는 마우스를 아래 던전으로 통과시킨다. 글자만 있는 표시나 말풍선처럼 던전 조작을 막지 않아야 하는 요소에 쓴다.
 - 카메라는 용사 카드 열(`party`), 보스 바(`boss-bar`), 아래 패널(`bottom`)의 실제 위치를 읽어 가려지지 않는 영역을 정한다. 이 요소들의 이름을 바꾸면 스크립트도 같이 바꾼다.
-- 한글 글꼴은 [Noto Sans KR](Assets/Art/Fonts/NotoSansKR/)(SIL Open Font License, [OFL.txt](Assets/Art/Fonts/NotoSansKR/OFL.txt))의 동적 SDF 글꼴 에셋이다. Regular 에셋의 굵기 표에 Bold 에셋이 연결되어 있어 USS의 `-unity-font-style: bold`가 실제 굵은 글꼴로 그려진다. 원본 OTF는 [notofonts/noto-cjk](https://github.com/notofonts/noto-cjk)의 `Sans/SubsetOTF/KR`에서 받았다.
+- 게임 글꼴은 [Mona10](Assets/Art/Fonts/Mona10/)의 동적 SDF 글꼴 에셋이다. `DungeonHud.uss`의 `.hud`가 기본으로 Regular(`Mona10-SDF`)를 쓰고, Regular 에셋의 굵기 표에 Bold 에셋(`Mona10-Bold-SDF`)이 연결되어 있어 USS의 `-unity-font-style: bold`가 실제 굵은 글꼴로 그려진다. 대화·기도 화면도 `hud` 안에 복제되므로 같은 글꼴을 쓴다.
+- Mona10에 없는 글자는 대체 글꼴 표에 연결된 [Noto Sans KR](Assets/Art/Fonts/NotoSansKR/)(SIL Open Font License, [OFL.txt](Assets/Art/Fonts/NotoSansKR/OFL.txt))로 그린다(Regular→Noto Regular, Bold→Noto Bold). Noto 원본 OTF는 [notofonts/noto-cjk](https://github.com/notofonts/noto-cjk)의 `Sans/SubsetOTF/KR`에서 받았다.
 
 ## 웹 프로토타입으로 규칙을 빠르게 시험할 때
 
