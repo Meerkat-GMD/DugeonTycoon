@@ -170,16 +170,17 @@
 }
 
 .hud .stage-slot.down {
-    opacity: 0.45;
+    opacity: 1;
 }
 
 .hud .stage-slot.down .stage-portrait {
     -unity-background-image-tint-color: rgba(140, 140, 140, 0.6);
 }
 
-.hud .stage-slot.down .stage-face {
-    -unity-background-image-tint-color: rgba(110, 110, 110, 0.55);
-}
+.hud .stage-slot.role-0.down .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_tank_down.png"); }
+.hud .stage-slot.role-1.down .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_healer_down.png"); }
+.hud .stage-slot.role-2.down .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_melee_down.png"); }
+.hud .stage-slot.role-3.down .stage-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_ranged_down.png"); }
 
 .hud .stage-slot.down .stage-hero-name {
     color: #7E8A88;

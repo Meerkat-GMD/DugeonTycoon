@@ -499,9 +499,10 @@
     -unity-background-image-tint-color: rgba(140, 140, 140, 0.6);
 }
 
-.hud .hero-card.down .portrait-face {
-    -unity-background-image-tint-color: rgba(110, 110, 110, 0.55);
-}
+.hud .hero-card.role-0.down .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_tank_down.png"); }
+.hud .hero-card.role-1.down .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_healer_down.png"); }
+.hud .hero-card.role-2.down .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_melee_down.png"); }
+.hud .hero-card.role-3.down .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_ranged_down.png"); }
 
 .hud .hero-info {
     flex-grow: 1;
