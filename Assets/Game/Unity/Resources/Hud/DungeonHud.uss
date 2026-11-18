@@ -1030,3 +1030,35 @@
 .title-menu .title-action:disabled {
     color: #9ba99c;
 }
+#prologue {
+    display: none;
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background-color: #181320;
+}
+#prologue-art { flex-grow: 1; flex-basis: 0; min-height: 0; }
+#prologue-caption {
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    bottom: 5%;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    -unity-font-definition: url("/Assets/Art/Fonts/NotoSansKR/NotoSansKR-Bold-SDF.asset");
+    color: #ffffff;
+    -unity-text-outline-color: #17121b;
+    -unity-text-outline-width: 2px;
+    text-shadow: 0 2px 2px #17121b;
+    font-size: 46px;
+}
+.prologue-action {
+    background-color: #352737;
+    border-color: #af9163;
+    border-width: 2px;
+    border-radius: 8px;
+    padding: 8px 30px;
+    color: #fff1d4;
+    font-size: 28px;
+}
+.prologue-action:hover, .prologue-action:focus { background-color: #594150; }
+#prologue-skip { position: absolute; top: 32px; right: 40px; }

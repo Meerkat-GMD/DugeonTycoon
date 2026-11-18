@@ -318,9 +318,14 @@
     <ui:VisualElement name="title-screen" class="title-screen">
         <ui:VisualElement class="title-menu">
             <ui:Label text="던전 타이쿤" class="title-name" />
-            <ui:Button name="title-new" text="새 게임" class="title-action title-primary" />
+            <ui:Button name="title-new" text="새로 시작" class="title-action title-primary" />
             <ui:Button name="title-continue" text="이어하기" class="title-action" />
             <ui:Button name="title-quit" text="게임 종료" class="title-action" />
+        </ui:VisualElement>
+        <ui:VisualElement name="prologue" focusable="true">
+            <ui:Image name="prologue-art" scale-mode="ScaleToFit" picking-mode="Ignore" />
+            <ui:Label name="prologue-caption" picking-mode="Ignore" />
+            <ui:Button name="prologue-skip" class="prologue-action" text="Skip" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

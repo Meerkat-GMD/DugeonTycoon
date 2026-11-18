@@ -124,11 +124,7 @@ namespace DungeonTycoon.Unity
             hud.style.display = DisplayStyle.None;
             titleScreen = root.Q("title-screen");
             var newGame = titleScreen.Q<Button>("title-new");
-            newGame.clicked += () => {
-                titleScreen.RemoveFromHierarchy();
-                titleScreen = null;
-                hud.style.display = DisplayStyle.Flex;
-            };
+            BindPrologue(newGame);
             newGame.schedule.Execute(() => newGame.Focus());
             titleScreen.Q<Button>("title-continue").SetEnabled(false);
             titleScreen.Q<Button>("title-quit").clicked += QuitGame;
@@ -242,6 +238,57 @@ namespace DungeonTycoon.Unity
         }
 
         // ── Frame ────────────────────────────────────────────────────────
+
+        private void BindPrologue(Button newGame)
+        {
+            var pages = new (string Art, string Caption)[] {
+                ("Necromancer", "어느날 강력한 네크로맨서가 나타나 세상을 위협하기 시작했어요."),
+                ("EmptyHall", "하지만 이 세상에는 네크로맨서를 막을만한 용사가 없었어요."),
+                ("ChosenParty", "가엾게 여긴 신이 직접 용사들을 육성하기로 했어요."),
+                ("DungeonMap", "용사 파티 수준에 맞는 적을 적절히 배치하여 용사를 성장시키고 네크로 맨서를 무찌르세요!")
+            };
+            var prologue = titleScreen.Q("prologue");
+            var art = prologue.Q<Image>("prologue-art");
+            var caption = prologue.Q<Label>("prologue-caption");
+            var skip = prologue.Q<Button>("prologue-skip");
+            int page = 0;
+
+            void ShowPage()
+            {
+                art.image = Resources.Load<Texture2D>("Hud/Prologue" + pages[page].Art);
+                caption.text = pages[page].Caption;
+            }
+
+            void Finish()
+            {
+                titleScreen.RemoveFromHierarchy();
+                titleScreen = null;
+                hud.style.display = DisplayStyle.Flex;
+            }
+
+            newGame.clicked += () => {
+                titleScreen.Q(className: "title-menu").style.display = DisplayStyle.None;
+                prologue.style.display = DisplayStyle.Flex;
+                ShowPage();
+                prologue.Focus();
+            };
+
+            void Advance()
+            {
+                if (++page == pages.Length) Finish();
+                else ShowPage();
+            }
+
+            prologue.RegisterCallback<ClickEvent>(evt => {
+                if (evt.target == prologue && evt.button == 0) Advance();
+            });
+            prologue.RegisterCallback<NavigationSubmitEvent>(evt => {
+                if (evt.target != prologue) return;
+                evt.StopPropagation();
+                Advance();
+            });
+            skip.clicked += Finish;
+        }
 
         private static void QuitGame()
         {
