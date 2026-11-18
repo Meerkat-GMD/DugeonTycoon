@@ -903,25 +903,10 @@
     color: var(--muted);
 }
 
-.hud .result {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
-    background-color: var(--card);
-    padding: 16px;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-}
-
 .hud .result-title {
     font-size: 22px;
     -unity-font-style: bold;
     color: var(--gold);
-}
-
-.hud .result-title.lost {
-    color: var(--ember);
 }
 
 .hud .stage-clear {
@@ -952,24 +937,6 @@
     padding: 6px 24px;
     white-space: normal;
     font-size: 18px;
-}
-
-.hud .result-text {
-    margin-top: 10px;
-    font-size: 15px;
-    color: var(--muted);
-}
-
-/* Restart from the same formation and monster plan; "새 원정" (the primary button) starts afresh. */
-.hud .result-actions {
-    flex-direction: row;
-    margin-top: 12px;
-}
-
-.hud .result-action {
-    margin: 0 8px 0 0;
-    padding: 4px 12px;
-    font-size: 12px;
 }
 
 /* ── History overlay ─────────────────────────────────────────────── */
@@ -1084,7 +1051,7 @@
     position: absolute;
     bottom: 196px;
 }
-#game-over {
+.ending-overlay {
     display: none;
     position: absolute;
     left: 0; right: 0; top: 0; bottom: 0;
@@ -1094,10 +1061,24 @@
     background-color: rgba(30, 29, 33, 0.48);
     -unity-font-definition: url("/Assets/Art/Fonts/Mona10/Mona10-SDF.asset");
 }
-#game-over-layout {
+.ending-layout {
     width: 1920px;
     height: 1080px;
     flex-shrink: 0;
+}
+#victory-art {
+    position: absolute;
+    left: 363px; top: 230px;
+    width: 1194px; height: 512px;
+    background-image: url("Victory.png");
+}
+#victory-title {
+    position: absolute;
+    left: 837px; top: 548px;
+}
+#victory-confetti {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
 }
 #game-over-art {
     position: absolute;

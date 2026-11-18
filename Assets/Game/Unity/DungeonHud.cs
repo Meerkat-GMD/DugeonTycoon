@@ -26,15 +26,14 @@ namespace DungeonTycoon.Unity
         private UIDocument document;
         private PanelSettings panel;
         private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
-        private VisualElement gameOver, gameOverLayout;
-        private Button defeatRestart;
+        private VisualElement gameOver, gameOverLayout, victoryPage, victoryLayout, confetti;
+        private Button defeatRestart, victoryTitle;
         internal bool DungeonVisible => hud != null && titleScreen.style.display == DisplayStyle.None;
-        private VisualElement interventionPage, resultPage, speedGroup, dialogueStage;
+        private VisualElement interventionPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
         private VisualElement stageClearPage;
         private Label stageClearTitle;
-        private Label resultTitle, resultText;
         private Button follow, primary, collapse, removeCard, blessCard;
         private Label summaryNote;
         private VisualElement planningTip;
@@ -169,19 +168,28 @@ namespace DungeonTycoon.Unity
             primary = root.Q<Button>("primary");
             collapse = root.Q<Button>("collapse");
             interventionPage = root.Q("intervention");
-            resultPage = root.Q("result");
             gameOver = root.Q("game-over");
             gameOverLayout = gameOver.Q("game-over-layout");
             defeatRestart = gameOver.Q<Button>("defeat-restart");
             defeatRestart.clicked += () => game.Restart();
-            gameOver.Q<Button>("defeat-main").clicked += () => {
+            victoryPage = root.Q("victory");
+            victoryLayout = victoryPage.Q("victory-layout");
+            victoryTitle = victoryPage.Q<Button>("victory-title");
+            confetti = victoryLayout.Q("victory-confetti");
+            confetti.generateVisualContent += DrawConfetti;
+            victoryTitle.clicked += ReturnToTitle;
+            gameOver.Q<Button>("defeat-main").clicked += ReturnToTitle;
+
+            void ReturnToTitle()
+            {
+                Show(victoryPage,false);
                 game.Restart();
                 Show(gameOver,false);
                 Show(hud,false);
                 hud.SetEnabled(true);
                 Show(titleScreen,true);
                 newGame.Focus();
-            };
+            }
             stageClearPage = root.Q("stage-clear");
             stageClearTitle = root.Q<Label>("stage-clear-title");
             root.Q<Button>("stage-continue").clicked += game.AdvanceToNextStage;
@@ -211,8 +219,6 @@ namespace DungeonTycoon.Unity
             fatigueFill = root.Q("fatigue-fill");
             fatigueTick1 = root.Q("fatigue-tick-1");
             fatigueTick2 = root.Q("fatigue-tick-2");
-            resultTitle = root.Q<Label>("result-title");
-            resultText = root.Q<Label>("result-text");
             history = root.Q("history");
             historyStats = root.Q<Label>("history-stats");
             historyList = root.Q<ScrollView>("history-list");
@@ -272,11 +278,7 @@ namespace DungeonTycoon.Unity
             root.Q<Button>("history-close").clicked += () => history.RemoveFromClassList("open");
             collapse.clicked += () => bottom.ToggleInClassList("collapsed");
             primary.clicked += game.RequestDeparture;
-            root.Q<Button>("result-new").clicked += () => game.Restart();
             removeCard.clicked += () => brush = MonsterKind.None;
-            // A new expedition from the same formation and monster plan, with new dice or the same ones.
-            root.Q<Button>("result-copy").clicked += () => game.Restart(keepPlan: true);
-            root.Q<Button>("result-replay").clicked += () => game.Restart(keepPlan: true, sameSeed: true);
             blessPicker = root.Q("bless-picker");
             blessFeedback = root.Q<Label>("bless-feedback");
             var targets = root.Q("bless-targets");
@@ -388,7 +390,9 @@ namespace DungeonTycoon.Unity
             RefreshSpoils(run);
             RefreshPops(run);
             UpdateClearArea(run);
-            if (run.Phase != RunPhase.Defeat) BoardInput(run);
+            if (run.Phase == RunPhase.Victory && scale > 0)
+                victoryLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
+            else if (run.Phase != RunPhase.Defeat) BoardInput(run);
             else if (scale > 0) gameOverLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
         }
 
@@ -524,7 +528,18 @@ namespace DungeonTycoon.Unity
             bool showClear = run.Phase == RunPhase.StageCleared && run.PendingLoot == null && !game.Presenting;
             Show(stageClearPage,showClear);
             if (showClear) stageClearTitle.text = $"{run.Stage}스테이지 클리어";
-            Show(resultPage,victory && !game.Presenting);
+            bool showVictory = victory && !game.Presenting;
+            if (showVictory != (victoryPage.style.display == DisplayStyle.Flex))
+            {
+                Show(victoryPage,showVictory);
+                hud.SetEnabled(!showVictory);
+                if (showVictory)
+                {
+                    celebrationStart = Time.unscaledTime;
+                    victoryTitle.Focus();
+                }
+            }
+            if (showVictory) confetti.MarkDirtyRepaint();
             bool defeated = run.Phase == RunPhase.Defeat && !game.Presenting;
             if (defeated != (gameOver.style.display == DisplayStyle.Flex))
             {
@@ -533,7 +548,6 @@ namespace DungeonTycoon.Unity
                 if (defeated) defeatRestart.Focus();
             }
             if (planning) RefreshPlanning(run);
-            else if (victory) RefreshResult(run);
             else if (exploring && !game.Presenting) RefreshIntervention(run);
 
             if (HistoryOpen)
@@ -915,13 +929,41 @@ namespace DungeonTycoon.Unity
             Show(blessFeedback,true);
         }
 
-        private void RefreshResult(DungeonRun run)
+        private float celebrationStart;
+        private static readonly Color32[] ConfettiColors = {
+            new(255, 202, 65, 255), new(255, 123, 100, 255), new(88, 217, 194, 255),
+            new(255, 239, 161, 255), new(181, 151, 255, 255)
+        };
+
+        private void DrawConfetti(MeshGenerationContext context)
         {
-            bool won = run.Phase == RunPhase.Victory;
-            resultTitle.text = won ? "마왕을 쓰러뜨렸습니다" : "파티가 전멸했습니다";
-            resultTitle.EnableInClassList("lost",!won);
-            resultText.text = "최종 파티 레벨 "+run.Level+"    ·    누적 경험치 "+run.Experience+
-                (!won && run.ReachedBoss ? "    ·    보스전" : "")+"    ·    "+run.StepsTaken+"걸음";
+            // Mirrored fountains in the ending layout's 1920 x 1080 design coordinates.
+            var pen = context.painter2D;
+            float elapsed = Time.unscaledTime - celebrationStart;
+            for (int i = 0; i < 100; i++)
+            {
+                float delay = (i / 2 % 5) * .12f + (i % 2) * .08f;
+                if (elapsed < delay) continue;
+                float t = (elapsed - delay) % 3.2f;
+                float vx = 120 + (i * 137 % 390);
+                float vy = 700 + (i * 73 % 480);
+                float x = 100 + vx * t + 18 * Mathf.Sin(i + t * 5);
+                if (i % 2 == 1) x = 1920 - x;
+                float y = 840 - vy * t + 460 * t * t;
+                if (y > 1080) continue;
+                float angle = i + t * 5;
+                Vector2 center = new Vector2(x,y);
+                Vector2 axis = new Vector2(Mathf.Cos(angle),Mathf.Sin(angle)) * 8;
+                Vector2 edge = new Vector2(-axis.y,axis.x) * (.12f + .36f * Mathf.Abs(Mathf.Cos(i + t * 7)));
+                pen.fillColor = ConfettiColors[i % ConfettiColors.Length];
+                pen.BeginPath();
+                pen.MoveTo(center - axis - edge);
+                pen.LineTo(center + axis - edge);
+                pen.LineTo(center + axis + edge);
+                pen.LineTo(center - axis + edge);
+                pen.ClosePath();
+                pen.Fill();
+            }
         }
 
         // ── History ──────────────────────────────────────────────────────

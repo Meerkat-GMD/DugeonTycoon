@@ -334,16 +334,6 @@
             <ui:Button name="stage-continue" class="primary" text="다음 스테이지 준비" focusable="false" />
         </ui:VisualElement>
 
-        <ui:VisualElement name="result" class="result">
-            <ui:Label name="result-title" class="result-title" text="마왕을 쓰러뜨렸습니다" />
-            <ui:Label name="result-text" class="result-text" text="최종 파티 레벨 1" />
-            <ui:VisualElement class="result-actions">
-                <ui:Button name="result-new" class="primary result-action" text="새 원정" focusable="false" />
-                <ui:Button name="result-copy" class="chip result-action" text="편성·배치 복사" focusable="false" />
-                <ui:Button name="result-replay" class="chip result-action" text="같은 시드로" focusable="false" />
-            </ui:VisualElement>
-        </ui:VisualElement>
-
         <ui:VisualElement name="planning-tip" class="planning-tip" picking-mode="Ignore">
             <ui:Label name="kind" class="tip-kind" picking-mode="Ignore" />
             <ui:Label name="name" class="tip-name" picking-mode="Ignore" />
@@ -367,13 +357,20 @@
         </ui:VisualElement>
 
     </ui:VisualElement>
-    <ui:VisualElement name="game-over">
-        <ui:VisualElement name="game-over-layout" picking-mode="Ignore">
+    <ui:VisualElement name="game-over" class="ending-overlay">
+        <ui:VisualElement name="game-over-layout" class="ending-layout" picking-mode="Ignore">
             <ui:VisualElement name="game-over-art" picking-mode="Ignore" />
             <ui:VisualElement class="game-over-actions" picking-mode="Ignore">
                 <ui:Button name="defeat-restart" text="다시시작" class="title-action" />
                 <ui:Button name="defeat-main" text="메인으로" class="title-action" />
             </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="victory" class="ending-overlay">
+        <ui:VisualElement name="victory-layout" class="ending-layout" picking-mode="Ignore">
+            <ui:VisualElement name="victory-confetti" picking-mode="Ignore" />
+            <ui:VisualElement name="victory-art" picking-mode="Ignore" />
+            <ui:Button name="victory-title" text="타이틀로" class="title-action" />
         </ui:VisualElement>
     </ui:VisualElement>
     <ui:VisualElement name="title-screen" class="title-screen">
