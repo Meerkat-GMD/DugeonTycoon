@@ -51,10 +51,10 @@ namespace DungeonTycoon.Core
             int s = Math.Max(1, Math.Min(FinalStage, stage)) - 1;
             switch (kind)
             {
-                case MonsterKind.Skeleton: return (new[] { 60, 85, 110 }[s], new[] { 15, 19, 23 }[s], new[] { 2, 4, 5 }[s]);
-                case MonsterKind.Ghost: return (new[] { 40, 55, 70 }[s], new[] { 13, 17, 21 }[s], new[] { 0, 2, 3 }[s]);
-                case MonsterKind.Zombie: return (new[] { 110, 150, 190 }[s], new[] { 18, 22, 26 }[s], new[] { 4, 6, 8 }[s]);
-                case MonsterKind.Archer: return (new[] { 45, 55, 65 }[s], new[] { 14, 17, 20 }[s], new[] { 0, 1, 2 }[s]);
+                case MonsterKind.Skeleton: return (new[] { 85, 120, 150 }[s], new[] { 17, 21, 25 }[s], new[] { 2, 4, 5 }[s]);
+                case MonsterKind.Ghost: return (new[] { 80, 100, 120 }[s], new[] { 18, 22, 26 }[s], new[] { 0, 2, 3 }[s]);
+                case MonsterKind.Zombie: return (new[] { 160, 200, 250 }[s], new[] { 22, 25, 30 }[s], new[] { 4, 6, 8 }[s]);
+                case MonsterKind.Archer: return (new[] { 70, 80, 90 }[s], new[] { 18, 21, 24 }[s], new[] { 0, 1, 2 }[s]);
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
@@ -65,13 +65,13 @@ namespace DungeonTycoon.Core
             switch (kind)
             {
                 case MonsterKind.Zombie:
-                    return new MonsterState(id, kind, false, "좀비", hp, attack, armor, 6, 5, 18, tile, MonsterPattern.Slam);
+                    return new MonsterState(id, kind, false, "좀비", hp, attack, armor, 8, 5, 18, tile, MonsterPattern.Slam);
                 case MonsterKind.Ghost:
-                    return new MonsterState(id, kind, false, "유령", hp, attack, armor, 4, 2, 15, tile, MonsterPattern.SoulBolt);
+                    return new MonsterState(id, kind, false, "유령", hp, attack, armor, 5, 2, 15, tile, MonsterPattern.SoulBolt);
                 case MonsterKind.Archer:
-                    return new MonsterState(id, kind, false, "해골 궁수", hp, attack, armor, 4, 3, 18, tile) { Range = ArcherRange };
+                    return new MonsterState(id, kind, false, "해골 궁수", hp, attack, armor, 5, 3, 18, tile) { Range = ArcherRange };
                 default:
-                    return new MonsterState(id, kind, false, "해골", hp, attack, armor, 3, 3, 15, tile);
+                    return new MonsterState(id, kind, false, "해골", hp, attack, armor, 4, 3, 15, tile);
             }
         }
 
@@ -88,7 +88,7 @@ namespace DungeonTycoon.Core
                     return new MonsterState(id, MonsterKind.None, true, "납골당 사제", 900, 28, 6, 3, 4, 15, Map.BossTile,
                         MonsterPattern.Slam, MonsterPattern.Meteor);
                 default:
-                    return new MonsterState(id, MonsterKind.None, true, "네크로맨서", 2600, 38, 8, 0, 4, 15, Map.BossTile,
+                    return new MonsterState(id, MonsterKind.None, true, "네크로맨서", 3300, 42, 8, 0, 4, 15, Map.BossTile,
                         MonsterPattern.Slam, MonsterPattern.TrackingBeam, MonsterPattern.Meteor);
             }
         }
