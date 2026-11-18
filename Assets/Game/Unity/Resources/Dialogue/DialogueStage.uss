@@ -169,6 +169,10 @@
     border-color: var(--gold);
 }
 
+.hud .stage-bubble { left: 62px; top: -32px; display: none; }
+.hud .stage-slot.talk .stage-bubble { display: flex; }
+.hud .stage-slot.down .stage-bubble { display: none; }
+
 .hud .stage-slot.down {
     opacity: 1;
 }

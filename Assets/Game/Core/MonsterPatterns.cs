@@ -179,6 +179,8 @@ namespace DungeonTycoon.Core
         public IReadOnlyList<int> Hits => hits;
 
         internal HashSet<TilePoint> area = new HashSet<TilePoint>();
+        // Roles swept into the beam by a change of aim and still standing in it.
+        internal readonly HashSet<int> sweptAllies = new HashSet<int>();
         internal readonly List<int> hits = new List<int>();
         /// <summary>Heroes who have already said how they meet this cast, so each speaks once.</summary>
         internal readonly HashSet<int> answered = new HashSet<int>();

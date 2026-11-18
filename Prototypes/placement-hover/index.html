@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>배치 화면 · 호버 설명 시안</title>
+<style>
+@font-face{font-family:Mona;src:url('../../Assets/Art/Fonts/Mona10/Mona10.ttf')}
+@font-face{font-family:Mona;font-weight:700;src:url('../../Assets/Art/Fonts/Mona10/Mona10-Bold.ttf')}
+*{box-sizing:border-box}body{margin:0;background:#151b20;color:#f0eae0;font:16px Mona,sans-serif}header,footer{padding:16px 5vw;display:flex;align-items:center;justify-content:space-between;gap:20px}header{background:#202a30;border-bottom:1px solid #435056}header small,.kind{font-size:13px;color:#e8be76}h1{font-size:24px;margin:4px 0}header span,footer{color:#b3bebb}main{height:70vh;min-height:340px;position:relative;overflow:hidden;background:radial-gradient(ellipse,#293131,#13191c 73%)}canvas{width:100%;height:100%;position:absolute}.object{position:absolute;transform:translate(-50%,-50%);width:50px;height:50px;border:2px solid transparent;background:transparent;display:grid;place-items:center;color:white;font-size:30px;padding:0;cursor:help}.object.active,.object:focus-visible{border-color:var(--accent);background:#ffffff14;outline:none}.object img{width:40px;height:40px;object-fit:contain;image-rendering:pixelated}
+#card{position:absolute;background:#202a30;border:1px solid #526168;border-top:3px solid var(--accent);box-shadow:4px 5px 0 #10161999;padding:15px 18px;width:min(272px,95%);pointer-events:none;z-index:2}.kind{color:var(--accent)}h2{font-size:23px;margin:5px 0 8px}p{font-size:15px;line-height:1.55;margin:0;word-break:keep-all}.fact{display:block;border-top:1px solid #435056;padding-top:9px;margin-top:12px;color:var(--accent);font-size:14px}#card.strip{width:96%;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:9px 14px}#card.strip[hidden]{display:none}.strip h2,.strip .fact{margin:0}.strip .fact{border:0;padding:0}#card.side{border-top:1px solid #526168;border-left:4px solid var(--accent)}
+nav{display:flex;justify-content:center;align-items:center;gap:12px;margin:12px auto;width:fit-content;background:#29343a;padding:6px 12px;border-radius:30px}nav button{background:none;border:0;color:#e8be76;font:bold 22px Mona;cursor:pointer}footer{font-size:14px}
+.object.chest{font-size:0}.chest::before{content:"";width:31px;height:22px;border:2px solid #402f25;border-radius:5px 5px 1px 1px;background:linear-gradient(90deg,transparent 10%,#d9aa57 10% 20%,transparent 20% 80%,#d9aa57 80% 90%,transparent 90%),linear-gradient(#b57842 0 40%,#4f3729 40% 53%,#925e34 53%);box-shadow:0 3px 0 #242526}.chest::after{content:"";position:absolute;width:5px;height:6px;background:#f5ce76}
+</style>
+<header><div><small>스테이지 1 · 배치</small><h1>성문으로 가는 길</h1></div><span>위협 예산　1 / 6</span></header>
+<main><canvas aria-hidden="true"></canvas><aside id="card" role="tooltip"><small class="kind"></small><h2></h2><p></p><b class="fact"></b></aside></main>
+<footer>배치된 대상에 마우스를 올리거나 Tab 키로 선택하세요.</footer>
+<nav aria-label="시안 전환"><button aria-label="이전 시안">‹</button><span></span><button aria-label="다음 시안">›</button></nav>
+<script>
+const board=document.querySelector('main'), card=document.querySelector('#card'),canvas=document.querySelector('canvas');
+const objects=[
+ {name:'보물 상자',kind:'보물 · 고정 배치',text:'파티가 상자 칸에 도착하면 열어 장비를 얻습니다.',fact:'보상　장비 1개',color:'#e8be76',icon:'🧰',x:9,y:5},
+ {name:'상인',kind:'NPC · 거래',text:'파티가 다가가면 강장차나 여행빵을 살지 의논합니다.',fact:'가격　금화 1닢',color:'#7bd5bf',icon:'🧙',x:19,y:10},
+ {name:'해골 검사',kind:'적 · 배치 몬스터',text:'검을 들어 방향을 정한 뒤, 바로 앞을 부채꼴로 크게 벱니다.',fact:'위협 비용　1',color:'#ec9179',image:'SkeletonPortrait.png',x:26,y:4}];
+const rooms=[[3,3,10,6],[16,5,7,7],[24,2,7,5],[0,6,18,2],[21,5,6,2],[8,8,2,5],[26,0,2,3],[21,9,13,2]];
+let current, variant=Math.max(0,['A','B','C'].indexOf(new URLSearchParams(location.search).get('variant')));
+function geometry(){let step=Math.min(board.clientWidth/34,board.clientHeight/14);return {step,left:(board.clientWidth-step*34)/2,top:(board.clientHeight-step*14)/2}}
+function draw(){
+ const {step,left,top}=geometry(), w=board.clientWidth,h=board.clientHeight,dpr=devicePixelRatio;
+ canvas.width=w*dpr;canvas.height=h*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+ const floor=(x,y)=>rooms.some(([a,b,c,d])=>x>=a&&x<a+c&&y>=b&&y<b+d);
+ for(let y=0;y<14;y++)for(let x=0;x<34;x++){
+ const inside=floor(x,y),wall=!inside&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>floor(x+dx,y+dy));
+ if(!inside&&!wall)continue;
+ const px=left+step*x,py=top+step*y,v=(x*13+y*7+x*y)%9;
+ ctx.fillStyle=inside?'rgb('+[52+v,60+v,59+v]+')':'#222a2b';ctx.fillRect(px,py,step-.6,step-.6);
+ if(wall){ctx.fillStyle='#536060';ctx.fillRect(px+1,py+1,step-2,step*.25)}
+ }
+ objects.forEach(o=>{o.el.style.left=(left+(o.x+.5)*step)+'px';o.el.style.top=(top+(o.y+.5)*step)+'px'});if(current)position();
+}
+function position(){const x=current.el.offsetLeft,y=current.el.offsetTop,w=board.clientWidth,h=board.clientHeight;
+ let left=x+32,top=y-card.offsetHeight/2;
+ if(left+card.offsetWidth>w-8)left=x-32-card.offsetWidth;
+ if(variant===1){left=w-card.offsetWidth-12;top=12}
+ if(variant===2){left=w*.02;top=h-card.offsetHeight-8}
+ card.style.left=Math.max(4,left)+'px';card.style.top=Math.max(4,Math.min(top,h-card.offsetHeight-4))+'px'}
+function hide(){current?.el.classList.remove('active');current?.el.removeAttribute('aria-describedby');current=null;card.hidden=true}
+function show(o){hide();current=o;o.el.classList.add('active');o.el.setAttribute('aria-describedby','card');card.hidden=false;card.style.setProperty('--accent',o.color);
+ [o.kind,o.name,o.text,o.fact].forEach((s,i)=>card.children[i].textContent=s);position()}
+objects.forEach(o=>{let el=document.createElement('button');o.el=el;el.className='object';el.setAttribute('aria-label',o.name);el.style.setProperty('--accent',o.color);
+ if(o.image){let img=new Image();img.src='../../Assets/Game/Unity/Resources/Hud/'+o.image;img.alt='';el.append(img)}else el.textContent=o.icon;
+ if(o===objects[0])el.classList.add('chest');
+ board.append(el);el.onpointerenter=el.onfocus=el.onclick=()=>show(o);el.onpointerleave=el.onblur=()=>{if(current===o)hide()};});
+board.addEventListener('pointermove',e=>{if(!e.target.closest('.object'))hide()});
+function setVariant(i){variant=(i+3)%3;card.className=['','side','strip'][variant];document.querySelector('nav span').textContent=['A · 대상 옆 카드','B · 우측 정보창','C · 하단 정보줄'][variant];show(current||objects[0])}
+function cycle(n){setVariant(variant+n);let url=new URL(location.href);url.searchParams.set('variant','ABC'[variant]);history.replaceState(null,'',url)}
+const arrows=document.querySelectorAll('nav button');arrows[0].onclick=()=>cycle(-1);arrows[1].onclick=()=>cycle(1);
+document.onkeydown=e=>{if(e.key==='Escape')hide();if(e.key==='ArrowLeft')cycle(-1);if(e.key==='ArrowRight')cycle(1)};
+window.onresize=draw;draw();setVariant(variant);document.fonts.ready.then(()=>{if(current)position()});
+</script></html>

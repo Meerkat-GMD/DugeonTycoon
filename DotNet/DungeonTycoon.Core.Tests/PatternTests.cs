@@ -232,6 +232,28 @@ namespace DungeonTycoon.Core.Tests
             TickUntilFired(run, cast);
             Assert.That(run.HeroTile(HeroRole.Tank).Y, Is.EqualTo(4), "it kept walking straight at the boss");
             Assert.That(cast.Hits, Is.EquivalentTo(new[] { (int)HeroRole.Tank, (int)HeroRole.Healer }));
+            Assert.That(run.Log.Any(line => line.StartsWith("레이저 항의")), Is.False);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void AllySweptIntoTheBeamComplainsOnlyIfTheTargetIsAlsoHit(bool targetStays)
+        {
+            var run = Arena();
+            Put(run.Boss, 33, 4);
+            Put(run, HeroRole.Tank, 35, 6);
+            Put(run, HeroRole.MeleeDamage, 37, 4);
+            var cast = run.ForceCast(run.Boss, MonsterPattern.TrackingBeam, HeroRole.Tank);
+            Assert.That(cast.Area, Does.Not.Contain(new TilePoint(37, 4)));
+            Put(run, HeroRole.Tank, 35, 4);
+            while (run.Ticks < cast.LockTick) run.Tick();
+            if (!targetStays) Put(run, HeroRole.Tank, 35, 7);
+            TickUntilFired(run, cast);
+            Assert.That(cast.Hits, Does.Contain((int)HeroRole.MeleeDamage));
+            var complaints = run.Log.Where(line => line.StartsWith("레이저 항의")).ToList();
+            Assert.That(complaints.Count, Is.EqualTo(targetStays ? 1 : 0), string.Join("\n", run.Log.Skip(System.Math.Max(0, run.Log.Count-14))));
+            if (targetStays)
+                Assert.That(Hero(run, HeroRole.MeleeDamage).LastLine, Does.StartWith(Hero(run, HeroRole.Tank).Name + "! #@"));
         }
 
         [Test]

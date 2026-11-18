@@ -62,7 +62,7 @@ namespace DungeonTycoon.Core.Tests
                 run.Start();
                 foreach (var monster in run.Monsters.Where(m => !m.IsBoss))
                 {
-                    var numbers = (monster.MaxHp, monster.Attack, monster.Armor);
+                    var numbers = (monster.MaxHp, monster.BaseAttack, monster.Armor);
                     if (seen.TryGetValue(monster.Kind, out var before)) Assert.That(numbers, Is.EqualTo(before), $"{monster.Name} on stage {stage}");
                     else seen[monster.Kind] = numbers;
                 }

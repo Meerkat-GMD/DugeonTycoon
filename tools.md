@@ -57,10 +57,12 @@ Get-Command unity | Select-Object -ExpandProperty Source
 
 1. `pipeline editors` 결과에서 `projectPath`가 현재 프로젝트 루트와 일치하고 `isRunning`과 `serverReachable`이 모두 `true`인 행을 찾는다. 그 행의 `pid`를 다음 명령의 `<PID>`에 넣는다. 에디터를 다시 열면 PID도 다시 조회한다. 사용자 계정에도 CLI가 없으면 `winget install --id Unity.CLI --exact`로 설치한다. 프로젝트에 Pipeline이 없으면 `unity pipeline install`로 연결 패키지를 준비한다. [Unity 공식 연결 안내](https://docs.unity.com/en-us/unity-cli/reference/editor-project-commands)
 2. `unity command`로 해당 에디터에서 제공하는 명령을 확인한다. [시작 씬](Assets/Scenes/SampleScene.unity)의 임포트와 컴파일이 끝나면 `unity command editor.playmode start`로 실행하고 CLI로 변경한 동작을 재현한다. 같은 경로로 여러 인스턴스가 잡히면 `unity command --pid <PID> editor.playmode start`처럼 대상을 지정한다.
-3. 대화 무대(갈림길 논의, 역경, 전리품 분배)를 기다리지 않으려면 Play를 시작한 뒤 `unity command script eval --file <파일>`로 `DungeonTycoon.Unity.DialogueStage.FastForward = true;`를 실행한다. 대사가 한 번에 나오고 줄 사이 대기와 주사위 연출을 건너뛰며, 신탁은 `DialogueStage.FastOraclePick`(기본 -1, 넘어간다)에 정한 번호를 바로 고른다. 기도 장면도 같은 설정으로 바로 넘어가고, 응답은 `PrayerScene.FastAnswer`(0 치유의 기적, 1 안식의 기적, 기본 2 외면한다)를 고른다. 신앙이 모자라 고를 수 없는 기적이면 외면한다. 결과는 Core가 먼저 정하므로 판정은 같고, 값은 저장되지 않으며 Play를 다시 시작하면 꺼진다. AI 응답 대기는 그대로다. 스크립트에 `"`가 들어가면 PowerShell이 `--code` 인자를 망가뜨리므로 파일로 넘긴다.
+3. 대화 무대(갈림길 논의, 전리품 분배)를 기다리지 않으려면 Play를 시작한 뒤 `unity command script eval --file <파일>`로 `DungeonTycoon.Unity.DialogueStage.FastForward = true;`를 실행한다. 대사가 한 번에 나오고 줄 사이 대기와 주사위 연출을 건너뛰며, 신탁은 `DialogueStage.FastOraclePick`(기본 -1, 넘어간다)에 정한 번호를 바로 고른다. 기도 장면도 같은 설정으로 바로 넘어가고, 응답은 `PrayerScene.FastAnswer`(0 치유의 기적, 1 안식의 기적, 기본 2 외면한다)를 고른다. 신앙이 모자라 고를 수 없는 기적이면 외면한다. 결과는 Core가 먼저 정하므로 판정은 같고, 값은 저장되지 않으며 Play를 다시 시작하면 꺼진다. AI 응답 대기는 그대로다. 스크립트에 `"`가 들어가면 PowerShell이 `--code` 인자를 망가뜨리므로 파일로 넘긴다.
 4. CLI에서 씬 이름, Play 상태, 게임 상태 변화와 콘솔 오류를 확인한다. 완료 보고에 수행한 조작과 결과를 적고, 연결이나 컴파일에서 막혔다면 첫 관련 오류를 기록한다.
 
 화면이 뿌옇게 보이면 코드를 고치기 전에 Game 뷰부터 확인한다. 고정 해상도(예: Full HD)가 창보다 크면 Unity가 프레임 전체를 축소해 보여 주고, Windows 배율이 100%가 아닐 때 Low Resolution Aspect Ratios가 켜져 있으면 작게 그린 뒤 늘려서 보여 준다. 선명도를 판단할 때는 Free Aspect에 Low Resolution을 끈 상태로 본다.
+
+Windows의 D3D12 에디터에서 전투가 간헐적으로 멈추면 Unity Profiler에서 느린 프레임의 `WaitForLastPresentation` 시간과 GPU 시간을 함께 본다. 이 대기가 길면 메인 스레드가 이전 프레임의 화면 표시를 기다렸다는 뜻이다. Game 뷰의 `VSync (Game view only)` 설정과 모니터 주사율을 기록하고, Windows 장치 관리자에서 실제 사용 중인 디스플레이 드라이버 버전을 확인한다. 이 프로젝트의 노트북 RTX 2060에서는 144Hz·Game 뷰 VSync 켜짐 조건으로 NVIDIA 431.62에서 약 790ms의 대기를 재현했다. 드라이버를 바꿔 비교할 때는 에디터를 다시 열고 같은 조건에서 개별 프레임이 16.67ms를 넘긴 횟수도 확인한다.
 
 ## HUD를 고칠 때
 
@@ -135,4 +137,4 @@ API 키는 [Meshy 개발자 플랫폼](https://docs.meshy.ai/api/ai)의 API Keys
 
 전투 작전만은 같은 키로 [Decisions API](https://developers.openai.com/api/docs/guides/decisions)(`POST /v1/decisions`, 모델 `gpt-6-luna`, `OPENAI_MODEL`과 상관없음)에 보낸다. 대사를 쓰지 않고 주어진 보기 중 하나를 확신도와 함께 고르는 엔드포인트다. 비교 시험에서 중앙값 약 0.27초로, Responses API의 약 1.5초보다 빨랐다. 출력 토큰 요금이 없어 요청 한 번에 약 $0.0002다. Decisions 요청이 실패하면 30초 동안 전투 작전만 로컬 전술로 진행하고, 다른 요청은 그대로 보낸다.
 
-전투가 시작되거나 몬스터가 합류하거나 용사가 위독해지거나 쓰러지는 등 전투 상황이 바뀌면, 살아 있는 용사마다 먼저 노릴 적을, 힐러에게는 먼저 지킬 동료도 한 Decisions 요청으로 받는다. 대사는 Core가 정해 둔 말에서 고른다. 응답을 기다리는 동안에도 전투는 로컬 전술로 계속되고, 그사이 상황이 다시 바뀌었다면 늦게 온 응답은 버린다. 낙석을 선언하면 대표 용사의 대응을 별도로 요청한다. 파티가 갈림길에 멈추면 각 용사가 고를 길과 주장을 한 요청으로 받는다. 이 요청에는 파티가 보거나 기억하는 정보만 담는다. 전투와 주사위 결과, 의견이 갈렸을 때의 설득 판정은 로컬 C# 규칙이 정한다. 응답 지연·요청 실패·유효하지 않은 행동이나 의견에는 로컬 전술과 성격별 기본 의견이 적용된다. 플레이어 빌드에서는 로컬 전술을 사용한다.
+전투가 시작되거나 몬스터가 합류하거나 용사가 위독해지거나 쓰러지는 등 전투 상황이 바뀌면, 살아 있는 용사마다 먼저 노릴 적을, 힐러에게는 먼저 지킬 동료도 한 Decisions 요청으로 받는다. 대사는 Core가 정해 둔 말에서 고른다. 응답을 기다리는 동안에도 전투는 로컬 전술로 계속되고, 그사이 상황이 다시 바뀌었다면 늦게 온 응답은 버린다. 파티가 갈림길에 멈추면 각 용사가 고를 길과 주장을 한 요청으로 받는다. 이 요청에는 파티가 보거나 기억하는 정보만 담는다. 전투와 주사위 결과, 의견이 갈렸을 때의 설득 판정은 로컬 C# 규칙이 정한다. 응답 지연·요청 실패·유효하지 않은 행동이나 의견에는 로컬 전술과 성격별 기본 의견이 적용된다. 플레이어 빌드에서는 로컬 전술을 사용한다.

@@ -60,6 +60,28 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
+        public void FaithRecoversOnExpeditionTickBoundariesUpToItsPassiveCap()
+        {
+            int interval = BalanceTable.Current.faithRecoveryTicks;
+            int cap = BalanceTable.Current.faithRecoveryCap;
+            var corridor = DungeonMap.Parse("E" + new string('.', 2 * interval / DungeonRun.HeroMoveTicks + 10) + "B");
+            var run = DungeonRun.Sandbox(map: corridor);
+            Assert.That(run.Faith, Is.EqualTo(3));
+            run.Start();
+            Drive(run, () => run.Ticks == interval / 2);
+            Assert.That(run.FaithRecoveryProgress, Is.EqualTo((float)(interval / 2) / interval));
+            Drive(run, () => run.Ticks == interval - 1);
+            Assert.That(run.Faith, Is.EqualTo(3));
+            Drive(run, () => run.Ticks == interval);
+            Assert.That(run.Faith, Is.EqualTo(4));
+            Assert.That(run.FaithRecoveryProgress, Is.Zero);
+            run.SetFaith(cap);
+            Drive(run, () => run.Ticks == interval * 2);
+            Assert.That(run.Ticks, Is.EqualTo(interval * 2));
+            Assert.That(run.Faith, Is.EqualTo(cap));
+        }
+
+        [Test]
         public void PlacementSpendsBudgetStacksRefundsOneAtATimeAndLocksOnDeparture()
         {
             var run = DungeonRun.Sandbox();
@@ -157,10 +179,15 @@ namespace DungeonTycoon.Core.Tests
                 run.Start();
             }
             Assert.That(run.Phase, Is.EqualTo(inCombat ? RunPhase.Combat : RunPhase.Travel));
+            run.SetFaith(0);
+            Assert.That(run.BeginAdversity(), Is.Zero);
+            Assert.That(run.TrialsLeft, Is.EqualTo(2));
+            run.SetFaith(2 * DungeonRun.TrialCost);
             int ticket = run.BeginAdversity();
             Assert.That(ticket, Is.Positive);
             Assert.That(run.BeginAdversity(), Is.Zero);
             Assert.That(run.TrialsLeft, Is.EqualTo(1));
+            Assert.That(run.Faith, Is.EqualTo(DungeonRun.TrialCost));
             int ticks = run.Ticks;
             Assert.That(run.Tick(), Is.False, "nothing moves while the dice are out");
             Assert.That(run.Ticks, Is.EqualTo(ticks));
@@ -173,7 +200,7 @@ namespace DungeonTycoon.Core.Tests
             int second = run.BeginAdversity();
             Assert.That(run.ResolveAdversity(second, HeroRole.Tank, 10), Is.True);
             Assert.That(run.LastTrial, Does.Contain("성공"));
-            Assert.That(run.Faith, Is.EqualTo(2));
+            Assert.That(run.Faith, Is.EqualTo(1));
             Assert.That(run.BeginAdversity(), Is.Zero);
             Assert.That(run.Tick(), Is.True);
         }
@@ -183,6 +210,7 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = RunInCombat();
             Assert.That(run.CanBless, Is.False, "nobody is hurt yet");
+            run.SetFaith(DungeonRun.BlessCost + DungeonRun.TrialCost);
             // A failed adversity hurts the ranged hero whatever the monsters can do to the party.
             run.ResolveAdversity(run.BeginAdversity(), HeroRole.RangedDamage, 1);
             Assert.That(run.CanBless, Is.True);
@@ -199,6 +227,7 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = DungeonRun.Sandbox();
             Assert.That(run.CanBlessHero(HeroRole.Tank), Is.False, "no blessing before departure");
+            run.SetFaith(DungeonRun.BlessCost + 2 * DungeonRun.TrialCost);
             run.Start();
             run.ResolveAdversity(run.BeginAdversity(), HeroRole.Tank, 1);
             run.ResolveAdversity(run.BeginAdversity(), HeroRole.RangedDamage, 1);
@@ -288,20 +317,19 @@ namespace DungeonTycoon.Core.Tests
         }
 
         /// <summary>
-        /// The first-play balance check: with every adversity won and all faith spent on blessings, an empty dungeon
+        /// The first-play balance check: with all faith spent on blessings, an empty dungeon
         /// (only the fixed patrols) still loses to the final boss, while monsters placed along the main roads grow the
         /// party enough to win. Both use the real maps with patrols, chests and springs.
         /// </summary>
         [TestCase(true, RunPhase.Victory)]
         [TestCase(false, RunPhase.Defeat)]
-        public void PlannedExpeditionCanWinButEmptyExpeditionLosesEvenWithPerfectTrials(bool placeMonsters, RunPhase expected)
+        public void PlannedExpeditionCanWinButEmptyExpeditionLosesWithBlessings(bool placeMonsters, RunPhase expected)
         {
             var (phase, stages, run) = BalanceProbe.Play(20261118, placeMonsters);
             foreach (var s in stages)
                 TestContext.Out.WriteLine($"stage {s.Stage}: level at boss {s.LevelAtBoss}, boss fight {s.BossTicks / 10.0:0.#}s, chests {s.Chests}");
             Assert.That(run.Stage, Is.EqualTo(DungeonRun.FinalStage));
             Assert.That(stages.Count, Is.EqualTo(DungeonRun.FinalStage));
-            Assert.That(run.TrialsLeft, Is.Zero, "every stage's adversities were spent");
             Assert.That(phase, Is.EqualTo(expected));
             if (placeMonsters)
             {

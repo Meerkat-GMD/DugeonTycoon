@@ -121,9 +121,40 @@ namespace DungeonTycoon.Core.Tests
             Wound(Hero(run, HeroRole.RangedDamage), 70);
             Ready(Hero(run, HeroRole.Healer), 0);
             run.Tick();
+            if (triage)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    Assert.That(run.TakeEvents().Any(e => e.Kind == CombatEventKind.Heal), Is.False);
+                    run.Tick();
+                }
+            }
             var heals = run.TakeEvents().Where(e => e.Kind == CombatEventKind.Heal).Select(e => (HeroRole)e.Target).ToList();
             Assert.That(heals, triage ? Is.EqualTo(new[] { HeroRole.Tank }) : Is.EquivalentTo(new[] { HeroRole.Tank, HeroRole.RangedDamage }),
                 triage ? "one heal for the tank, no mass heal" : "two wounded allies close by take the mass heal");
+        }
+
+        [Test]
+        public void DodgingDuringABasicHealCancelsItsRecovery()
+        {
+            var run = Arena(null, MonsterKind.Zombie);
+            var zombie = run.Boss;
+            zombie.Mood = MonsterMood.Chasing;
+            Foes(run).First(m => !m.IsBoss).Mood = MonsterMood.Defeated;
+            Put(zombie, 37, 4);
+            Put(run, HeroRole.Healer, 36, 4);
+            Put(run, HeroRole.Tank, 35, 4);
+            var tank = Hero(run, HeroRole.Tank);
+            Wound(tank, 50);
+            int before = tank.Hp;
+            Ready(Hero(run, HeroRole.Healer));
+            run.Tick();
+            run.ForceCast(zombie, MonsterPattern.Slam);
+            run.Tick();
+            Assert.That(run.HeroTile(HeroRole.Healer), Is.Not.EqualTo(new TilePoint(36, 4)));
+            for (int i = 0; i < 5; i++) run.Tick();
+            Assert.That(tank.Hp, Is.EqualTo(before));
+            Assert.That(run.TakeEvents().Any(e => e.Kind == CombatEventKind.Heal), Is.False);
         }
 
         [TestCase(CombatTrait.RescueLeader, true)]
@@ -159,6 +190,8 @@ namespace DungeonTycoon.Core.Tests
             tank.Critical = true;
             Ready(Hero(run, HeroRole.Healer));
             run.Tick();
+            Assert.That(tank.Critical, Is.True);
+            for (int i = 0; i < 5; i++) run.Tick();
             Assert.That(tank.Critical, Is.False, "the heal lifts the tank to 30% or more");
             Assert.That(Hero(run, HeroRole.MeleeDamage).LastLine, Does.Contain("세레나").And.Contain("가론"));
             Assert.That(run.Log.Any(line => line.StartsWith("칭찬")), Is.True);

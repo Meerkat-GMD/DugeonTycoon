@@ -1,5 +1,6 @@
 {
     "armorScale": 20,
+    "attackPerRoomAlly": 1,
     "experiencePerLevel": 10,
     "levelAttackGain": 3,
     "levelHpGain": 5,
@@ -15,10 +16,12 @@
     "archer":   { "cost": 2, "experience": 8, "moveTicks": 3, "attackTicks": 18, "range": 4,
                   "hp": 85, "attack": 24, "armor": 2 },
 
-    "graveKnight": { "hp": 450, "attack": 22, "armor": 4, "experience": 2, "moveTicks": 4, "attackTicks": 15 },
-    "cryptPriest": { "hp": 900, "attack": 28, "armor": 6, "experience": 3, "moveTicks": 4, "attackTicks": 15 },
+    "graveKnight": { "hp": 450, "attack": 22, "armor": 4, "experience": 5, "moveTicks": 4, "attackTicks": 15 },
+    "cryptPriest": { "hp": 900, "attack": 28, "armor": 6, "experience": 6, "moveTicks": 4, "attackTicks": 15 },
     "necromancer": { "hp": 3300, "attack": 42, "armor": 8, "experience": 0, "moveTicks": 4, "attackTicks": 15 },
 
     "chestRarePercent": [15, 30, 50],
-    "springRelief": 40
+    "springRelief": 40,
+    "faithRecoveryTicks": 600,
+    "faithRecoveryCap": 5
 }

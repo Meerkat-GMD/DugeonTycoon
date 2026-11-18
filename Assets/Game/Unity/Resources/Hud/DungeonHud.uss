@@ -250,9 +250,9 @@
 .hud .hero-card {
     flex-direction: row;
     width: 216px;
-    height: 68px;
+    height: 85px;
     margin-bottom: 8px;
-    padding: 2px 2px 18px 2px;
+    padding: 3px 4px 28px 4px;
     background-color: rgba(21, 27, 32, 0.78);
 }
 
@@ -314,7 +314,7 @@
     left: 3px;
     right: 3px;
     bottom: 3px;
-    height: 14px;
+    height: 26px;
     flex-direction: row;
 }
 
@@ -359,14 +359,21 @@
     opacity: 0.55;
 }
 
-/* Fills from the bottom while a skill is cooling down. */
-.hud .kit-cooldown {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 0;
-    background-color: rgba(0, 0, 0, 0.6);
+.hud .kit-cooldown, .hud .hero-skill-icon {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+}
+.hud .Taunt .hero-skill-icon { background-image: url("SkillTaunt.png"); }
+.hud .ShieldWall .hero-skill-icon { background-image: url("SkillShieldWall.png"); }
+.hud .PowerStrike .hero-skill-icon { background-image: url("SkillPowerStrike.png"); }
+.hud .Whirlwind .hero-skill-icon { background-image: url("SkillWhirlwind.png"); }
+.hud .MassHeal .hero-skill-icon { background-image: url("SkillMassHeal.png"); }
+.hud .Revive .hero-skill-icon { background-image: url("SkillRevive.png"); }
+.hud .PiercingShot .hero-skill-icon { background-image: url("SkillPiercingShot.png"); }
+.hud .RapidFire .hero-skill-icon { background-image: url("SkillRapidFire.png"); }
+.hud .hero-skill-icon { -unity-background-scale-mode: scale-to-fit; }
+.hud .skill-tile.locked .hero-skill-icon {
+    position: relative; width: 17px; height: 17px;
+    background-image: url("SkillLocked.png");
 }
 
 /* ── Board pop-ups and the settlement banner ─────────────────────── */
@@ -509,8 +516,8 @@
 
 /* Profile: the round frame behind, the hero's face on top (Assets/Art/Heroes/Portraits). */
 .hud .portrait {
-    width: 46px;
-    height: 46px;
+    width: 49px;
+    height: 49px;
     background-image: url("/Assets/Art/Heroes/Portraits/portrait_frame.png");
     -unity-background-scale-mode: scale-to-fit;
 }
@@ -566,6 +573,31 @@
     font-size: 10px;
     color: var(--growth);
 }
+
+.hud .card-heading { flex-direction: row; justify-content: space-between; align-items: center; height: 18px; }
+.hud .card-meter { height: 4px; margin-top: 2px; }
+.hud .xp-fill { background-color: #6594dc; }
+.hud .attack-fill { background-color: #ffd263; }
+.hud .card-gear { width: 58px; justify-content: center; }
+.hud .card-gear .kit-slot { height: 12px; font-size: 9px; }
+.hud .skill-tile {
+    flex-grow: 1; flex-basis: 0; margin-right: 3px; overflow: hidden;
+    flex-direction: row; justify-content: center; align-items: center;
+    background-color: #1d2c34; border-color: #526672; border-width: 1px; border-radius: 3px;
+}
+.hud .skill-title { font-size: 10px; color: #e6e9e9; }
+.hud .skill-time { margin: 0; padding: 0; font-size: 13px; color: white; -unity-text-outline-width: 1px; -unity-text-outline-color: #17232b; -unity-font-style: bold; }
+.hud .skill-tile.locked, .hud .skill-tile.spent { background-color: #263039; }
+.hud .skill-tile:hover { border-color: var(--teal); }
+.hud .statue-badge { display: none; flex-direction: row; align-items: center; padding: 0 3px;
+    background-color: #183e37; border-radius: 3px; }
+.hud .statue-badge.curse { background-color: #57313c; }
+.hud .stat-icon { width: 13px; height: 13px; -unity-background-scale-mode: scale-to-fit; }
+.hud .stat-icon.sword { background-image: url("StatueSword.png"); }
+.hud .stat-icon.shield { background-image: url("StatueShield.png"); }
+.hud .stat-icon.boot { background-image: url("StatueBoot.png"); }
+.hud .statue-badge .stat-value { color: #b8f4d9; font-size: 11px; -unity-font-style: bold; }
+.hud .curse .stat-value { color: #ffb7b5; }
 
 .hud .hero-card.down .hero-name {
     color: var(--muted);
@@ -691,6 +723,20 @@
     bottom: 10px;
 }
 
+.hud .bless-picker, .hud .bless-feedback {
+    display: none;
+    position: absolute;
+    right: 100%;
+    bottom: 0;
+    margin-right: 6px;
+    padding: 8px;
+    background-color: #202a30;
+    color: var(--paper);
+}
+.hud .bless-picker { width: 246px; }
+.hud .bless-picker Button { height: 28px; margin-top: 3px; }
+.hud .bless-feedback { white-space: nowrap; }
+
 .hud .faith-meter, .hud .skill-cost, .hud .faith-cells, .hud .skill-buttons {
     flex-direction: row;
     align-items: center;
@@ -718,7 +764,13 @@
     margin-left: 2px;
     background-color: #38494e;
 }
-.hud .faith-cell.filled { background-color: var(--teal); }
+.hud .faith-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background-color: var(--teal);
+}
 
 .hud .skill-slot { margin: 0 2px; }
 .hud .skill-button {
@@ -737,8 +789,8 @@
 .hud .skill-button:disabled { opacity: 0.65; }
 .hud .skill-title { font-size: 12px; color: var(--paper); }
 .hud .skill-art { width: 39px; height: 39px; -unity-background-scale-mode: scale-to-fit; }
-.hud .rockfall { background-image: url("Rockfall.png"); }
 .hud .blessing { background-image: url("Blessing.png"); }
+.hud .revelation-art { background-image: url("FaithDrop.png"); }
 .hud .rest-feather { background-image: url("RestFeather.png"); }
 .hud .skill-cost { justify-content: center; }
 .hud .skill-cost Label { margin-left: 3px; color: var(--teal); font-size: 13px; }
@@ -885,13 +937,20 @@
 }
 
 .hud .stage-clear .result-title {
+    max-width: 100%;
+    white-space: normal;
+    -unity-text-align: middle-center;
     font-size: 34px;
 }
 
 .hud .stage-clear .primary {
-    margin-top: 18px;
-    height: 44px;
-    padding: 0 24px;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    min-height: 44px;
+    margin: 18px 0 0;
+    padding: 6px 24px;
+    white-space: normal;
     font-size: 18px;
 }
 
@@ -1010,48 +1069,73 @@
     background-image: url("TitleLandscape.png");
     background-size: cover;
     background-position: center;
-    align-items: flex-end;
-    justify-content: center;
+    align-items: center;
     -unity-font-definition: url("/Assets/Art/Fonts/Mona10/Mona10-SDF.asset");
 }
+.title-logo {
+    position: absolute;
+    top: 163px;
+    width: 732px;
+    height: 310px;
+    translate: -13px 0;
+    background-image: url("TitleLogo.png");
+}
 .title-menu {
-    width: 26%;
-    margin-right: 6%;
+    position: absolute;
+    bottom: 196px;
 }
-.title-name {
-    color: #ffe9b8;
-    font-size: 48px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-    margin-bottom: 28px;
+#game-over {
+    display: none;
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: rgba(30, 29, 33, 0.48);
+    -unity-font-definition: url("/Assets/Art/Fonts/Mona10/Mona10-SDF.asset");
 }
-.title-menu .title-action {
-    align-self: center;
-    height: 51px;
-    margin: 5px 0;
-    padding: 0 6px;
+#game-over-layout {
+    width: 1920px;
+    height: 1080px;
+    flex-shrink: 0;
+}
+#game-over-art {
+    position: absolute;
+    left: 381px; top: 177px;
+    width: 1222px; height: 478px;
+    background-image: url("GameOver.png");
+}
+.game-over-actions {
+    position: absolute;
+    left: 636px; top: 438px;
+    width: 648px;
+    flex-direction: row;
+    justify-content: space-between;
+}
+.title-action {
+    width: 246px;
+    height: 78px;
+    margin: 0;
+    padding: 0;
     border-width: 0;
-    background-image: none;
+    border-radius: 0;
+    background-image: url("TitleButton.png");
     background-color: transparent;
-    color: #f4ead7;
-    font-size: 20px;
-    scale: 1 1;
-    transition-property: scale;
-    transition-duration: 150ms;
-    transition-timing-function: ease-in-out;
+    color: #f7f9fa;
+    font-size: 26px;
+    -unity-font-style: bold;
+    -unity-text-outline-color: #151619;
+    -unity-text-outline-width: 2px;
 }
 .title-menu .title-primary {
-    color: #eed69b;
+    margin-bottom: 20px;
 }
-.title-menu .title-action:hover:enabled {
-    scale: 1.08 1.08;
+.title-action:focus {
+    -unity-background-image-tint-color: #ffdfaa;
 }
-.title-menu .title-action:focus {
-    color: #fff1ca;
-    -unity-font-style: bold;
-}
-.title-menu .title-action:disabled {
-    color: #9ba99c;
+.title-action:hover {
+    background-image: url("TitleButtonHighlighted.png");
+    -unity-background-image-tint-color: white;
 }
 #prologue {
     display: none;
@@ -1085,3 +1169,36 @@
 }
 .prologue-action:hover, .prologue-action:focus { background-color: #594150; }
 #prologue-skip { position: absolute; top: 32px; right: 40px; }
+.hud .speech-bubble {
+    position: absolute;
+    width: 39px;
+    height: 33px;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff1ce;
+    border-radius: 15px;
+}
+
+
+.hud .stage-bubble-tail {
+    position: absolute;
+    left: 6px;
+    bottom: -3px;
+    width: 9px;
+    height: 9px;
+    rotate: 45deg;
+    background-color: #fff1ce;
+}
+
+.hud .stage-expression {
+    width: 29px;
+    height: 29px;
+    padding: 0;
+    margin: 0;
+    color: #483225;
+    font-size: 19px;
+    -unity-text-align: middle-center;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud .field-bubble { translate: -50% -115%; }

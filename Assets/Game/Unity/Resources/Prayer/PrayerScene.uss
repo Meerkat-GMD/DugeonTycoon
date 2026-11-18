@@ -67,10 +67,6 @@
 /* The hero kneels on the dais, which sits about 28% across the background. */
 .hud .prayer-hero {
     position: absolute;
-    left: 10%;
-    width: 36%;
-    top: 14%;
-    bottom: 9%;
 }
 
 .hud .hero-art {
@@ -86,11 +82,6 @@
 }
 
 .hud .hero-art.show { opacity: 1; }
-.hud .mood-despair .hero-art.despair {
-    translate: 0 10px;
-    scale: 0.97 0.97;
-}
-
 .hud .role-0 .hero-art.pray { background-image: url("/Assets/Art/Prayer/tank_pray.png"); }
 .hud .role-0 .hero-art.radiant { background-image: url("/Assets/Art/Prayer/tank_radiant.png"); }
 .hud .role-0 .hero-art.despair { background-image: url("/Assets/Art/Prayer/tank_despair.png"); }
@@ -247,39 +238,6 @@
 }
 
 /* ── Outcome ───────────────────────────────────────────────────── */
-
-.hud .prayer-stamp {
-    position: absolute;
-    left: 19%;
-    bottom: 5%;
-    padding: 4px 16px;
-    border-width: 3px;
-    border-radius: 6px;
-    font-size: 22px;
-    -unity-font-style: bold;
-    letter-spacing: 3px;
-    rotate: -6deg;
-    scale: 1.8 1.8;
-    opacity: 0;
-    transition-property: opacity, scale;
-    transition-duration: 0.25s;
-    transition-timing-function: ease-out-back;
-}
-
-.hud .prayer-stamp.show {
-    opacity: 1;
-    scale: 1 1;
-}
-
-.hud .prayer-stamp.firm {
-    color: rgb(255, 215, 102);
-    border-color: rgb(255, 215, 102);
-}
-
-.hud .prayer-stamp.shaken {
-    color: var(--ember);
-    border-color: var(--ember);
-}
 
 .hud .prayer-flash {
     position: absolute;

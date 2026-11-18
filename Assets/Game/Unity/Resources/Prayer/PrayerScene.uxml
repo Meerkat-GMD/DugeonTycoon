@@ -46,7 +46,6 @@
                 <ui:Label name="cost" class="choice-cost" picking-mode="Ignore" />
             </ui:Button>
         </ui:VisualElement>
-        <ui:Label name="prayer-stamp" class="prayer-stamp" picking-mode="Ignore" />
         <ui:VisualElement name="prayer-flash" class="prayer-flash" picking-mode="Ignore" />
         <ui:Label name="prayer-next" class="prayer-next" text="클릭 / 스페이스 ▸" picking-mode="Ignore" />
     </ui:VisualElement>

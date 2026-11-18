@@ -60,7 +60,7 @@ namespace DungeonTycoon.Core.Tests
             return results;
         }
 
-        /// <summary>Plays a whole expedition on local decisions, spending trials and blessings like the rule check does.</summary>
+        /// <summary>Plays a whole expedition on local decisions, using blessings like the rule check does.</summary>
         internal static (RunPhase Phase, List<StageReport> Stages, DungeonRun Run) Play(int seed, bool plan, bool bless = true)
         {
             var run = new DungeonRun(seed);
@@ -86,8 +86,6 @@ namespace DungeonTycoon.Core.Tests
                     current = new StageReport { Stage = run.Stage };
                     reports.Add(current);
                 }
-                if (run.TrialsLeft == 2 || (run.TrialsLeft == 1 && run.FightingBoss))
-                    run.ResolveAdversity(run.BeginAdversity(), HeroRole.Tank, 20);
                 if (bless) run.Bless();
                 if (run.FightingBoss && current.LevelAtBoss < 0)
                 {
@@ -122,7 +120,7 @@ namespace DungeonTycoon.Core.Tests
         }
 
         /// <summary>
-        /// Arrives at the stage the way the steady plan would (trials won, no blessings), lays out a plan and measures the
+        /// Arrives at the stage the way the steady plan would (no blessings), lays out a plan and measures the
         /// ordinary fights up to the boss without any help from the GM.
         /// </summary>
         internal static FightReport Fight(int seed, int stage, (int X, int Y, MonsterKind Kind)[] plan)
@@ -139,7 +137,6 @@ namespace DungeonTycoon.Core.Tests
                     if (DungeonRunTests.SettlePrayer(run)) continue;
                     if (run.PendingLoot != null) { run.ResolveLoot(run.PendingLoot.Token); continue; }
                     if (run.AdvanceToNextStage()) continue;
-                    if (run.TrialsLeft > 0 && DungeonRunTests.InDungeon(run)) { run.ResolveAdversity(run.BeginAdversity(), HeroRole.Tank, 20); continue; }
                     if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
                     else run.Tick();
                 }
@@ -181,7 +178,7 @@ namespace DungeonTycoon.Core.Tests
             var seeds = Seeds(6);
             var problems = BalanceTable.Current.Problems();
             if (problems.Count > 0) Say("balance.json 문제: " + string.Join(" / ", problems));
-            Say($"== 원정 {seeds.Length}개 시드 (역경 모두 성공, 신앙 전부 축복) — 목표: 빈 던전은 늘 지고, 길목 배치는 대부분 이긴다");
+            Say($"== 원정 {seeds.Length}개 시드 (신앙 전부 축복) — 목표: 빈 던전은 늘 지고, 길목 배치는 대부분 이긴다");
             foreach (bool plan in new[] { false, true })
             {
                 var runs = PerSeed(seeds, seed => Play(seed, plan));

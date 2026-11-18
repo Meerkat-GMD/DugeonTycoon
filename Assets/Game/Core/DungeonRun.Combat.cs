@@ -13,6 +13,9 @@ namespace DungeonTycoon.Core
         /// <summary>Ticks between a hero's attacks or heals. Balance value.</summary>
         public const int HeroAttackTicks = 15;
         private const int HealThreshold = 6;
+        private const int BasicHealCastTicks = 5;
+        private HeroState basicHealPatient;
+        private int basicHealFinishTick;
 
         private readonly HeroTactic[] tactics = new HeroTactic[4];
         private readonly List<MonsterState> joined = new List<MonsterState>();
@@ -51,12 +54,22 @@ namespace DungeonTycoon.Core
         /// <summary>What a blow of <paramref name="attack"/> does through <paramref name="armor"/>; see <see cref="BalanceTable.armorScale"/>.</summary>
         public static int Mitigate(int attack, int armor) => BalanceTable.Current.Mitigate(attack, armor);
 
+        internal int RoomAttackBonus(MonsterState attacker)
+        {
+            int room = Map.RoomOf(attacker.Tile);
+            if (room < 0 || !attacker.Alive) return 0;
+            int allies = 0;
+            foreach (var other in monsters)
+                if (other != attacker && other.Alive && Map.RoomOf(other.Tile) == room) allies++;
+            return allies * BalanceTable.Current.attackPerRoomAlly;
+        }
+
         private MonsterState CreateMonster(int id, MonsterKind kind, TilePoint tile)
         {
             var (hp, attack, armor) = MonsterStats(kind);
             var n = BalanceTable.Current.Of(kind);
             MonsterState Make(string name, params MonsterPattern[] patterns) =>
-                new MonsterState(id, kind, false, name, hp, attack, armor, n.experience, n.moveTicks, n.attackTicks, tile, patterns) { Range = n.range };
+                new MonsterState(this, id, kind, false, name, hp, attack, armor, n.experience, n.moveTicks, n.attackTicks, tile, patterns) { Range = n.range };
             switch (kind)
             {
                 case MonsterKind.Zombie: return Make("좀비", MonsterPattern.Shove);
@@ -71,7 +84,7 @@ namespace DungeonTycoon.Core
         {
             var n = BalanceTable.Current.BossOf(Stage);
             MonsterState Make(string name, params MonsterPattern[] patterns) =>
-                new MonsterState(BossIndex, MonsterKind.None, true, name, n.hp, n.attack, n.armor, n.experience, n.moveTicks, n.attackTicks,
+                new MonsterState(this, BossIndex, MonsterKind.None, true, name, n.hp, n.attack, n.armor, n.experience, n.moveTicks, n.attackTicks,
                     Map.BossTile, patterns);
             switch (Stage)
             {
@@ -325,12 +338,21 @@ namespace DungeonTycoon.Core
             // A step must finish before the hero attacks, heals or uses a skill.
             if (Moving(hero)) return;
             // A rescue leader runs to the fallen before minding any telegraphed attack.
-            if (hero.Role == HeroRole.Healer && hero.CombatTrait == CombatTrait.RescueLeader && TryRevive(hero, bold: true)) return;
+            if (hero.Role == HeroRole.Healer && hero.CombatTrait == CombatTrait.RescueLeader && TryRevive(hero, bold: true))
+            {
+                basicHealPatient = null;
+                return;
+            }
             if (AnswerPatterns(hero)) return;
             var tactic = tactics[(int)hero.Role];
             var here = heroTiles[(int)hero.Role];
             if (hero.Role == HeroRole.Tank) TankSkills(hero, engaged);
             if (TryRally(hero)) return;
+            if (hero.Role == HeroRole.Healer && basicHealPatient != null)
+            {
+                if (Ticks >= basicHealFinishTick) FinishBasicHeal(hero);
+                return;
+            }
             if (hero.Role == HeroRole.Healer && (TryTriage(hero) || TryRevive(hero) || TryHeal(hero, tactic))) return;
             if (hero.Role == HeroRole.MeleeDamage && TryWhirlwind(hero, engaged)) return;
             if (TrySurvive(hero)) return;
@@ -366,9 +388,25 @@ namespace DungeonTycoon.Core
             return engaged.OrderBy(m => Chebyshev(m.Tile, here)).ThenBy(m => m.Id).First();
         }
 
+        private void BeginAttackDelay(HeroState hero, int start)
+        {
+            hero.AttackStarted = start;
+            hero.ActReady = start + AttackCycle(hero);
+        }
+
+        public float BasicAttackReadiness(HeroState hero)
+        {
+            if (hero.Hp == 0) return 0;
+            if (Phase != RunPhase.Combat) return 1;
+            if (hero.Role == HeroRole.Healer && basicHealPatient != null)
+                return Math.Min(1f, (float)(Ticks - basicHealFinishTick + BasicHealCastTicks) / AttackCycle(hero));
+            if (hero.ActReady <= Ticks) return 1;
+            return (float)(Ticks - hero.AttackStarted) / (hero.ActReady - hero.AttackStarted);
+        }
+
         private void Strike(HeroState hero, MonsterState monster)
         {
-            hero.ActReady = Ticks + AttackCycle(hero);
+            BeginAttackDelay(hero, Ticks);
             Hit(hero, monster, HitDamage(hero, monster));
         }
 
@@ -481,7 +519,7 @@ namespace DungeonTycoon.Core
             return HealOne(healer, patient);
         }
 
-        /// <summary>Walks into reach of the patient, waits for the next action, then heals. Always takes the turn.</summary>
+        /// <summary>Walks into reach of the patient, then starts a stationary heal when ready.</summary>
         private bool HealOne(HeroState healer, HeroState patient)
         {
             var here = heroTiles[(int)healer.Role];
@@ -492,12 +530,22 @@ namespace DungeonTycoon.Core
                 return true;
             }
             if (healer.ActReady > Ticks) return true;
-            healer.ActReady = Ticks + AttackCycle(healer);
+            basicHealPatient = patient;
+            basicHealFinishTick = Ticks + BasicHealCastTicks;
+            return true;
+        }
+
+        private void FinishBasicHeal(HeroState healer)
+        {
+            var patient = basicHealPatient;
+            basicHealPatient = null;
+            if (patient.Hp <= 0 || patient.Hp == patient.MaxHp ||
+                !InReach(heroTiles[(int)healer.Role], heroTiles[(int)patient.Role], healer.Range)) return;
+            BeginAttackDelay(healer, basicHealFinishTick - BasicHealCastTicks);
             int before = patient.Hp;
             patient.Hp = Math.Min(patient.MaxHp, patient.Hp + HealAmount);
             events.Add(new CombatEvent(CombatEventKind.Heal, true, (int)healer.Role, true, (int)patient.Role, patient.Hp - before));
             Recovered(healer, patient);
-            return true;
         }
 
         /// <summary>A healed hero back at 30% or more is out of danger, and a cheerer says so.</summary>
@@ -514,6 +562,7 @@ namespace DungeonTycoon.Core
             if (announce) log.Add($"{source} → {target.Name} • {damage} 피해{(target.Hp == 0 ? " / 쓰러짐" : "")}");
             if (target.Hp == 0)
             {
+                if (target.Role == HeroRole.Healer || target == basicHealPatient) basicHealPatient = null;
                 if (!announce) log.Add($"{source} → {target.Name} • 쓰러짐");
                 target.LastLine = "";
                 BumpSituation();

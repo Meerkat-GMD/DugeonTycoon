@@ -24,11 +24,6 @@ namespace DungeonTycoon.Unity
             "적의 예고 공격에는 용사마다 성향과 역할에 맞춰 대응을 고른다. Dodge는 범위 밖으로 피하지만 그동안 공격하지 못하고, " +
             "Hold는 맞더라도 제자리에서 하던 일을 계속하며, Lure는 자기를 노리는 TrackingBeam을 동료가 없는 쪽으로 끌고 가 혼자 맞는다. " +
             "이동·공격·피해는 게임이 판정한다.";
-        private const string TrialPrompt =
-            "던전에서 낙석이 떨어진다. 살아 있는 용사 중 한 명을 골라 동료를 지킬 행동을 선언하라. " +
-            "JSON 객체에 role(입력의 영문 역할 ID)과 line(40자 이내의 한국어 1인칭 대응 선언)을 넣어라. " +
-            "주사위와 성공 여부는 게임이 판정한다.";
-
         private const string ForkPrompt =
             "던전 TRPG 용사들이 갈림길에서 어느 길로 갈지 논의한다. 각 용사는 자기 성격 성향과 능력치, 파티의 체력, " +
             "입력에 적힌 보이는 정보만 근거로 길 하나를 고른다. 입력에 없는 것은 용사들도 모른다. " +
@@ -257,34 +252,6 @@ namespace DungeonTycoon.Unity
             await request.SendWebRequest().WithCancellation(deadline.Token);
             deadline.Token.ThrowIfCancellationRequested();
             return request.downloadHandler.text;
-        }
-
-        public async UniTask<(HeroRole Role, string Line)> RespondAsync(DungeonRun run, CancellationToken token)
-        {
-            token.ThrowIfCancellationRequested();
-            if (Online)
-            {
-                var response = await RequestAsync<TrialResponse>(run, TrialPrompt, token);
-                if (response != null && TryRole(response.role, out var role) && IsAlive(run, role) &&
-                    !string.IsNullOrWhiteSpace(response.line)) return (role, CleanLine(response.line));
-            }
-
-            HeroRole responder = HeroRole.Tank;
-            int mostHealth = 0;
-            foreach (var hero in run.Party)
-            {
-                if (hero.Hp <= mostHealth) continue;
-                mostHealth = hero.Hp;
-                responder = hero.Role;
-            }
-
-            return responder switch
-            {
-                HeroRole.Tank => (responder, "방패를 내 머리 위로! 다들 내 뒤로 와!"),
-                HeroRole.Healer => (responder, "보호막을 펼칠게요. 가까이 모여요!"),
-                HeroRole.MeleeDamage => (responder, "앞길을 막는 돌은 내가 쳐낼게!"),
-                _ => (responder, "오른쪽이 비었어. 내 발자국을 따라와!")
-            };
         }
 
         /// <summary>
@@ -544,7 +511,6 @@ namespace DungeonTycoon.Unity
         // choice stays a string so a missing field is not silently read as monster 0; a missing confidence reads as
         // 0, under the floor, so that part goes to the local rules.
         [Serializable] private sealed class DecisionAnswer { public string type, name, choice; public float confidence; }
-        [Serializable] private sealed class TrialResponse { public string role, line; }
         [Serializable] private sealed class ForkPlan { public Vote[] opinions; }
         // option stays a string so a missing field is not silently read as path 0.
         [Serializable] private sealed class Vote { public string role, option, line; }

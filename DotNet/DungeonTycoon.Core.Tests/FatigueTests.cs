@@ -90,8 +90,8 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void OnlyTheLeadersExploringStepsTire()
         {
-            // Over a whole stage with fights, forks and loot, fatigue moves exactly with the exploring steps.
-            var run = new DungeonRun();
+            // Isolate walking fatigue from springs and merchant consumables.
+            var run = DungeonRun.Sandbox();
             foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 40 == 0).Take(3)) run.Place(tile, MonsterKind.Skeleton);
             run.Start();
             int steps = run.StepsTaken, fatigue = run.FatigueSteps;
@@ -228,6 +228,7 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = new DungeonRun();
             Assert.That(run.CanRelieveFatigue, Is.False, "not before departure");
+            run.SetFaith(DungeonRun.BlessCost);
             run.Start();
             Assert.That(run.CanRelieveFatigue, Is.False, "nothing to ease yet");
             Assert.That(run.RelieveFatigue(), Is.False);
@@ -249,8 +250,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.FatigueSteps, Is.EqualTo(steps));
 
             run.ResolveFork(run.PendingFork.Token);
-            run.ResolveAdversity(run.BeginAdversity(), HeroRole.Tank, 20);
-            Assert.That(run.Faith, Is.EqualTo(1));
+            run.SetFaith(DungeonRun.BlessCost);
             run.SetFatigueSteps(12);
             Assert.That(run.RelieveFatigue(), Is.True);
             Assert.That(run.FatigueSteps, Is.Zero, "never below zero");
@@ -264,7 +264,7 @@ namespace DungeonTycoon.Core.Tests
             run.SetFatigueSteps(run.FatigueSecondThreshold + 1);
             run.ReduceFatigue(run.FatigueSecondThreshold + 1 - run.FatigueFirstThreshold);
             Assert.That(run.Fatigue, Is.EqualTo(FatigueStage.Rested));
-            Assert.That(run.Faith, Is.EqualTo(1));
+            Assert.That(run.Faith, Is.EqualTo(3));
             run.ReduceFatigue(1000);
             Assert.That(run.FatigueSteps, Is.Zero);
         }

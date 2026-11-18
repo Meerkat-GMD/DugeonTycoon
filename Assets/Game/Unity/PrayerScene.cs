@@ -23,7 +23,7 @@ namespace DungeonTycoon.Unity
 
         private VisualElement root, hero, bubble, choices, flash, sparkles, beam, vignette;
         private VisualElement pray, radiant, despair;
-        private Label narration, who, line, stamp, next;
+        private Label narration, who, line, next;
         private readonly Button[] buttons = new Button[3];
         private readonly List<VisualElement> sparks = new List<VisualElement>();
         private int picked = -1;
@@ -57,6 +57,7 @@ namespace DungeonTycoon.Unity
             tree.CloneTree(hud);
             root = hud.Q("prayer-scene");
             hero = root.Q("prayer-hero");
+            root.RegisterCallback<GeometryChangedEvent>(e => PositionHero(e.newRect.size));
             pray = root.Q("art-pray");
             radiant = root.Q("art-radiant");
             despair = root.Q("art-despair");
@@ -69,7 +70,6 @@ namespace DungeonTycoon.Unity
             narration = root.Q<Label>("prayer-narration");
             who = root.Q<Label>("prayer-who");
             line = root.Q<Label>("prayer-line");
-            stamp = root.Q<Label>("prayer-stamp");
             next = root.Q<Label>("prayer-next");
             for (int i = 0; i < buttons.Length; i++)
             {
@@ -140,10 +140,6 @@ namespace DungeonTycoon.Unity
                 narration.text = "";
                 if (outcome.Answered) flashStartedAt = Time.unscaledTime;
                 SetMood(outcome.Answered ? "radiant" : "despair");
-                stamp.text = "믿음 · " + DungeonRun.BeliefName(outcome.Belief);
-                stamp.EnableInClassList("firm", outcome.Answered);
-                stamp.EnableInClassList("shaken", !outcome.Answered);
-                stamp.AddToClassList("show");
                 await TypeAsync(narration, outcome.Narration, ct);
                 await TypeAsync(line, outcome.Reaction, ct);
                 await WaitAsync(ct);
@@ -154,16 +150,30 @@ namespace DungeonTycoon.Unity
             }
         }
 
+        private void PositionHero(Vector2 size)
+        {
+            if (size.x <= 0 || size.y <= 0) return;
+            // The 1536 x 1024 sanctum uses scale-and-crop. Track the painted dais as the viewport changes.
+            float backgroundScale = Mathf.Max(size.x / 1536f, size.y / 1024f);
+            float side = Mathf.Min(size.x * .36f, size.y * .77f);
+            float daisX = size.x * .5f + (430f - 768f) * backgroundScale;
+            float daisY = size.y * .5f + (785f - 512f) * backgroundScale;
+            hero.style.width = side;
+            hero.style.height = side;
+            hero.style.left = daisX - side * .5f;
+            // All three poses have transparent padding below the feet in the square artwork.
+            hero.style.top = daisY - side * .93f;
+        }
+
         private void Open(HeroRole role, string name)
         {
             for (int i = 0; i < 4; i++) root.EnableInClassList("role-"+i, i == (int)role);
             who.text = name;
-            line.text = narration.text = stamp.text = "";
+            line.text = narration.text = "";
             bubble.RemoveFromClassList("show");
             choices.RemoveFromClassList("show");
             choices.RemoveFromClassList("done");
             choices.pickingMode = PickingMode.Ignore;
-            stamp.RemoveFromClassList("show");
             SetMood("pray");
             picked = -1;
             pressed = false;

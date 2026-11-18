@@ -103,6 +103,7 @@ namespace DungeonTycoon.Core
             bool bossWasSeen = IsSeen(Map.BossTile);
             Reveal();
             VisitFeatures(next);
+            if (PendingLoot == null) VisitEncounter(next);
             if (PendingLoot != null) return;
 
             // Re-plan once the edge we were heading for has been seen, as soon as the boss room shows up, or when a

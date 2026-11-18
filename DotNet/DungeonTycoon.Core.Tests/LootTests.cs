@@ -183,14 +183,16 @@ namespace DungeonTycoon.Core.Tests
             List<string> Play()
             {
                 var run = DungeonRun.Sandbox(seed: 11);
-                foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 9 == 0).Take(5))
-                    run.Place(tile, MonsterKind.Zombie);
+                var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
+                for (int i = 0; i < 5; i++) Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
                 run.Start();
+                // Exercise the real drop tables with five defeats, regardless of combat balance.
+                foreach (var skeleton in run.Monsters.Where(m => m.Kind == MonsterKind.Skeleton)) skeleton.Hp = 1;
                 DungeonRunTests.Drive(run, () => !DungeonRunTests.InDungeon(run));
                 return run.Log.Where(line => line.StartsWith("전리품") || line.StartsWith("장착") || line.StartsWith("버림")).ToList();
             }
             var first = Play();
-            Assert.That(first, Is.Not.Empty, "five zombies drop something");
+            Assert.That(first, Is.Not.Empty, "the defeated monsters drop something");
             Assert.That(Play(), Is.EqualTo(first));
         }
 

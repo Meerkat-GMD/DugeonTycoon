@@ -71,7 +71,10 @@ namespace DungeonTycoon.Core
         public int BossIndex => placements.Count + PatrolMemberCount;
         public int Ticks { get; private set; }
         public int Budget { get; private set; } = BudgetFor(1);
-        public int Faith { get; private set; } = 1;
+        public int Faith { get; private set; } = 3;
+        private int FaithRecoveryElapsed => Ticks % BalanceTable.Current.faithRecoveryTicks;
+        public float FaithRecoveryProgress => Faith >= BalanceTable.Current.faithRecoveryCap
+            ? 0f : (float)FaithRecoveryElapsed / BalanceTable.Current.faithRecoveryTicks;
         public int TrialsLeft { get; private set; } = 2;
         public int Experience { get; private set; }
         /// <summary>Experience per party level. From <see cref="BalanceTable"/>.</summary>
@@ -240,6 +243,9 @@ namespace DungeonTycoon.Core
         {
             if (!InDungeon || PendingAdversity || PendingFork != null || PendingLoot != null || PendingPrayer != null) return false;
             Ticks++;
+            var balance = BalanceTable.Current;
+            if (FaithRecoveryElapsed == 0 && Faith < balance.faithRecoveryCap)
+                Faith++;
             foreach (var monster in monsters) Perceive(monster);
             UpdateEngagement();
             if (Phase == RunPhase.Combat) AdvanceCasts();
@@ -296,12 +302,17 @@ namespace DungeonTycoon.Core
             return true;
         }
 
-        public int BeginAdversity()
+        public const int TrialCost = 1;
+        public bool CanBeginAdversity => InDungeon && !PendingAdversity && PendingLoot == null &&
+            PendingPrayer == null && TrialsLeft > 0 && Faith >= TrialCost;
+
+        internal int BeginAdversity()
         {
-            if (!InDungeon || PendingAdversity || PendingLoot != null || PendingPrayer != null || TrialsLeft == 0) return 0;
+            if (!CanBeginAdversity) return 0;
+            Faith -= TrialCost;
             TrialsLeft--;
             pendingTrial = ++nextTrialToken;
-            log.Add("낙석! • 용사들이 대응을 선언합니다.");
+            log.Add($"낙석! • 신앙 -{TrialCost} / 용사들이 대응을 선언합니다.");
             return pendingTrial;
         }
 

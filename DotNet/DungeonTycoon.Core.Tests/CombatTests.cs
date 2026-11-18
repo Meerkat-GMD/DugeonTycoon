@@ -31,6 +31,33 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
+        public void AttackTracksLivingAlliesInTheMonstersCurrentRoom()
+        {
+            var run = DungeonRun.Sandbox();
+            var roomTile = run.Map.BossTile;
+            var tiles = DungeonRunTests.PlaceableTiles(run);
+            int room = run.Map.RoomOf(roomTile);
+            var sameRoom = tiles.First(t => t != roomTile && run.Map.RoomOf(t) == room);
+            var otherRoom = tiles.First(t => run.Map.RoomOf(t) >= 0 && run.Map.RoomOf(t) != room);
+            var corridor = tiles.First(t => run.Map.RoomOf(t) < 0);
+            Assert.That(run.Place(sameRoom, MonsterKind.Skeleton), Is.True);
+            Assert.That(run.Place(roomTile, MonsterKind.Ghost), Is.True);
+            run.Start();
+            var skeleton = run.Monsters[0];
+            var ghost = run.Monsters[1];
+            int bonus = BalanceTable.Current.attackPerRoomAlly;
+            Assert.That(skeleton.Attack, Is.EqualTo(skeleton.BaseAttack + 2 * bonus));
+            Assert.That(run.Boss.Attack, Is.EqualTo(run.Boss.BaseAttack + 2 * bonus));
+            ghost.Tile = otherRoom;
+            Assert.That(ghost.Attack, Is.EqualTo(ghost.BaseAttack));
+            Assert.That(skeleton.Attack, Is.EqualTo(skeleton.BaseAttack + bonus));
+            run.Boss.Mood = MonsterMood.Defeated;
+            Assert.That(skeleton.Attack, Is.EqualTo(skeleton.BaseAttack));
+            skeleton.Tile = ghost.Tile = corridor;
+            Assert.That(skeleton.Attack, Is.EqualTo(skeleton.BaseAttack));
+        }
+
+        [Test]
         public void IdleMonstersWanderNearTheirPostAndAnIdleBossStaysInItsRoom()
         {
             var run = Crowded();

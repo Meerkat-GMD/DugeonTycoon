@@ -50,6 +50,7 @@ namespace DungeonTycoon.Core
 
         private void StepHero(HeroState hero, TilePoint to)
         {
+            if (hero.Role == HeroRole.Healer) basicHealPatient = null;
             hero.StepFrom = heroTiles[(int)hero.Role];
             heroTiles[(int)hero.Role] = to;
             hero.MoveReady = hero.StepUntil = Ticks + CombatMoveTicks(hero);
@@ -69,7 +70,11 @@ namespace DungeonTycoon.Core
                 monster.PatternReady[i] = Ticks + FirstPatternDelayTicks + i * PatternStaggerTicks;
         }
 
-        private void ClearCasts() => casts.Clear();
+        private void ClearCasts()
+        {
+            casts.Clear();
+            basicHealPatient = null;
+        }
 
         // ── Casting ──────────────────────────────────────────────────────
 
@@ -187,10 +192,22 @@ namespace DungeonTycoon.Core
                 if (cast.Phase == CastPhase.Aiming)
                 {
                     var target = cast.Target >= 0 ? party[cast.Target] : null;
-                    if (target != null && target.Hp > 0) cast.Aim = StandingTile(target.Role);
-                    cast.area = AreaOf(cast.Caster, cast.Pattern, cast.Aim);
+                    if (target != null && target.Hp > 0 && cast.Aim != StandingTile(target.Role))
+                    {
+                        cast.Aim = StandingTile(target.Role);
+                        var nextArea = AreaOf(cast.Caster, cast.Pattern, cast.Aim);
+                        foreach (var ally in party)
+                        {
+                            var tile = StandingTile(ally.Role);
+                            if (ally != target && ally.Hp > 0 && !cast.area.Contains(tile) && nextArea.Contains(tile))
+                                cast.sweptAllies.Add((int)ally.Role);
+                        }
+                        cast.area = nextArea;
+                    }
                     if (Ticks >= cast.LockTick) cast.Phase = CastPhase.Locked;
                 }
+                if (cast.sweptAllies.Count > 0)
+                    cast.sweptAllies.RemoveWhere(role => !cast.area.Contains(StandingTile((HeroRole)role)));
                 if (Ticks >= cast.FireTick) Fire(cast);
                 if (!InDungeon) return;
             }
@@ -219,7 +236,20 @@ namespace DungeonTycoon.Core
             }
             string name = MonsterPatterns.Name(cast.Pattern);
             log.Add(struck.Count == 0 ? $"{name} 발동 • 아무도 맞지 않았습니다." : $"{name} 발동 • {string.Join(", ", struck)} 피해");
-            if (struck.Count > 0 && InDungeon) Nag(cast);
+            if (struck.Count > 0 && InDungeon)
+            {
+                Nag(cast);
+                if (cast.Pattern == MonsterPattern.TrackingBeam && cast.hits.Contains(cast.Target))
+                {
+                    foreach (int role in cast.hits)
+                    {
+                        var ally = party[role];
+                        if (ally.Hp == 0 || !cast.sweptAllies.Contains(role)) continue;
+                        ally.LastLine = $"{party[cast.Target].Name}! #@#$@# 레이저를 왜 이쪽으로 끌고 와!";
+                        log.Add($"레이저 항의 • {ally.Name} “{ally.LastLine}”");
+                    }
+                }
+            }
         }
 
         /// <summary>

@@ -46,6 +46,7 @@ namespace DungeonTycoon.Unity
         {
             public VisualElement Root, Over;
             public Label Status, Name, Mark;
+            public SpeechBubble Bubble;
             public bool Down, Thinking;
         }
 
@@ -120,7 +121,11 @@ namespace DungeonTycoon.Unity
             for (int i = 0; i < slots.Length; i++)
             {
                 var slot = root.Q("slot-"+i);
+                var bubble = new SpeechBubble();
+                bubble.AddToClassList("stage-bubble");
+                slot.Add(bubble);
                 slots[i] = new Slot {
+                    Bubble = bubble,
                     Root = slot, Over = slot.Q("over"), Status = slot.Q<Label>("status"),
                     Name = slot.Q<Label>("name"), Mark = slot.Q<Label>("mark")
                 };
@@ -201,6 +206,7 @@ namespace DungeonTycoon.Unity
                 var slot = slots[(int)role];
                 slot.Thinking = false;
                 RefreshThinking(slot);
+                slot.Bubble.SetLine(line);
                 foreach (var other in slots) other.Root.EnableInClassList("talk", other == slot);
                 box.RemoveFromClassList("narration");
                 Show(speaker, true);

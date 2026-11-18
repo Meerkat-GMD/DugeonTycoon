@@ -27,6 +27,7 @@ namespace DungeonTycoon.Unity
         private float accumulator;
         private int discussedFork;
         private int sharedLoot;
+        private System.Collections.Generic.IReadOnlyList<DialogueBeat> shownEncounter;
         private int plannedSituation;
         private int thinkers;
 
@@ -43,8 +44,6 @@ namespace DungeonTycoon.Unity
         public bool Presenting => (stage != null && stage.IsOpen) || (prayerScene != null && prayerScene.IsOpen);
         /// <summary>The hero (as int) whose answer to "will you pray?" is on its way, or -1. The HUD shows "…" over them.</summary>
         public int AskingPrayer { get; private set; } = -1;
-        public int LastRoll { get; private set; }
-        public string TrialAnnouncement { get; private set; } = "";
         /// <summary>Feedback from the most recent blessing or fatigue relief.</summary>
         public string SpotlightTitle { get; private set; } = "";
         public string SpotlightText { get; private set; } = "";
@@ -54,6 +53,13 @@ namespace DungeonTycoon.Unity
         /// <summary>The hero the GM picked as the target of help, or -1.</summary>
         public int SelectedHero { get; private set; } = -1;
         private int resumeSpeed = 1;
+
+        private async UniTask ShowEncounterAsync(DungeonRun run, CancellationToken token)
+        {
+            stage.Open(run);
+            try { await stage.PlayAsync(run.EncounterScene, PlayRoll, token); }
+            finally { if (stage) stage.Close(); }
+        }
 
         private void Awake()
         {
@@ -173,11 +179,12 @@ namespace DungeonTycoon.Unity
             if (run == null || !InDungeon(run)) return;
             var phaseBefore = run.Phase;
             var leaderBefore = run.LeaderTile;
+            int coinsBefore = run.Coins;
             int standingBefore = 0;
             foreach (var hero in run.Party)
                 if (hero.Hp > 0) standingBefore |= 1 << (int)hero.Role;
 
-            if (run.PendingAdversity || run.PendingPrayer != null || Speed == 0 || Presenting) accumulator = 0;
+            if (run.PendingPrayer != null || Speed == 0 || Presenting) accumulator = 0;
             else
             {
                 accumulator += Time.deltaTime*Speed;
@@ -186,12 +193,13 @@ namespace DungeonTycoon.Unity
                 {
                     accumulator -= TickSeconds;
                     run.Tick();
-                    if (!InDungeon(run) || run.PendingAdversity || run.PendingPrayer != null) break;
+                    if (run.EncounterScene != shownEncounter || !InDungeon(run) || run.PendingPrayer != null) break;
                 }
                 if (accumulator > TickSeconds*budget) accumulator = 0;
             }
             if (SelectedHero >= 0 && run.Party[SelectedHero].Hp == 0) SelectHero(-1);
             if (run.LeaderTile != leaderBefore) dungeonAudio.PlayEffect(SoundKey.Step);
+            if (run.Coins != coinsBefore) dungeonAudio.PlayEffect(SoundKey.Reward);
             foreach (var hero in run.Party)
                 if (hero.Hp == 0 && (standingBefore & (1 << (int)hero.Role)) != 0)
                     dungeonAudio.PlayEffect(SoundKey.Down);
@@ -213,6 +221,13 @@ namespace DungeonTycoon.Unity
             Board.SetFeatures(run.Chests, run.Springs);
             EventsPlayed?.Invoke(events);
 
+            if (run.EncounterScene != null && run.EncounterScene != shownEncounter)
+            {
+                shownEncounter = run.EncounterScene;
+                ShowEncounterAsync(run, lifetime).Forget();
+                return;
+            }
+            Board.UpdateEncounters(run.Encounters);
             var fork = run.PendingFork;
             if (fork != null && fork.Token != discussedFork)
             {
@@ -380,52 +395,14 @@ namespace DungeonTycoon.Unity
             SpotlightUntil = Time.time + SpotlightSeconds;
         }
 
-        public void Trial()
-        {
-            if (Presenting) return;
-            int ticket = Run.BeginAdversity();
-            if (ticket == 0) return;
-            LastRoll = 0;
-            TrialAnnouncement = "낙석이 떨어진다!  용사가 대응을 선언하는 중…";
-            // Open before the first await so the clock stops this very frame.
-            stage.Open(Run);
-            RollAsync(Run, ticket, lifetime).Forget();
-        }
-
-        /// <summary>
-        /// Plays an adversity on the stage: the narrator opens while every living hero thinks, the party names a
-        /// representative, Core rolls the seeded d20 and the stage shows the declaration, the check and the outcome.
-        /// </summary>
-        private async UniTask RollAsync(DungeonRun expedition, int ticket, CancellationToken token)
-        {
-            try
-            {
-                stage.SetThinking(LivingRoles(expedition));
-                var answer = Think(director.RespondAsync(expedition, token));
-                await stage.SayAsync(null, DialogueLines.RockfallOpening, token);
-                var response = await answer;
-                stage.SetThinking(Array.Empty<HeroRole>());
-                if (Run != expedition) return;
-                TrialAnnouncement = response.Line;
-                if (!expedition.RollAdversity(ticket, response.Role, response.Line)) return;
-                foreach (var beat in expedition.LastScene)
-                    if (beat.Kind == BeatKind.Roll) LastRoll = beat.Rolls[0].Face;
-                TrialAnnouncement = expedition.LastTrial;
-                await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
-            }
-            finally
-            {
-                if (stage) stage.Close();
-            }
-        }
-
         /// <summary>Blesses the hero the GM selected. Works while paused.</summary>
-        public void Bless()
+        public bool Bless(HeroRole role)
         {
-            if (SelectedHero < 0 || !Run.Bless((HeroRole)SelectedHero)) return;
+            if (Presenting || !Run.Bless(role)) return false;
             dungeonAudio.PlayEffect(SoundKey.Heal);
             Spotlight("축복", Run.Log[Run.Log.Count - 1]);
             RefreshParty();
+            return true;
         }
 
         /// <summary>Eases the party's fatigue for faith. Works while paused.</summary>
@@ -456,8 +433,6 @@ namespace DungeonTycoon.Unity
         private void ClearTrialDisplay()
         {
             SelectHero(-1);
-            LastRoll = 0;
-            TrialAnnouncement = "";
             SpotlightTitle = SpotlightText = "";
             SpotlightUntil = 0;
         }
@@ -465,6 +440,7 @@ namespace DungeonTycoon.Unity
         private void RefreshLayout()
         {
             bool planning = Run.Phase == RunPhase.Planning;
+            shownEncounter = Run.EncounterScene;
             Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.Patrols, Run.CanHoldMonster, Run.Encounters);
             Board.SetFeatures(Run.Chests, Run.Springs);
             if (!planning) Board.SetMonsters(Run.Monsters);

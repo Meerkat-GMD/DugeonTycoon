@@ -108,7 +108,9 @@ namespace DungeonTycoon.Core
         public PersonalityTrait Personality => Build.Personality;
         public Voice Voice => HeroTraits.VoiceOf(Build.Personality);
         /// <summary>Movement speed in hundredths of a percent of the standard speed. Only combat moves use it.</summary>
-        public int SpeedHundredths { get; private set; }
+        public int SpeedHundredths => Math.Max(1, baseSpeedHundredths * (100 + StatueBonus.SpeedPercent) / 100);
+        private int baseSpeedHundredths;
+        public StatBonus StatueBonus { get; internal set; }
 
         /// <summary>
         /// Sets the starting stats from the build: health full, no equipment yet. Only before the first departure,
@@ -121,22 +123,28 @@ namespace DungeonTycoon.Core
             Hp = MaxHp = stats.MaxHp;
             BaseAttack = stats.Attack;
             BaseArmor = stats.Armor;
-            SpeedHundredths = stats.SpeedHundredths;
+            baseSpeedHundredths = stats.SpeedHundredths;
         }
         public int Modifier(Ability ability) => abilities[(int)ability];
         public int Hp { get; internal set; }
         public int MaxHp { get; internal set; }
         /// <summary>Defence including the worn armour.</summary>
-        public int Armor => BaseArmor + (BodyArmor?.ArmorBonus ?? 0);
+        public int Armor => Math.Max(0, BaseArmor + (BodyArmor?.ArmorBonus ?? 0) + StatueBonus.Armor);
         /// <summary>Attack before the party level bonus, including the weapon.</summary>
-        public int Attack => BaseAttack + (Weapon?.AttackBonus ?? 0);
+        public int Attack => BaseAttack + (Weapon?.AttackBonus ?? 0) + StatueBonus.Attack;
         /// <summary>Ticks between this hero's attacks or heals, including the weapon.</summary>
         public int AttackTicks => Math.Max(MinAttackTicks, DungeonRun.HeroAttackTicks + (Weapon?.AttackTicksBonus ?? 0));
         public Equipment Weapon { get; private set; }
         public Equipment BodyArmor { get; private set; }
         /// <summary>Attack reach in tiles; 1 means an adjacent tile.</summary>
         public int Range { get; }
-        public string LastLine { get; internal set; } = "";
+        private string lastLine = "";
+        public int SpeechSequence { get; private set; }
+        public string LastLine
+        {
+            get => lastLine;
+            internal set { lastLine = value; SpeechSequence++; }
+        }
         /// <summary>Trust in the god, set by how the GM answered this hero's prayer. Lasts the whole expedition.</summary>
         public Belief Belief { get; internal set; } = Belief.Steady;
         private const int MinAttackTicks = 5;
@@ -167,6 +175,7 @@ namespace DungeonTycoon.Core
             Hp = Math.Min(Hp, MaxHp);
         }
         internal int MoveReady { get; set; }
+        internal int AttackStarted { get; set; }
         internal int ActReady { get; set; }
         /// <summary>Tick at which each of the role's two skills (see <see cref="HeroSkills.Of"/>) can fire again.</summary>
         internal int[] SkillReady { get; } = new int[2];
@@ -182,7 +191,8 @@ namespace DungeonTycoon.Core
 
     public sealed class MonsterState
     {
-        internal MonsterState(int id, MonsterKind kind, bool boss, string name, int maxHp, int attack, int armor,
+        private readonly DungeonRun run;
+        internal MonsterState(DungeonRun run, int id, MonsterKind kind, bool boss, string name, int maxHp, int attack, int armor,
             int reward, int moveTicks, int attackTicks, TilePoint home, params MonsterPattern[] patterns)
         {
             Patterns = Array.AsReadOnly((MonsterPattern[])patterns.Clone());
@@ -192,7 +202,8 @@ namespace DungeonTycoon.Core
             IsBoss = boss;
             Name = name;
             Hp = MaxHp = maxHp;
-            Attack = attack;
+            this.run = run;
+            BaseAttack = attack;
             Armor = armor;
             Experience = reward;
             MoveTicks = moveTicks;
@@ -215,7 +226,8 @@ namespace DungeonTycoon.Core
         public string Name { get; }
         public int Hp { get; internal set; }
         public int MaxHp { get; }
-        public int Attack { get; }
+        public int BaseAttack { get; }
+        public int Attack => BaseAttack + run.RoomAttackBonus(this);
         public int Armor { get; }
         public TilePoint Tile { get; internal set; }
         public TilePoint Home { get; }

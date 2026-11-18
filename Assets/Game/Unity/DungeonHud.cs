@@ -26,20 +26,24 @@ namespace DungeonTycoon.Unity
         private UIDocument document;
         private PanelSettings panel;
         private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
-        internal bool DungeonVisible => hud != null && titleScreen == null;
+        private VisualElement gameOver, gameOverLayout;
+        private Button defeatRestart;
+        internal bool DungeonVisible => hud != null && titleScreen.style.display == DisplayStyle.None;
         private VisualElement interventionPage, resultPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
         private VisualElement stageClearPage;
         private Label stageClearTitle;
         private Label resultTitle, resultText;
-        private Button follow, primary, collapse, removeCard, trialCard, blessCard;
+        private Button follow, primary, collapse, removeCard, blessCard;
         private Label summaryNote;
         private VisualElement planningTip;
         private VisualElement audioPanel;
         private Button audioToggle;
         private Label tipKind, tipName, tipDescription, tipFact;
         private DungeonBoard.PlanningTarget shownTarget;
+        private readonly Dictionary<VisualElement, (HeroRole Role, int Slot)> skillTiles = new();
+        private VisualElement shownSkill;
         // One placement card per monster kind; only the kinds on the stage's roster are shown.
         private static readonly (MonsterKind Kind, string Name)[] Brushes =
         {
@@ -50,7 +54,7 @@ namespace DungeonTycoon.Unity
         // Shown under the stage number, indexed by stage.
         private static readonly string[] StageNames = { "", "성문으로 가는 길", "지하 납골당", "마왕의 성채" };
         private VisualElement faithCells;
-        private Label trialDetail, blessDetail, restDetail, fatigueStage, fatigueEffect;
+        private Label blessDetail, restDetail, fatigueStage, fatigueEffect;
         private Button restCard;
         private VisualElement fatigue, fatigueFill, fatigueTick1, fatigueTick2;
         private readonly Button[] speedButtons = new Button[3];
@@ -62,6 +66,10 @@ namespace DungeonTycoon.Unity
         private bool panning, fitPending, cameraUsed;
         private Vector2 lastMouse;
         private string notice = "";
+        private VisualElement blessPicker;
+        private Label blessFeedback;
+        private readonly Button[] blessTargets = new Button[4];
+        private float blessFeedbackUntil;
         private float noticeUntil;
         private int knownStage, loggedRows;
         private DungeonRun knownRun;
@@ -87,11 +95,14 @@ namespace DungeonTycoon.Unity
 
         private sealed class HeroCard
         {
-            public VisualElement Root, Bubble, Health;
-            public Label Portrait, Name, Hp, Line, Weapon, Armor;
-            public readonly Label[] Skills = new Label[2];
+            public VisualElement Root, Bubble, Health, Experience, Attack, Statue, StatIcon;
+            public Label Name, Hp, Line, Weapon, Armor, StatValue;
+            public readonly VisualElement[] Skills = new VisualElement[2];
+            public readonly Label[] SkillTimes = new Label[2];
             public readonly VisualElement[] Cooldowns = new VisualElement[2];
-            public string Heard = "";
+            public readonly float[] CooldownFractions = new float[2];
+            public SpeechBubble FieldBubble;
+            public int Heard;
             public float HeardAt = -1000;
         }
 
@@ -135,7 +146,6 @@ namespace DungeonTycoon.Unity
             var newGame = titleScreen.Q<Button>("title-new");
             BindPrologue(newGame);
             newGame.schedule.Execute(() => newGame.Focus());
-            titleScreen.Q<Button>("title-continue").SetEnabled(false);
             titleScreen.Q<Button>("title-quit").clicked += QuitGame;
             stageNumber = root.Q<Label>("stage-number");
             stageName = root.Q<Label>("stage-name");
@@ -160,6 +170,18 @@ namespace DungeonTycoon.Unity
             collapse = root.Q<Button>("collapse");
             interventionPage = root.Q("intervention");
             resultPage = root.Q("result");
+            gameOver = root.Q("game-over");
+            gameOverLayout = gameOver.Q("game-over-layout");
+            defeatRestart = gameOver.Q<Button>("defeat-restart");
+            defeatRestart.clicked += () => game.Restart();
+            gameOver.Q<Button>("defeat-main").clicked += () => {
+                game.Restart();
+                Show(gameOver,false);
+                Show(hud,false);
+                hud.SetEnabled(true);
+                Show(titleScreen,true);
+                newGame.Focus();
+            };
             stageClearPage = root.Q("stage-clear");
             stageClearTitle = root.Q<Label>("stage-clear-title");
             root.Q<Button>("stage-continue").clicked += game.AdvanceToNextStage;
@@ -174,13 +196,13 @@ namespace DungeonTycoon.Unity
             summaryTitle = root.Q<Label>("summary-title");
             summaryDetail = root.Q<Label>("summary-detail");
             summaryNote = root.Q<Label>("summary-note");
-            trialCard = root.Q<Button>("trial");
-            root.Q<Label>("trial-risk").text = $"실패 체력 -{DungeonRun.TrialDamage}";
             blessCard = root.Q<Button>("bless");
-            trialDetail = root.Q<Label>("trial-detail");
             blessDetail = root.Q<Label>("bless-detail");
             restCard = root.Q<Button>("rest");
             restDetail = root.Q<Label>("rest-detail");
+            var revelation = root.Q<Button>("revelation");
+            revelation.SetEnabled(false);
+            revelation.Q<Label>("cost").text = DungeonRun.OracleCost.ToString();
             blessCard.Q<Label>("cost").text = DungeonRun.BlessCost.ToString();
             restCard.Q<Label>("cost").text = DungeonRun.BlessCost.ToString();
             fatigue = root.Q("fatigue");
@@ -202,15 +224,30 @@ namespace DungeonTycoon.Unity
             {
                 var card = root.Q("hero-"+i);
                 heroes[i] = new HeroCard {
+                    FieldBubble = new SpeechBubble(),
                     Root = card, Bubble = card.Q("bubble"), Health = card.Q("health"),
-                    Portrait = card.Q<Label>("portrait"), Name = card.Q<Label>("name"), Hp = card.Q<Label>("hp"),
+                    Name = card.Q<Label>("name"), Hp = card.Q<Label>("hp"),
+                    Experience = card.Q("experience"), Attack = card.Q("attack"), Statue = card.Q("statue"),
+                    StatIcon = card.Q("stat-icon"), StatValue = card.Q<Label>("stat-value"),
                     Line = card.Q<Label>("line"),
                     Weapon = card.Q<Label>("weapon"), Armor = card.Q<Label>("armor")
                 };
+                var fieldBubble = heroes[i].FieldBubble;
+                fieldBubble.AddToClassList("field-bubble");
+                pops.Add(fieldBubble);
+                Show(fieldBubble,false);
                 for (int s = 0; s < 2; s++)
                 {
-                    heroes[i].Skills[s] = card.Q<Label>("skill-"+s);
+                    heroes[i].Skills[s] = card.Q("skill-"+s);
+                    var role = (HeroRole)i;
+                    var skillCard = heroes[i];
+                    int slot = s;
+                    skillCard.Skills[s].AddToClassList(HeroSkills.Of(role,s).ToString());
+                    skillTiles.Add(skillCard.Skills[s], (role,s));
+                    heroes[i].SkillTimes[s] = heroes[i].Skills[s].Q<Label>("time");
                     heroes[i].Cooldowns[s] = heroes[i].Skills[s].Q("cooldown");
+                    skillCard.Cooldowns[s].generateVisualContent += context =>
+                        DrawCooldown(context, skillCard.CooldownFractions[slot]);
                 }
                 int index = i;
                 // Picking a hero chooses who the GM's help goes to; clicking again clears the choice.
@@ -240,8 +277,24 @@ namespace DungeonTycoon.Unity
             // A new expedition from the same formation and monster plan, with new dice or the same ones.
             root.Q<Button>("result-copy").clicked += () => game.Restart(keepPlan: true);
             root.Q<Button>("result-replay").clicked += () => game.Restart(keepPlan: true, sameSeed: true);
-            trialCard.clicked += () => game.Trial();
-            blessCard.clicked += () => game.Bless();
+            blessPicker = root.Q("bless-picker");
+            blessFeedback = root.Q<Label>("bless-feedback");
+            var targets = root.Q("bless-targets");
+            for (int i = 0; i < blessTargets.Length; i++)
+            {
+                var role = (HeroRole)i;
+                var button = new Button(() => ApplyBlessing(role)) { name = "bless-target-" + i };
+                button.AddToClassList("chip");
+                targets.Add(button);
+                blessTargets[i] = button;
+            }
+            root.Q<Button>("bless-cancel").clicked += () => Show(blessPicker,false);
+            blessCard.clicked += () =>
+            {
+                blessFeedbackUntil = 0;
+                Show(blessPicker,true);
+                RefreshIntervention(game.Run);
+            };
             restCard.clicked += () => game.RelieveFatigue();
         }
 
@@ -276,13 +329,17 @@ namespace DungeonTycoon.Unity
 
             void Finish()
             {
-                titleScreen.RemoveFromHierarchy();
-                titleScreen = null;
+                Show(titleScreen,false);
+                Show(prologue,false);
+                Show(titleScreen.Q(className: "title-menu"),true);
+                Show(titleScreen.Q("title-logo"),true);
                 hud.style.display = DisplayStyle.Flex;
             }
 
             newGame.clicked += () => {
+                page = 0;
                 titleScreen.Q(className: "title-menu").style.display = DisplayStyle.None;
+                titleScreen.Q("title-logo").style.display = DisplayStyle.None;
                 prologue.style.display = DisplayStyle.Flex;
                 ShowPage();
                 prologue.Focus();
@@ -317,11 +374,13 @@ namespace DungeonTycoon.Unity
         private void Update()
         {
             if (!game || game.Run == null || !game.Board || hud == null) return;
-            float scale = Mathf.Min(Screen.width/MinWidth,Screen.height/MinHeight,
+            float designScale = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            float scale = !DungeonVisible ? designScale :
+                Mathf.Min(Screen.width/MinWidth,Screen.height/MinHeight,
                 Mathf.Max(Screen.height/ReferenceHeight,ReadableScale));
             if (scale > 0 && !Mathf.Approximately(panel.scale,scale)) panel.scale = scale;
 
-            if (titleScreen != null) return;
+            if (!DungeonVisible) return;
             var run = game.Run;
             if (!ReferenceEquals(knownRun,run) || knownStage != run.Stage) ResetForStage(run);
             Keys(run);
@@ -329,7 +388,8 @@ namespace DungeonTycoon.Unity
             RefreshSpoils(run);
             RefreshPops(run);
             UpdateClearArea(run);
-            BoardInput(run);
+            if (run.Phase != RunPhase.Defeat) BoardInput(run);
+            else if (scale > 0) gameOverLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
         }
 
         private void ResetForStage(DungeonRun run)
@@ -356,7 +416,7 @@ namespace DungeonTycoon.Unity
             history.RemoveFromClassList("open");
             foreach (var hero in heroes)
             {
-                hero.Heard = "";
+                hero.Heard = 0;
                 hero.HeardAt = -1000;
             }
             bossMaxHp = run.BossMaxHp;
@@ -396,6 +456,7 @@ namespace DungeonTycoon.Unity
                 ShowAudio(false);
                 return;
             }
+            if (Input.GetKeyDown(KeyCode.Escape)) Show(blessPicker,false);
             if (HistoryOpen)
             {
                 if (Input.GetKeyDown(KeyCode.Escape)) history.RemoveFromClassList("open");
@@ -411,7 +472,7 @@ namespace DungeonTycoon.Unity
         private void Refresh(DungeonRun run)
         {
             bool planning = run.Phase == RunPhase.Planning;
-            bool finished = run.Phase == RunPhase.Victory || run.Phase == RunPhase.Defeat;
+            bool victory = run.Phase == RunPhase.Victory;
             bool exploring = Exploring(run);
 
             stageNumber.text = "스테이지 "+run.Stage+" / "+DungeonRun.FinalStage;
@@ -426,8 +487,7 @@ namespace DungeonTycoon.Unity
             bossHp.text = hp+" / "+bossMaxHp;
             bossFill.style.width = Length.Percent(bossMaxHp == 0 ? 0 : 100f*hp/bossMaxHp);
 
-            string banner = !exploring ? "" : run.PendingAdversity ? "역경 판정 중" :
-                game.Speed == 0 ? "일시정지" : "";
+            string banner = exploring && game.Speed == 0 ? "일시정지" : "";
             Show(pauseBanner,banner.Length > 0);
             pauseBanner.text = banner;
 
@@ -460,12 +520,20 @@ namespace DungeonTycoon.Unity
 
             Show(bottom,planning && !game.Presenting);
             Show(interventionPage,exploring && !game.Presenting);
+            if (!exploring || game.Presenting) Show(blessPicker,false);
             bool showClear = run.Phase == RunPhase.StageCleared && run.PendingLoot == null && !game.Presenting;
             Show(stageClearPage,showClear);
             if (showClear) stageClearTitle.text = $"{run.Stage}스테이지 클리어";
-            Show(resultPage,finished && !game.Presenting);
+            Show(resultPage,victory && !game.Presenting);
+            bool defeated = run.Phase == RunPhase.Defeat && !game.Presenting;
+            if (defeated != (gameOver.style.display == DisplayStyle.Flex))
+            {
+                Show(gameOver,defeated);
+                hud.SetEnabled(!defeated);
+                if (defeated) defeatRestart.Focus();
+            }
             if (planning) RefreshPlanning(run);
-            else if (finished) RefreshResult(run);
+            else if (victory) RefreshResult(run);
             else if (exploring && !game.Presenting) RefreshIntervention(run);
 
             if (HistoryOpen)
@@ -487,19 +555,39 @@ namespace DungeonTycoon.Unity
             card.Name.text = RoleNames[index]+"  "+hero.Name;
             card.Hp.text = down ? "쓰러짐" : "HP "+hero.Hp+" / "+hero.MaxHp;
             card.Health.style.width = Length.Percent(hero.MaxHp == 0 ? 0 : 100f*hero.Hp/hero.MaxHp);
+            card.Experience.style.width = Length.Percent(100f * run.ExperienceIntoLevel / DungeonRun.ExperiencePerLevel);
+            card.Attack.style.width = Length.Percent(100f * run.BasicAttackReadiness(hero));
+            var bonus = hero.StatueBonus;
+            int amount = bonus.Attack + bonus.Armor + bonus.SpeedPercent;
+            Show(card.Statue, amount != 0);
+            if (amount != 0)
+            {
+                card.Statue.EnableInClassList("curse", amount < 0);
+                card.StatIcon.EnableInClassList("sword", bonus.Attack != 0);
+                card.StatIcon.EnableInClassList("shield", bonus.Armor != 0);
+                card.StatIcon.EnableInClassList("boot", bonus.SpeedPercent != 0);
+                card.StatValue.text = amount.ToString("+0;-0") + (bonus.SpeedPercent != 0 ? "%" : "");
+            }
 
             // Speech floats beside the card for a few seconds after a hero says something new.
             string line = hero.LastLine ?? "";
-            if (line != card.Heard)
+            if (hero.SpeechSequence != card.Heard)
             {
-                card.Heard = line;
+                card.Heard = hero.SpeechSequence;
                 card.HeardAt = Time.unscaledTime;
+                card.FieldBubble.SetLine(line);
             }
             // While a desperate hero decides whether to pray, the dungeon is frozen and "…" hangs beside their card.
             bool asking = !down && game.AskingPrayer == index;
             bool speaking = asking || (!down && !string.IsNullOrWhiteSpace(line) && Time.unscaledTime-card.HeardAt <= LineSeconds);
             Show(card.Bubble,speaking);
             if (speaking) card.Line.text = asking ? "…" : line;
+            if (speaking && !asking && Exploring(run) && game.Board.TryHeroScreenPoint(index,out var head))
+            {
+                Place(card.FieldBubble,head);
+                Show(card.FieldBubble,true);
+            }
+            else Show(card.FieldBubble,false);
             card.Root.EnableInClassList("belief-firm",hero.Belief == Belief.Firm);
             card.Root.EnableInClassList("belief-shaken",hero.Belief == Belief.Shaken);
             RefreshKit(run,hero,card);
@@ -533,17 +621,33 @@ namespace DungeonTycoon.Unity
                 bool open = run.SkillUnlocked(hero.Role,s);
                 // Revive has no cooldown; once used it stays spent for the stage.
                 bool spent = skill == HeroSkill.Revive && run.ReviveUsed;
-                card.Skills[s].text = open ? HeroSkills.Name(skill) : "Lv"+HeroSkills.UnlockLevel;
-                card.Skills[s].EnableInClassList("locked",!open || spent);
-                card.Cooldowns[s].style.height = Length.Percent(open && !spent ? 100f*SkillCooling(run,hero.Role,s) : 0);
+                int left = run.SkillCooldownLeft(hero.Role,s);
+                card.SkillTimes[s].text = !open ? "Lv"+HeroSkills.UnlockLevel : spent ? "소진" :
+                    left > 0 ? Mathf.CeilToInt((float)(left * DungeonRun.TickSeconds)).ToString() : "";
+                card.Skills[s].EnableInClassList("locked",!open);
+                card.Skills[s].EnableInClassList("spent",spent);
+                int total = DungeonRun.SkillCooldownTicks(skill);
+                float fraction = open && total > 0 ? Mathf.Clamp01((float)left / total) : 0;
+                if (card.CooldownFractions[s] != fraction)
+                {
+                    card.CooldownFractions[s] = fraction;
+                    card.Cooldowns[s].MarkDirtyRepaint();
+                }
             }
         }
 
-        /// <summary>How much of a skill's cooldown is left, from 1 just used to 0 ready.</summary>
-        private static float SkillCooling(DungeonRun run,HeroRole role,int index)
+        private static void DrawCooldown(MeshGenerationContext context, float fraction)
         {
-            int total = DungeonRun.SkillCooldownTicks(HeroSkills.Of(role,index));
-            return total <= 0 ? 0 : Mathf.Clamp01((float)run.SkillCooldownLeft(role,index)/total);
+            if (fraction <= 0) return;
+            var rect = context.visualElement.contentRect;
+            if (rect.width <= 0 || rect.height <= 0) return;
+            var painter = context.painter2D;
+            painter.fillColor = new Color(0.025f, 0.04f, 0.07f, 0.78f);
+            painter.BeginPath();
+            painter.MoveTo(rect.center);
+            painter.Arc(rect.center, rect.size.magnitude / 2, 270f - 360f * fraction, 270f);
+            painter.ClosePath();
+            painter.Fill();
         }
 
         private static void Gear(Label slot,Equipment item)
@@ -719,9 +823,10 @@ namespace DungeonTycoon.Unity
         private void MuteHero(HeroState hero,int index)
         {
             var card = heroes[index];
-            card.Heard = hero.LastLine ?? "";
+            card.Heard = hero.SpeechSequence;
             card.HeardAt = -1000;
             Show(card.Bubble,false);
+            Show(card.FieldBubble,false);
         }
 
         private void RefreshPlanning(DungeonRun run)
@@ -759,27 +864,55 @@ namespace DungeonTycoon.Unity
         private void RefreshIntervention(DungeonRun run)
         {
             expeditionFaith.text = run.Faith.ToString();
-            int slots = Mathf.Max(5, run.Faith);
+            int slots = Mathf.Max(BalanceTable.Current.faithRecoveryCap, run.Faith);
+            while (faithCells.childCount > slots)
+                faithCells.RemoveAt(faithCells.childCount - 1);
             while (faithCells.childCount < slots)
             {
                 var cell = new VisualElement { pickingMode = PickingMode.Ignore };
                 cell.AddToClassList("faith-cell");
+                var fill = new VisualElement { pickingMode = PickingMode.Ignore };
+                fill.AddToClassList("faith-fill");
+                cell.Add(fill);
                 faithCells.Add(cell);
             }
             for (int i = 0; i < faithCells.childCount; i++)
-                faithCells[i].EnableInClassList("filled", i < run.Faith);
+            {
+                float fraction = i < run.Faith ? 1f : i == run.Faith ? run.FaithRecoveryProgress : 0f;
+                faithCells[i][0].style.width = Length.Percent(100f * fraction);
+            }
 
-            trialCard.SetEnabled(run.TrialsLeft > 0 && !run.PendingAdversity);
-            trialDetail.text = $"d20+보정 ≥ {run.TrialDifficulty} · {run.TrialsLeft}회";
-            int target = game.SelectedHero;
-            blessDetail.text = target < 0 ? "용사를 먼저 고르세요" :
-                run.Party[target].Hp == run.Party[target].MaxHp ? run.Party[target].Name+" · 다치지 않음" :
-                run.Faith < DungeonRun.BlessCost ? "신앙 부족" : $"체력 +{run.BlessRecovery(run.Party[target])} · 신앙 {DungeonRun.BlessCost}";
-            blessCard.SetEnabled(target >= 0 && run.CanBlessHero((HeroRole)target));
+            blessDetail.text = run.Faith < DungeonRun.BlessCost ? "신앙 부족" : "회복할 용사 선택";
+            blessCard.SetEnabled(run.Faith >= DungeonRun.BlessCost);
+            if (blessPicker.style.display == DisplayStyle.Flex)
+            {
+                foreach (var hero in run.Party)
+                {
+                    var button = blessTargets[(int)hero.Role];
+                    string effect = hero.Hp == 0 ? "쓰러짐" : hero.Hp == hero.MaxHp ? "체력 가득" :
+                        run.Faith < DungeonRun.BlessCost ? "신앙 부족" : $"회복 +{run.BlessRecovery(hero)}";
+                    button.text = $"{hero.Name}   {hero.Hp}/{hero.MaxHp}   {effect}";
+                    button.SetEnabled(run.CanBlessHero(hero.Role));
+                }
+            }
+            Show(blessFeedback,Time.unscaledTime < blessFeedbackUntil);
             restDetail.text = run.FatigueSteps == 0 ? "피로 없음" : run.Faith < DungeonRun.BlessCost ? "신앙 부족" :
                 "피로 -"+System.Math.Min(run.FatigueSteps,DungeonRun.FatigueRelief)+" · 신앙 "+DungeonRun.BlessCost;
             restCard.SetEnabled(run.CanRelieveFatigue);
 
+        }
+
+        private void ApplyBlessing(HeroRole role)
+        {
+            if (blessPicker.style.display != DisplayStyle.Flex) return;
+            var run = game.Run;
+            var hero = run.Party[(int)role];
+            int before = hero.Hp;
+            if (!game.Bless(role)) return;
+            Show(blessPicker,false);
+            blessFeedback.text = $"{hero.Name} 체력 +{hero.Hp - before} · 신앙 -{DungeonRun.BlessCost}";
+            blessFeedbackUntil = Time.unscaledTime + NoticeSeconds;
+            Show(blessFeedback,true);
         }
 
         private void RefreshResult(DungeonRun run)
@@ -846,19 +979,21 @@ namespace DungeonTycoon.Unity
         }
 
         /// <summary>True when the screen point (origin bottom-left) is over a HUD element that takes the mouse.</summary>
-        private bool OverHud(Vector2 screenPoint)
+        private VisualElement PickHud(Vector2 screenPoint)
         {
             var target = hud.panel;
-            if (target == null) return false;
+            if (target == null) return null;
             var point = RuntimePanelUtils.ScreenToPanel(target,new Vector2(screenPoint.x,Screen.height-screenPoint.y));
             var picked = target.Pick(point);
-            return picked != null && hud.Contains(picked);
+            return picked != null && hud.Contains(picked) ? picked : null;
         }
 
         private void BoardInput(DungeonRun run)
         {
             Vector2 mouse = Input.mousePosition;
-            bool overBoard = !HistoryOpen && !game.Formation.IsOpen && !OverHud(mouse) && game.Board.ContainsScreenPoint(mouse);
+            var picked = PickHud(mouse);
+            bool inputOpen = !HistoryOpen && !game.Formation.IsOpen;
+            bool overBoard = inputOpen && picked == null && game.Board.ContainsScreenPoint(mouse);
             bool editing = overBoard && run.Phase == RunPhase.Planning;
             TilePoint tile = default;
             bool onTile = editing && game.Board.TryPickTile(mouse,out tile);
@@ -894,22 +1029,61 @@ namespace DungeonTycoon.Unity
                 game.Board.SetHover(run.Map.IsFloor(tile) ? tile : (TilePoint?)null,check == PlacementCheck.Allowed);
             }
             else game.Board.SetHover(null,false);
-            UpdatePlanningTip(run, mouse, editing && !panning && !game.Presenting);
+            if (inputOpen && !panning && !game.Presenting && picked != null && skillTiles.TryGetValue(picked, out var hovered))
+                UpdateSkillTip(run, picked, hovered.Role, hovered.Slot);
+            else
+                UpdatePlanningTip(run, mouse, editing && !panning && !game.Presenting);
+        }
+
+        private void UpdateSkillTip(DungeonRun run, VisualElement tile, HeroRole role, int slot)
+        {
+            var skill = HeroSkills.Of(role, slot);
+            if (tile != shownSkill)
+            {
+                shownSkill = tile;
+                shownTarget = null;
+                planningTip.EnableInClassList("tip-enemy", false);
+                planningTip.EnableInClassList("tip-encounter", true);
+                tipKind.text = RoleNames[(int)role] + " · 자동 스킬";
+                tipName.text = HeroSkills.Name(skill);
+                tipDescription.text = skill switch
+                {
+                    HeroSkill.Taunt => "주변에 적이 둘 이상이거나 다른 용사를 노리는 적이 있으면 탱커를 공격하게 합니다.",
+                    HeroSkill.ShieldWall => "주변 아군 둘 이상이 공격받으면 방패 벽을 펼쳐 받는 피해를 줄입니다.",
+                    HeroSkill.PowerStrike => "적에게 강한 일격을 가해 평소보다 큰 피해를 줍니다.",
+                    HeroSkill.Whirlwind => "인접한 적이 둘 이상이면 주위의 모든 적을 한 번에 벱니다.",
+                    HeroSkill.PiercingShot => "일직선에 적이 둘 이상이면 화살로 꿰뚫습니다.",
+                    HeroSkill.RapidFire => "적이 사거리 안에 있으면 잠시 공격 주기가 절반으로 줄어듭니다.",
+                    HeroSkill.MassHeal => "범위 안에 다친 아군이 둘 이상이면 주변 아군을 함께 치료합니다.",
+                    HeroSkill.Revive => "쓰러진 용사에게 다가가 체력 일부를 회복시켜 일으킵니다. 스테이지마다 한 번 쓸 수 있습니다.",
+                    _ => ""
+                };
+                Show(planningTip, true);
+            }
+            var time = heroes[(int)role].SkillTimes[slot].text;
+            tipFact.text = !run.SkillUnlocked(role, slot) ? $"파티 Lv{HeroSkills.UnlockLevel}에 해금" :
+                time == "" ? "사용 준비 완료" : time == "소진" ? "이번 스테이지 사용 완료" : $"재사용까지 {time}초";
+            PositionTip(hud.WorldToLocal(new Vector2(tile.worldBound.xMax, tile.worldBound.center.y)));
         }
 
         private void UpdatePlanningTip(DungeonRun run, Vector2 mouse, bool enabled)
         {
             Vector2 anchor = default;
             var target = enabled ? game.Board.PickPlanningTarget(mouse, out anchor) : null;
-            if (target != shownTarget)
+            if (target != shownTarget || shownSkill != null)
             {
+                shownSkill = null;
                 shownTarget = target;
                 Show(planningTip, target != null);
                 if (target != null) DescribePlanningTarget(run, target);
             }
             if (target == null) return;
             var point = RuntimePanelUtils.ScreenToPanel(hud.panel, new Vector2(anchor.x, Screen.height-anchor.y));
-            point = hud.WorldToLocal(point);
+            PositionTip(hud.WorldToLocal(point));
+        }
+
+        private void PositionTip(Vector2 point)
+        {
             var area = hud.contentRect;
             float width = planningTip.layout.width, height = planningTip.layout.height;
             if (float.IsNaN(width) || float.IsNaN(height)) return;

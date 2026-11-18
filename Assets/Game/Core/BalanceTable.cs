@@ -46,6 +46,7 @@ namespace DungeonTycoon.Core
         /// scale halves a blow; it never takes a blow below 1.
         /// </summary>
         public int armorScale = 20;
+        public int attackPerRoomAlly = 1;
         public int experiencePerLevel = 10;
         public int levelAttackGain = 3;
         public int levelHpGain = 5;
@@ -73,12 +74,14 @@ namespace DungeonTycoon.Core
             hp = 85, attack = 24, armor = 2
         };
 
-        public BossBalance graveKnight = new BossBalance { hp = 450, attack = 22, armor = 4, experience = 2, moveTicks = 4, attackTicks = 15 };
-        public BossBalance cryptPriest = new BossBalance { hp = 900, attack = 28, armor = 6, experience = 3, moveTicks = 4, attackTicks = 15 };
+        public BossBalance graveKnight = new BossBalance { hp = 450, attack = 22, armor = 4, experience = 5, moveTicks = 4, attackTicks = 15 };
+        public BossBalance cryptPriest = new BossBalance { hp = 900, attack = 28, armor = 6, experience = 6, moveTicks = 4, attackTicks = 15 };
         public BossBalance necromancer = new BossBalance { hp = 3300, attack = 42, armor = 8, experience = 0, moveTicks = 4, attackTicks = 15 };
 
         public int[] chestRarePercent = { 15, 30, 50 };
         public int springRelief = 40;
+        public int faithRecoveryTicks = 600;
+        public int faithRecoveryCap = 5;
 
         private static BalanceTable current = new BalanceTable();
 
@@ -142,7 +145,10 @@ namespace DungeonTycoon.Core
                         if (value < min) problems.Add($"{name} has {value}; values must be at least {min}.");
             }
             Positive(nameof(armorScale), armorScale);
+            Positive(nameof(attackPerRoomAlly), attackPerRoomAlly);
             Positive(nameof(experiencePerLevel), experiencePerLevel);
+            Positive(nameof(faithRecoveryTicks), faithRecoveryTicks);
+            Positive(nameof(faithRecoveryCap), faithRecoveryCap);
             Stages(nameof(budget), budget, 0);
             Stages(nameof(trialDifficulty), trialDifficulty, 1);
             Stages(nameof(chestRarePercent), chestRarePercent, 0);

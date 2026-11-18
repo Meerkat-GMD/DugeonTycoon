@@ -184,7 +184,7 @@ namespace DungeonTycoon.Core
         {
             if (!SkillReady(hero, 0)) return false;
             int damage = HitDamage(hero, target) * PowerStrikeDamagePercent / 100;
-            hero.ActReady = Ticks + AttackCycle(hero);
+            BeginAttackDelay(hero, Ticks);
             UseSkill(hero, 0, false, target.Id, "이걸로 끝이다!", $"{target.Name}에게 {damage} 피해");
             Hit(hero, target, damage);
             return true;
@@ -199,7 +199,7 @@ namespace DungeonTycoon.Core
             if (adjacent.Count < 2) return false;
             var tactic = tactics[(int)hero.Role];
             var main = adjacent.FirstOrDefault(m => tactic != null && m.Id == tactic.Focus) ?? adjacent[0];
-            hero.ActReady = Ticks + AttackCycle(hero);
+            BeginAttackDelay(hero, Ticks);
             UseSkill(hero, 1, false, main.Id, "다 덤벼라!", HeroTraits.Particle(string.Join(", ", adjacent.Select(m => m.Name)), "을", "를") + " 한꺼번에 벱니다.");
             foreach (var monster in adjacent)
             {
@@ -232,7 +232,7 @@ namespace DungeonTycoon.Core
             {
                 var line = PierceLine(here, main, engaged, hero.Range);
                 if (line.Count < 2) continue;
-                hero.ActReady = Ticks + AttackCycle(hero);
+                BeginAttackDelay(hero, Ticks);
                 UseSkill(hero, 0, false, main.Id, "한 줄로 꿰뚫는다!", HeroTraits.Particle(string.Join(", ", line.Select(m => m.Name)), "을", "를") + " 꿰뚫습니다.");
                 foreach (var monster in line)
                 {
@@ -282,7 +282,7 @@ namespace DungeonTycoon.Core
             var near = MarchOrder.Select(role => party[(int)role])
                 .Where(hero => hero.Hp > 0 && Chebyshev(heroTiles[(int)hero.Role], here) <= MassHealRadius).ToList();
             if (near.Count(Wounded) < 2) return false;
-            healer.ActReady = Ticks + AttackCycle(healer);
+            BeginAttackDelay(healer, Ticks);
             UseSkill(healer, 0, false, -1, "모두 버텨요!", $"{string.Join(", ", near.Select(h => h.Name))}의 상처를 함께 돌봅니다.");
             int amount = HealAmount * MassHealPercent / 100;
             foreach (var hero in near)
@@ -315,7 +315,7 @@ namespace DungeonTycoon.Core
                 return true;
             }
             if (healer.ActReady > Ticks || Moving(healer)) return true;
-            healer.ActReady = Ticks + AttackCycle(healer);
+            BeginAttackDelay(healer, Ticks);
             ReviveUsed = true;
             fallen.Hp = Math.Max(1, fallen.MaxHp * ReviveHpPercent / 100);
             fallen.Critical = fallen.Hp * 10 < fallen.MaxHp * 3;
