@@ -4,18 +4,23 @@ using System.Collections.Generic;
 namespace DungeonTycoon.Core
 {
     public enum RunPhase { Planning, Travel, Combat, Victory, Defeat }
-    public enum MonsterKind { None, Skeleton, Ghost, Zombie }
-    public enum PlacementCheck { Allowed, Locked, InvalidKind, NotFloor, NearEntrance, OverBudget, NothingToRemove }
-    public enum MonsterMood { Wandering, Chasing, Defeated }
+    public enum MonsterKind { None, Skeleton, Ghost, Zombie, Archer }
+    /// <summary>NotInRoster: this stage's roster does not have that monster yet.</summary>
+    public enum PlacementCheck { Allowed, Locked, InvalidKind, NotFloor, NearEntrance, OverBudget, NothingToRemove, NotInRoster }
+    /// <summary>Patrolling: a fixed patrol member walking its route before it notices the party.</summary>
+    public enum MonsterMood { Wandering, Chasing, Defeated, Patrolling }
     /// <summary>
     /// Attack, Heal and Taunt go from a source to a target. Drop: monster <see cref="CombatEvent.Source"/> left
     /// <see cref="DungeonRun.Drops"/>[<see cref="CombatEvent.Amount"/>]. Skill: hero <see cref="CombatEvent.Source"/>
     /// used the <see cref="HeroSkill"/> in <see cref="CombatEvent.Amount"/>; Target is the main target if any.
     /// Pattern: monster <see cref="CombatEvent.Source"/> began the <see cref="MonsterPattern"/> in
     /// <see cref="CombatEvent.Amount"/> at hero <see cref="CombatEvent.Target"/> (-1 for none); its blows arrive
-    /// later as Attack events.
+    /// later as Attack events. Chest: the party opened <see cref="DungeonRun.Chests"/>[<see cref="CombatEvent.Source"/>]
+    /// and found <see cref="DungeonRun.Drops"/>[<see cref="CombatEvent.Amount"/>]. Spring: the party drank from
+    /// <see cref="DungeonRun.Springs"/>[<see cref="CombatEvent.Source"/>] and shed <see cref="CombatEvent.Amount"/> steps of
+    /// fatigue. Both have Target -1.
     /// </summary>
-    public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill, Pattern }
+    public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill, Pattern, Chest, Spring }
 
     public sealed class MonsterPlacement
     {
@@ -191,8 +196,16 @@ namespace DungeonTycoon.Core
             Tile = Home = home;
         }
 
-        /// <summary>The placement index, or the run's BossIndex for the stage boss.</summary>
+        /// <summary>
+        /// The index in <see cref="DungeonRun.Monsters"/>: placements first, then patrol members squad by squad, and the
+        /// run's BossIndex for the stage boss.
+        /// </summary>
         public int Id { get; }
+        /// <summary>Tiles from which its plain blow lands: 1 for melee, more for a monster that shoots.</summary>
+        public int Range { get; internal set; } = 1;
+        /// <summary>The index of its fixed patrol in <see cref="DungeonRun.Patrols"/>, or -1 for a placed monster or the boss.</summary>
+        public int Squad { get; internal set; } = -1;
+        public bool IsPatrol => Squad >= 0;
         public MonsterKind Kind { get; }
         public bool IsBoss { get; }
         public string Name { get; }

@@ -9,7 +9,7 @@ namespace DungeonTycoon.Core.Tests
         /// <summary>On the march past the first fork, which opens right at the entrance.</summary>
         private static DungeonRun Departed(int faith = 2, HeroRole? skeptic = null)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             if (skeptic is HeroRole role) run.SetBuild(role, run.BuildOf(role).With(PersonalityTrait.Skeptic));
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
@@ -21,7 +21,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void DespairDuringAForkDebateWaitsUntilTheForkIsSettled()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             run.SetFaith(2);
             BreakTheTank(run);
@@ -272,7 +272,7 @@ namespace DungeonTycoon.Core.Tests
 
         private static DungeonRun AtFork(params Belief[] beliefs)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
             run.SetFaith(3);

@@ -1,20 +1,36 @@
 using System;
+using System.Collections.Generic;
 
 namespace DungeonTycoon.Core
 {
+    /// <summary>A fixed patrol: who walks it and the spots it visits in turn, back to the first after the last.</summary>
+    public sealed class PatrolPlan
+    {
+        public PatrolPlan(MonsterKind[] members, params TilePoint[] waypoints)
+        {
+            Members = Array.AsReadOnly((MonsterKind[])members.Clone());
+            Waypoints = Array.AsReadOnly((TilePoint[])waypoints.Clone());
+        }
+
+        public IReadOnlyList<MonsterKind> Members { get; }
+        public IReadOnlyList<TilePoint> Waypoints { get; }
+    }
+
     /// <summary>
-    /// Hand-authored stage maps. '#' wall, '.' floor, 'E' entrance, 'B' boss room.
-    /// Shapes are first-play drafts and may be tuned.
+    /// Hand-authored stage maps. '#' wall, '.' floor, 'E' entrance, 'B' boss room, 'C' treasure chest, 'S' spring.
+    /// Shapes, patrols, chests and springs are first-play drafts and may be tuned.
     /// </summary>
     public static class DungeonLayouts
     {
-        // 성문으로 가는 길: two routes to the gate room, a closet and an east dead end.
+        public const int StageCount = 3;
+
+        // 성문으로 가는 길: two routes to the gate room, a closet and an east dead end, each with a chest.
         public const string StageOne = @"
 ############################################
-##..........################################
+##C.........################################
 ##..........#####################BBBBBBBBB##
 ##..........#####################BBBBBBBBB##
-##..........######..........#####BBBBBBBBB##
+##..........######C.........#####BBBBBBBBB##
 ##..........######..........#####BBBBBBBBB##
 ######.###########...............BBBBBBBBB##
 ######.###########..........#####BBBBBBBBB##
@@ -36,16 +52,55 @@ namespace DungeonTycoon.Core
 ##.........................######........###
 ##........#######........................###
 ##........#######..........######........###
-##...E....#######..........######........###
+##...E....#######..........######.......C###
 ##........#######..........#################
 ############################################
 ############################################";
 
-        // 마왕의 성채: a central hall, a west loop, an east wing that circles to the throne and a side vault.
+        // 지하 납골당: crypts round a great hall, a western ring, a dead-end crypt in the south-east and a spring up north.
         public const string StageTwo = @"
+#####################################################
+#####################################################
+##C.........########.............#######BBBBBBBBBBB##
+##..........########.S...........#######BBBBBBBBBBB##
+##..........########.............#######BBBBBBBBBBB##
+##......................................BBBBBBBBBBB##
+##..........########.............#######BBBBBBBBBBB##
+##..........########.............#######BBBBBBBBBBB##
+##..........########.............#######BBBBBBBBBBB##
+#######.############.............#######BBBBBBBBBBB##
+#######.##################.##################.#######
+#######.##################.##################.#######
+#######.##################.##################.#######
+#######.##########.................C#########.#######
+###..........#####..................#####.........###
+###..........#####..................#####.........###
+###..........#####..................#####.........###
+###..........#####..................#####.........###
+###...............................................###
+###..........#####..................#####.........###
+###..........#####..................#####.........###
+###..........#####..................#####.........###
+#######.##########..................#####.........###
+#######.##########..................#################
+#######.###################.#########################
+#######.###################.#########################
+#######.###################.#########################
+##............#######............####################
+##............#######............#########.........##
+##............#######............#########.........##
+##.................................................##
+##..E.........#######............#########.........##
+##............#######............#########.........##
+##............############################........C##
+#####################################################
+#####################################################";
+
+        // 마왕의 성채: from the south-west gate through the great hall or the west rooms; a side vault, the east wing and a spring.
+        public const string StageThree = @"
 ######################################################
 ####################BBBBBBBBBBBBBB####################
-####################BBBBBBBBBBBBBB######...........###
+####################BBBBBBBBBBBBBB######..........C###
 ####################BBBBBBBBBBBBBB######...........###
 ####################BBBBBBBBBBBBBB######...........###
 ####################BBBBBBBBBBBBBB.................###
@@ -53,7 +108,7 @@ namespace DungeonTycoon.Core
 ####################BBBBBBBBBBBBBB######...........###
 ####################BBBBBBBBBBBBBB######...........###
 ##########################.#############...........###
-##............############.#############...........###
+##C...........############.#############...........###
 ##............############.#############...........###
 ##............#####................#####...........###
 ##............#####................##########.########
@@ -61,7 +116,7 @@ namespace DungeonTycoon.Core
 ##............#####................##########.########
 ##............#####................###.....##.########
 ##............#####................###.....##.########
-#######.###########........................##.########
+#######.###########.......................C##.########
 #######.###########................###.....##.########
 #######.###########................###.....##.########
 #######.###########................##########.########
@@ -75,8 +130,8 @@ namespace DungeonTycoon.Core
 ###..........#########..........########...........###
 ###................................................###
 ###..........#########..........########...........###
+###.E........#########..........########..........S###
 ###..........#########..........########...........###
-###..........#########....E.....########...........###
 ######################################################
 ######################################################";
 
@@ -86,6 +141,41 @@ namespace DungeonTycoon.Core
             {
                 case 1: return StageOne;
                 case 2: return StageTwo;
+                case 3: return StageThree;
+                default: throw new ArgumentOutOfRangeException(nameof(stage));
+            }
+        }
+
+        private static TilePoint T(int x, int y) => new TilePoint(x, y);
+
+        /// <summary>The fixed patrols of a stage, in the order their members join the monster list.</summary>
+        public static IReadOnlyList<PatrolPlan> PatrolsForStage(int stage)
+        {
+            var skeleton = MonsterKind.Skeleton;
+            var ghost = MonsterKind.Ghost;
+            var zombie = MonsterKind.Zombie;
+            var archer = MonsterKind.Archer;
+            switch (stage)
+            {
+                case 1:
+                    // Up and down the middle of the map: west rooms, the hall before the gate, the southern room.
+                    return new[] { new PatrolPlan(new[] { skeleton, skeleton }, T(6, 11), T(22, 9), T(21, 23), T(22, 9)) };
+                case 2:
+                    return new[]
+                    {
+                        // Round the western ring: north-west crypt, north crypt, the great hall, the west crypt.
+                        new PatrolPlan(new[] { skeleton, ghost }, T(8, 5), T(26, 6), T(26, 18), T(8, 18)),
+                        // From the dead-end crypt through the south crypt and the hall to the east crypt and back.
+                        new PatrolPlan(new[] { zombie, skeleton }, T(46, 31), T(27, 29), T(30, 18), T(45, 18), T(30, 18), T(27, 29))
+                    };
+                case 3:
+                    return new[]
+                    {
+                        // Round the great hall before the throne.
+                        new PatrolPlan(new[] { zombie, archer }, T(20, 13), T(33, 13), T(33, 21), T(20, 21)),
+                        // Up and down the east wing.
+                        new PatrolPlan(new[] { ghost, skeleton }, T(45, 30), T(45, 6))
+                    };
                 default: throw new ArgumentOutOfRangeException(nameof(stage));
             }
         }

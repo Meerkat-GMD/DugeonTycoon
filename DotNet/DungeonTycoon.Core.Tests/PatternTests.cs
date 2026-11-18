@@ -20,7 +20,7 @@ namespace DungeonTycoon.Core.Tests
 
         private static DungeonRun Arena(bool traits, params MonsterKind[] kinds)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             if (!traits)
                 foreach (HeroRole role in System.Enum.GetValues(typeof(HeroRole)))
                     Assert.That(run.SetBuild(role, new HeroBuild(CombatTrait.Lookout, PersonalityTrait.Curious)), Is.True);
@@ -325,7 +325,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AStoicHoldsAGroundBlastOnlyWhileHealthy()
         {
-            var fresh = new DungeonRun();
+            var fresh = DungeonRun.Sandbox();
             Assert.That(fresh.SetBuild(HeroRole.Healer, new HeroBuild(CombatTrait.Stoic, PersonalityTrait.Curious)), Is.True);
             var healer = fresh.Party[(int)HeroRole.Healer];
             Assert.That(fresh.ResponseTo(HeroRole.Healer, MonsterPattern.Meteor, false), Is.EqualTo(PatternResponse.Hold));
@@ -386,7 +386,7 @@ namespace DungeonTycoon.Core.Tests
         {
             List<string> Play(int ghost, int pack)
             {
-                var run = new DungeonRun(seed: 5);
+                var run = DungeonRun.Sandbox(seed: 5);
                 var tiles = DungeonRunTests.PlaceableTiles(run);
                 run.Place(tiles[ghost], MonsterKind.Ghost);
                 run.Place(tiles[pack], MonsterKind.Zombie);
@@ -396,7 +396,7 @@ namespace DungeonTycoon.Core.Tests
                 return run.Log.ToList();
             }
             // Which monsters the party meets depends on the way it takes; look for a layout whose fights show both.
-            int count = DungeonRunTests.PlaceableTiles(new DungeonRun(seed: 5)).Count;
+            int count = DungeonRunTests.PlaceableTiles(DungeonRun.Sandbox(seed: 5)).Count;
             for (int step = 2; step <= 10; step++)
             {
                 int ghost = count / 3, pack = count * step / 12;

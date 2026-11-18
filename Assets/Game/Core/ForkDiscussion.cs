@@ -3,12 +3,20 @@ using System.Linq;
 
 namespace DungeonTycoon.Core
 {
-    /// <summary>One unexplored way the party can take from a fork, described only with what the party knows.</summary>
+    /// <summary>
+    /// What a way at a fork leads to: unexplored floor, a chest or spring the party remembers, or the boss room it has
+    /// already seen.
+    /// </summary>
+    public enum ForkFeature { Way, Chest, Spring, Boss }
+
+    /// <summary>One way the party can take from a fork, described only with what the party knows.</summary>
     public sealed class ForkOption
     {
         internal ForkOption(int index, string label, IReadOnlyList<TilePoint> path, HashSet<TilePoint> frontier,
-            int visibleMonsters, int depth, int markerDistance = -1)
+            int visibleMonsters, int depth, int markerDistance = -1, ForkFeature feature = ForkFeature.Way, int featureIndex = -1)
         {
+            Feature = feature;
+            FeatureIndex = featureIndex;
             Index = index;
             Label = label;
             Path = path;
@@ -23,11 +31,14 @@ namespace DungeonTycoon.Core
         /// seen none.
         /// </summary>
         public int MarkerDistance { get; }
+        public ForkFeature Feature { get; }
+        /// <summary>The index in <see cref="DungeonRun.Chests"/> or <see cref="DungeonRun.Springs"/>; -1 for other ways.</summary>
+        public int FeatureIndex { get; }
 
         public int Index { get; }
-        /// <summary>Direction from the party, e.g. "북쪽 길".</summary>
+        /// <summary>Direction from the party, e.g. "북쪽 길", "동쪽 상자 길". Always ends in "길".</summary>
         public string Label { get; }
-        /// <summary>Steps to the edge of what the party has seen that way.</summary>
+        /// <summary>Steps to the edge of what the party has seen that way, or to the chest, spring or boss room.</summary>
         public int Distance => Path.Count - 1;
         /// <summary>Living monsters the party can see right now along that way.</summary>
         public int VisibleMonsters { get; }

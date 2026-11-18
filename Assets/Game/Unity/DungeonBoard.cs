@@ -37,6 +37,8 @@ namespace DungeonTycoon.Unity
             // A pattern's wind-up or landing pose for this frame; cleared once applied.
             public Vector3 PoseOffset;
             public float PoseScale = 1;
+            // A skeleton archer shoots its plain blows instead of lunging.
+            public bool Ranged;
         }
 
         private sealed class Flight
@@ -44,7 +46,16 @@ namespace DungeonTycoon.Unity
             public Transform Body;
             public Vector3 From, To;
             public float Start;
-            public bool Orb;
+            public Stack<Transform> Pool;
+            public bool Spin;
+        }
+
+        /// <summary>A chest or spring fixed on the map: drawn fresh until opened or drunk dry, then spent.</summary>
+        private sealed class Feature
+        {
+            public Transform Fresh, Spent;
+            public bool IsSpent;
+            public float CueAt = -1000;
         }
 
         private readonly List<Mesh> meshes = new List<Mesh>();
@@ -53,6 +64,16 @@ namespace DungeonTycoon.Unity
         private readonly List<Flight> flights = new List<Flight>();
         private readonly Stack<Transform> arrows = new Stack<Transform>();
         private readonly Stack<Transform> orbs = new Stack<Transform>();
+        private readonly Stack<Transform> bolts = new Stack<Transform>();
+        private readonly List<Feature> chestProps = new List<Feature>();
+        private readonly List<Feature> springProps = new List<Feature>();
+        // Patrol routes are painted on the floor in one colour per squad: clear while the GM plans around them,
+        // faint during the expedition so the GM can still read where a squad is heading.
+        private static readonly Color[] PatrolColors = { new Color(.74f,.55f,1f,1), new Color(.45f,.75f,1f,1) };
+        private const float PatrolPlanningAlpha = .6f, PatrolExpeditionAlpha = .2f;
+        private readonly List<Material> patrolMaterials = new List<Material>();
+        private Transform chestPrototype, openChestPrototype, springPrototype, drySpringPrototype, haloPrototype;
+        private bool planningView = true;
         private readonly Transform[] heroes = new Transform[4];
         private readonly Vector3[] heroGoals = new Vector3[4];
         private readonly float[] heroLungeAt = { -1000, -1000, -1000, -1000 };
@@ -65,7 +86,7 @@ namespace DungeonTycoon.Unity
         private DungeonMap map;
         private int stage;
         private Transform scenery, entranceZone, fog, hoverAllowed, hoverBlocked;
-        private Transform barPrototype, arrowPrototype, orbPrototype, die;
+        private Transform barPrototype, arrowPrototype, boltPrototype, orbPrototype, die;
         private float tauntAt = -1000;
         private float adversityStarted = -1000;
         private bool blessing;
@@ -161,7 +182,7 @@ namespace DungeonTycoon.Unity
             if (palette != null) return;
             palette = MakePalette();
             fogPalette = MakeFogPalette();
-            models = new Transform[6];
+            models = new Transform[DungeonFigures.TierCount];
             boardCamera = Camera.main;
             if (!boardCamera)
             {
@@ -195,12 +216,19 @@ namespace DungeonTycoon.Unity
             var stock = new GameObject("원형");
             stock.transform.SetParent(transform,false);
             stock.SetActive(false);
-            foreach (int tier in new[] {1, 2, 3, 4, 5})
+            for (int tier = 1; tier < DungeonFigures.TierCount; tier++)
             {
                 var piece = Draw("Monster " + tier, DungeonFigures.Monster(tier), meshes);
                 piece.SetParent(stock.transform,false);
                 models[tier] = piece;
             }
+            chestPrototype = Draw("보물 상자", DungeonFigures.Chest(false), meshes, stock.transform);
+            openChestPrototype = Draw("빈 상자", DungeonFigures.Chest(true), meshes, stock.transform);
+            springPrototype = Draw("샘물", DungeonFigures.Spring(false), meshes, stock.transform);
+            drySpringPrototype = Draw("마른 샘물", DungeonFigures.Spring(true), meshes, stock.transform);
+            var halo = new DungeonMesh();
+            halo.Ring(0,.01f,0,1.2f,1.2f,.01f,Finish.Ink,16);
+            haloPrototype = Draw("순회조 표시", halo, meshes, stock.transform);
             for (int i = 0; i < heroes.Length; i++)
             {
                 heroes[i] = Draw(new[] {"탱커","힐러","근딜","원딜"}[i], DungeonFigures.Hero(i), meshes);
@@ -275,24 +303,53 @@ namespace DungeonTycoon.Unity
             warnMesh.SetVertices(new[] { new Vector3(-h,0,-h), new Vector3(-h,0,h), new Vector3(h,0,h), new Vector3(h,0,-h) });
             warnMesh.SetTriangles(new[] { 0,1,2, 0,2,3 },0);
             warnMesh.RecalculateNormals();
+            warnMaterial = Overlay("Warning") ?? palette[(int)Finish.Ember];
+        }
+
+        /// <summary>A see-through unlit material for marks painted over the floor; null without the URP unlit shader.</summary>
+        private static Material Overlay(string materialName)
+        {
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (!shader)
+            if (!shader) return null;
+            var mat = new Material(shader) { name = materialName };
+            mat.SetFloat("_Surface",1);
+            mat.SetFloat("_Blend",0);
+            mat.SetFloat("_SrcBlend",(float)BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend",(float)BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_SrcBlendAlpha",(float)BlendMode.One);
+            mat.SetFloat("_DstBlendAlpha",(float)BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite",0);
+            mat.SetFloat("_Cull",0);
+            mat.SetOverrideTag("RenderType","Transparent");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = (int)RenderQueue.Transparent;
+            return mat;
+        }
+
+        /// <summary>The see-through paint for one patrol squad's route and the rings under its members.</summary>
+        private Material PatrolMaterial(int squad)
+        {
+            while (patrolMaterials.Count <= squad)
             {
-                warnMaterial = palette[(int)Finish.Ember];
-                return;
+                var mat = Overlay("Patrol " + (patrolMaterials.Count+1));
+                if (!mat)
+                {
+                    // Without the unlit shader the routes fall back to a solid palette colour.
+                    patrolMaterials.Add(palette[(int)Finish.Plum]);
+                    continue;
+                }
+                patrolMaterials.Add(mat);
+                PaintPatrol(mat, patrolMaterials.Count-1);
             }
-            warnMaterial = new Material(shader) { name = "Warning" };
-            warnMaterial.SetFloat("_Surface",1);
-            warnMaterial.SetFloat("_Blend",0);
-            warnMaterial.SetFloat("_SrcBlend",(float)BlendMode.SrcAlpha);
-            warnMaterial.SetFloat("_DstBlend",(float)BlendMode.OneMinusSrcAlpha);
-            warnMaterial.SetFloat("_SrcBlendAlpha",(float)BlendMode.One);
-            warnMaterial.SetFloat("_DstBlendAlpha",(float)BlendMode.OneMinusSrcAlpha);
-            warnMaterial.SetFloat("_ZWrite",0);
-            warnMaterial.SetFloat("_Cull",0);
-            warnMaterial.SetOverrideTag("RenderType","Transparent");
-            warnMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            warnMaterial.renderQueue = (int)RenderQueue.Transparent;
+            return patrolMaterials[squad];
+        }
+
+        private void PaintPatrol(Material mat, int squad)
+        {
+            if (Array.IndexOf(palette, mat) >= 0) return;
+            var color = PatrolColors[squad % PatrolColors.Length];
+            color.a = planningView ? PatrolPlanningAlpha : PatrolExpeditionAlpha;
+            mat.SetColor(BaseColorId, color);
         }
 
         private MeshRenderer WarnTile(int index)
@@ -341,14 +398,19 @@ namespace DungeonTycoon.Unity
                 if (warnTiles[i].gameObject.activeSelf) warnTiles[i].gameObject.SetActive(false);
         }
 
-        /// <summary>Rebuilds the floor when the map changes and redraws the placed monsters; the boss is last.</summary>
-        public void SetStage(int stage, DungeonMap map, IReadOnlyList<MonsterPlacement> placements, Func<TilePoint,bool> placeable)
+        /// <summary>
+        /// Rebuilds the floor, chests, springs and patrol routes when the map changes, and redraws the monsters in the
+        /// order of <see cref="DungeonRun.Monsters"/>: the placed ones, then each patrol member at its starting tile,
+        /// squad by squad, then the stage's boss.
+        /// </summary>
+        public void SetStage(int stage, DungeonMap map, IReadOnlyList<MonsterPlacement> placements,
+            IReadOnlyList<PatrolSquad> patrols, Func<TilePoint,bool> placeable)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
             if (!ReferenceEquals(this.map, map))
             {
                 this.map = map;
-                BuildScenery(placeable);
+                BuildScenery(placeable, patrols);
                 for (int i = 0; i < heroes.Length; i++)
                 {
                     heroGoals[i] = HeroSpot(map.Entrance, i);
@@ -366,10 +428,17 @@ namespace DungeonTycoon.Unity
             var tiles = new List<TilePoint>();
             foreach (var placement in placements)
             {
-                AddFoe(placement.Kind == MonsterKind.Zombie ? 2 : placement.Kind == MonsterKind.Ghost ? 3 : 1);
+                AddFoe(DungeonFigures.TierOf(placement.Kind));
                 tiles.Add(placement.Tile);
             }
-            AddFoe(stage > 1 ? 5 : 4);
+            if (patrols != null)
+                foreach (var squad in patrols)
+                    for (int k = 0; k < squad.Members.Count; k++)
+                    {
+                        AddFoe(DungeonFigures.TierOf(squad.Members[k]), squad.Index);
+                        tiles.Add(squad.StartOf(k));
+                    }
+            AddFoe(DungeonFigures.BossTier(stage));
             tiles.Add(map.BossTile);
             PlaceFoes(tiles, null, true);
         }
@@ -384,14 +453,24 @@ namespace DungeonTycoon.Unity
             foes.Clear();
         }
 
-        private void AddFoe(int tier)
+        /// <summary>Adds a monster figure; a patrol member (<paramref name="squad"/> ≥ 0) stands on its squad's ring.</summary>
+        private void AddFoe(int tier, int squad = -1)
         {
             var body = Instantiate(models[tier],transform,false);
             body.gameObject.SetActive(true);
             body.localRotation = Quaternion.Euler(0,20,0);
+            if (squad >= 0)
+            {
+                var halo = Instantiate(haloPrototype,body,false);
+                halo.gameObject.SetActive(true);
+                var ring = halo.GetComponent<MeshRenderer>();
+                ring.sharedMaterial = PatrolMaterial(squad);
+                ring.shadowCastingMode = ShadowCastingMode.Off;
+                ring.receiveShadows = false;
+            }
             var bar = Instantiate(barPrototype,transform,false);
             bar.gameObject.SetActive(false);
-            foes.Add(new Foe { Body = body, Bar = bar, Fill = bar.GetChild(0) });
+            foes.Add(new Foe { Body = body, Bar = bar, Fill = bar.GetChild(0), Ranged = tier == DungeonFigures.Archer });
         }
 
         /// <summary>Spreads figures that share a tile; stacked monsters are drawn smaller.</summary>
@@ -444,7 +523,7 @@ namespace DungeonTycoon.Unity
             PlaceFoes(tiles, alive, false);
         }
 
-        private void BuildScenery(Func<TilePoint,bool> placeable)
+        private void BuildScenery(Func<TilePoint,bool> placeable, IReadOnlyList<PatrolSquad> patrols)
         {
             if (scenery) Destroy(scenery.gameObject);
             foreach (var mesh in stageMeshes) if (mesh) Destroy(mesh);
@@ -457,6 +536,68 @@ namespace DungeonTycoon.Unity
                 DungeonScenery.EntranceZone(map, Tile, TileCenter, tile => !placeable(tile)), stageMeshes, scenery);
             StageLight("입구 수정빛", TileCenter(map.Entrance)+new Vector3(0,1.3f,.2f), new Color32(113,222,204,255), 4.5f);
             StageLight("왕좌 화로", TileCenter(map.BossTile)+new Vector3(0,1.6f,.4f), new Color32(255,149,73,255), 6.5f);
+            BuildFeatures(chestProps, map.Chests, chestPrototype, openChestPrototype, "보물 상자");
+            BuildFeatures(springProps, map.Springs, springPrototype, drySpringPrototype, "샘물");
+            if (patrols == null) return;
+            foreach (var squad in patrols)
+            {
+                var paint = PatrolMaterial(squad.Index);
+                var materials = new Material[palette.Length];
+                for (int i = 0; i < materials.Length; i++) materials[i] = paint;
+                var route = Draw("순회로 "+(squad.Index+1), DungeonScenery.PatrolRoute(squad.Route, Tile, TileCenter),
+                    stageMeshes, scenery, materials);
+                var renderer = route.GetComponent<MeshRenderer>();
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+        }
+
+        /// <summary>Stands a fresh and a spent copy of a chest or spring on each of its tiles; only one shows.</summary>
+        private void BuildFeatures(List<Feature> props, IReadOnlyList<TilePoint> tiles, Transform fresh, Transform spent, string label)
+        {
+            props.Clear();
+            for (int i = 0; i < tiles.Count; i++)
+            {
+                var prop = new Feature { Fresh = Instantiate(fresh,scenery,false), Spent = Instantiate(spent,scenery,false) };
+                prop.Fresh.name = label+" "+(i+1);
+                prop.Spent.name = label+" "+(i+1)+" (빈)";
+                foreach (var piece in new[] {prop.Fresh, prop.Spent})
+                {
+                    piece.localPosition = TileCenter(tiles[i]);
+                    piece.localRotation = Quaternion.Euler(0,(i%2 == 0 ? -1 : 1)*12,0);
+                }
+                prop.Fresh.gameObject.SetActive(true);
+                prop.Spent.gameObject.SetActive(false);
+                props.Add(prop);
+            }
+        }
+
+        /// <summary>Shows each chest shut or opened and each spring full or dried, as the run has them.</summary>
+        public void SetFeatures(IReadOnlyList<TreasureChest> chests, IReadOnlyList<Spring> springs)
+        {
+            for (int i = 0; i < chestProps.Count; i++)
+                Spend(chestProps[i], chests != null && i < chests.Count && chests[i].Opened);
+            for (int i = 0; i < springProps.Count; i++)
+                Spend(springProps[i], springs != null && i < springs.Count && springs[i].Used);
+        }
+
+        private static void Spend(Feature prop, bool spent)
+        {
+            if (prop.IsSpent == spent) return;
+            prop.IsSpent = spent;
+            prop.Fresh.gameObject.SetActive(!spent);
+            prop.Spent.gameObject.SetActive(spent);
+        }
+
+        /// <summary>Screen point (origin bottom-left) just above a chest or spring; false when it is not drawn.</summary>
+        public bool TryFeatureScreenPoint(bool spring, int index, out Vector2 point)
+        {
+            point = default;
+            var props = spring ? springProps : chestProps;
+            if (!boardCamera || index < 0 || index >= props.Count) return false;
+            var body = boardCamera.WorldToScreenPoint(transform.TransformPoint(props[index].Fresh.localPosition+Vector3.up*.8f));
+            point = new Vector2(body.x, body.y);
+            return body.z > 0;
         }
 
         public void SetPlanning(bool planning)
@@ -464,6 +605,9 @@ namespace DungeonTycoon.Unity
             if (entranceZone) entranceZone.gameObject.SetActive(planning);
             if (fog) fog.gameObject.SetActive(!planning);
             if (!planning) SetHover(null,false);
+            if (planningView == planning) return;
+            planningView = planning;
+            for (int i = 0; i < patrolMaterials.Count; i++) PaintPatrol(patrolMaterials[i], i);
         }
 
         /// <summary>Dims everything the party has not seen. The GM still sees through it.</summary>
@@ -645,6 +789,12 @@ namespace DungeonTycoon.Unity
             if (events == null) return;
             foreach (var e in events)
             {
+                // A chest or spring event names the feature, not a monster.
+                if (e.Kind == CombatEventKind.Chest || e.Kind == CombatEventKind.Spring)
+                {
+                    PlayFeature(e.Kind == CombatEventKind.Spring, e.Source);
+                    continue;
+                }
                 if (e.FromHero && (e.Source < 0 || e.Source >= heroes.Length)) continue;
                 if (!e.FromHero && (e.Source < 0 || e.Source >= foes.Count)) continue;
                 Vector3 to = e.ToHero
@@ -665,6 +815,12 @@ namespace DungeonTycoon.Unity
                         if (!e.FromHero)
                         {
                             var foe = foes[e.Source];
+                            // An archer's plain blow is a shot: a bone arrow flies to its target instead of a lunge.
+                            if (foe.Ranged && e.Kind == CombatEventKind.Attack)
+                            {
+                                Launch(foe.Body.localPosition, to, boltPrototype, bolts, false);
+                                break;
+                            }
                             // A pattern that hits from afar has its own effect; only blows within reach lunge.
                             if (Flat(to-foe.Body.localPosition).magnitude > Tile*1.7f) break;
                             foe.LungeAt = Time.time;
@@ -687,12 +843,32 @@ namespace DungeonTycoon.Unity
             return v.sqrMagnitude > .0001f ? v.normalized : Vector3.zero;
         }
 
-        private void Launch(Vector3 from, Vector3 to, bool orb)
+        private void Launch(Vector3 from, Vector3 to, bool orb) =>
+            Launch(from, to, orb ? orbPrototype : arrowPrototype, orb ? orbs : arrows, orb);
+
+        private void Launch(Vector3 from, Vector3 to, Transform prototype, Stack<Transform> pool, bool spin)
         {
-            var pool = orb ? orbs : arrows;
-            var body = pool.Count > 0 ? pool.Pop() : Instantiate(orb ? orbPrototype : arrowPrototype, transform, false);
+            var body = pool.Count > 0 ? pool.Pop() : Instantiate(prototype, transform, false);
             body.gameObject.SetActive(true);
-            flights.Add(new Flight { Body = body, From = from+Vector3.up*.9f, To = to+Vector3.up*.86f, Start = Time.time, Orb = orb });
+            flights.Add(new Flight { Body = body, From = from+Vector3.up*.9f, To = to+Vector3.up*.86f, Start = Time.time,
+                Pool = pool, Spin = spin });
+        }
+
+        /// <summary>
+        /// The opened chest hops as its lid flies up (the HUD shows the item it held); a spring the party drinks
+        /// from ripples and sends a mote of light to each standing hero as it runs dry.
+        /// </summary>
+        private void PlayFeature(bool spring, int index)
+        {
+            var props = spring ? springProps : chestProps;
+            if (index < 0 || index >= props.Count) return;
+            var prop = props[index];
+            prop.CueAt = Time.time;
+            Spend(prop, true);
+            if (!spring) return;
+            var from = prop.Fresh.localPosition+Vector3.down*.5f;
+            for (int i = 0; i < heroes.Length; i++)
+                if (living[i]) Launch(from, heroes[i].localPosition, true);
         }
 
         public void PlayAdversity(bool success)
@@ -718,6 +894,11 @@ namespace DungeonTycoon.Unity
             var orb = new DungeonMesh();
             DungeonFigures.Jewel(orb,0,0,0,.2f,.3f,Finish.Mint);
             orbPrototype = Draw("치유 빛",orb,meshes,stock);
+            var bolt = new DungeonMesh();
+            bolt.Rod(Vector3.left*.22f, Vector3.right*.14f,.04f,Finish.Ash);
+            bolt.Rod(Vector3.right*.08f,Vector3.right*.27f,.10f,Finish.Ember,0);
+            bolt.Box(-.19f,0,0,.09f,.10f,.02f,Finish.Crimson);
+            boltPrototype = Draw("해골 화살",bolt,meshes,stock);
             die = Draw("역경 d20",Die(),meshes);
             die.gameObject.SetActive(false);
         }
@@ -831,14 +1012,16 @@ namespace DungeonTycoon.Unity
                 if (t >= 1)
                 {
                     flight.Body.gameObject.SetActive(false);
-                    (flight.Orb ? orbs : arrows).Push(flight.Body);
+                    flight.Pool.Push(flight.Body);
                     flights.RemoveAt(i);
                     continue;
                 }
                 flight.Body.localPosition = Vector3.Lerp(flight.From,flight.To,t)+Vector3.up*(.26f*Mathf.Sin(t*Mathf.PI));
-                if (flight.Orb) flight.Body.localRotation = Quaternion.Euler(0,t*360,0);
+                if (flight.Spin) flight.Body.localRotation = Quaternion.Euler(0,t*360,0);
                 else flight.Body.localRotation = Quaternion.FromToRotation(Vector3.right,flight.To-flight.From);
             }
+            AnimateFeatures(chestProps);
+            AnimateFeatures(springProps);
 
             if (FollowParty)
             {
@@ -864,6 +1047,18 @@ namespace DungeonTycoon.Unity
                 die.localPosition = leader+new Vector3(0,1.9f+1.02f*lift,-.4f);
                 die.localRotation = Quaternion.Euler(t*320,t*480,blessing ? t*180 : -t*180);
                 die.localScale = Vector3.one*Mathf.Clamp01((1-t)*6);
+            }
+        }
+
+        /// <summary>A chest or spring that was just used swells and settles back.</summary>
+        private static void AnimateFeatures(List<Feature> props)
+        {
+            foreach (var prop in props)
+            {
+                float age = Time.time-prop.CueAt;
+                if (age < 0 || age > 1) continue;
+                float swell = 1+.22f*Pulse(prop.CueAt,.45f);
+                prop.Spent.localScale = new Vector3(swell,2-swell,swell);
             }
         }
 
@@ -956,6 +1151,8 @@ namespace DungeonTycoon.Unity
             if (warnMesh) Destroy(warnMesh);
             effects?.Dispose();
             if (warnMaterial && (palette == null || Array.IndexOf(palette, warnMaterial) < 0)) Destroy(warnMaterial);
+            foreach (var material in patrolMaterials)
+                if (material && (palette == null || Array.IndexOf(palette, material) < 0)) Destroy(material);
             if (palette == null) return;
             foreach (var material in palette) if (material) Destroy(material);
         }

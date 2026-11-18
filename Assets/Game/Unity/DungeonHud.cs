@@ -30,7 +30,17 @@ namespace DungeonTycoon.Unity
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
         private Label resultTitle, resultText;
-        private Button follow, primary, collapse, skeletonCard, ghostCard, zombieCard, removeCard, trialCard, blessCard;
+        private Button follow, primary, collapse, removeCard, trialCard, blessCard;
+        private Label summaryNote;
+        // One placement card per monster kind; only the kinds on the stage's roster are shown.
+        private static readonly (MonsterKind Kind, string Name)[] Brushes =
+        {
+            (MonsterKind.Skeleton, "brush-skeleton"), (MonsterKind.Ghost, "brush-ghost"),
+            (MonsterKind.Zombie, "brush-zombie"), (MonsterKind.Archer, "brush-archer")
+        };
+        private readonly Dictionary<MonsterKind, Button> brushCards = new Dictionary<MonsterKind, Button>();
+        // Shown under the stage number, indexed by stage.
+        private static readonly string[] StageNames = { "", "성문으로 가는 길", "지하 납골당", "마왕의 성채" };
         private VisualElement faithCells;
         private Label trialDetail, blessDetail, restDetail, fatigueStage, fatigueEffect;
         private Button restCard;
@@ -135,15 +145,17 @@ namespace DungeonTycoon.Unity
             collapse = root.Q<Button>("collapse");
             interventionPage = root.Q("intervention");
             resultPage = root.Q("result");
-            skeletonCard = root.Q<Button>("brush-skeleton");
-            ghostCard = root.Q<Button>("brush-ghost");
-            zombieCard = root.Q<Button>("brush-zombie");
+            foreach (var (kind, cardName) in Brushes)
+            {
+                var card = root.Q<Button>(cardName);
+                card.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(kind)}";
+                card.clicked += () => brush = kind;
+                brushCards.Add(kind, card);
+            }
             removeCard = root.Q<Button>("brush-remove");
-            skeletonCard.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(MonsterKind.Skeleton)}";
-            ghostCard.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(MonsterKind.Ghost)}";
-            zombieCard.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(MonsterKind.Zombie)}";
             summaryTitle = root.Q<Label>("summary-title");
             summaryDetail = root.Q<Label>("summary-detail");
+            summaryNote = root.Q<Label>("summary-note");
             trialCard = root.Q<Button>("trial");
             root.Q<Label>("trial-risk").text = $"실패 체력 -{DungeonRun.TrialDamage}";
             blessCard = root.Q<Button>("bless");
@@ -200,9 +212,6 @@ namespace DungeonTycoon.Unity
             collapse.clicked += () => bottom.ToggleInClassList("collapsed");
             primary.clicked += game.RequestDeparture;
             root.Q<Button>("result-new").clicked += () => game.Restart();
-            skeletonCard.clicked += () => brush = MonsterKind.Skeleton;
-            ghostCard.clicked += () => brush = MonsterKind.Ghost;
-            zombieCard.clicked += () => brush = MonsterKind.Zombie;
             removeCard.clicked += () => brush = MonsterKind.None;
             // A new expedition from the same formation and monster plan, with new dice or the same ones.
             root.Q<Button>("result-copy").clicked += () => game.Restart(keepPlan: true);
@@ -304,8 +313,8 @@ namespace DungeonTycoon.Unity
             bool finished = run.Phase == RunPhase.Victory || run.Phase == RunPhase.Defeat;
             bool exploring = Exploring(run);
 
-            stageNumber.text = "스테이지 "+run.Stage+" / 2";
-            stageName.text = run.Stage == 1 ? "성문으로 가는 길" : "마왕의 성채";
+            stageNumber.text = "스테이지 "+run.Stage+" / "+DungeonRun.FinalStage;
+            stageName.text = run.Stage < StageNames.Length ? StageNames[run.Stage] : "";
 
             // The live boss only exists once the party departs; until then the bar shows the stage's boss at full health.
             int hp = run.Boss != null ? run.Boss.Hp : bossMaxHp;
@@ -357,7 +366,8 @@ namespace DungeonTycoon.Unity
 
             if (HistoryOpen)
             {
-                historyStats.text = $"{run.StepsTaken}걸음 · 발견 {run.SpottedCount}/{run.Placements.Count} · 처치 {run.DefeatedCount} · 갈림길 {run.ForkCount}회";
+                // Every monster but the boss counts: the GM's placements and the stage's fixed patrols.
+                historyStats.text = $"{run.StepsTaken}걸음 · 발견 {run.SpottedCount}/{run.Placements.Count+run.PatrolMemberCount} · 처치 {run.DefeatedCount} · 갈림길 {run.ForkCount}회";
                 AppendHistory(run);
             }
         }
@@ -506,8 +516,19 @@ namespace DungeonTycoon.Unity
                     AddPop(MonsterPatterns.Name((MonsterPattern)e.Amount)+"!","skill foe",caster,PopSeconds);
                     continue;
                 }
-                if (e.Kind != CombatEventKind.Drop || e.Amount < 0 || e.Amount >= run.Drops.Count) continue;
-                if (!game.Board.TryFoeScreenPoint(e.Source,out var at)) continue;
+                // A spring shows the fatigue it took away over the basin.
+                if (e.Kind == CombatEventKind.Spring)
+                {
+                    if (game.Board.TryFeatureScreenPoint(true,e.Source,out var basin))
+                        AddPop("샘물 · 피로 -"+e.Amount,"spring",basin,PopSeconds);
+                    continue;
+                }
+                // An item from an opened chest pops over it and flies to the party, like a monster's drop.
+                bool chest = e.Kind == CombatEventKind.Chest;
+                if ((e.Kind != CombatEventKind.Drop && !chest) || e.Amount < 0 || e.Amount >= run.Drops.Count) continue;
+                Vector2 at;
+                if (chest ? !game.Board.TryFeatureScreenPoint(false,e.Source,out at) : !game.Board.TryFoeScreenPoint(e.Source,out at))
+                    continue;
                 var item = run.Drops[e.Amount];
                 var pop = AddPop(item.Name,item.Grade == EquipmentGrade.Rare ? "item rare" : "item",at,ItemHoldSeconds+ItemFlySeconds);
                 pop.From += new Vector2(0,-18);
@@ -601,15 +622,34 @@ namespace DungeonTycoon.Unity
 
         private void RefreshPlanning(DungeonRun run)
         {
-            skeletonCard.EnableInClassList("chosen",brush == MonsterKind.Skeleton);
-            ghostCard.EnableInClassList("chosen",brush == MonsterKind.Ghost);
-            zombieCard.EnableInClassList("chosen",brush == MonsterKind.Zombie);
+            // A stage only offers the monsters on its roster; a brush that left the roster falls back to the skeleton.
+            if (brush != MonsterKind.None && !run.InRoster(brush)) brush = MonsterKind.Skeleton;
+            foreach (var (kind, _) in Brushes)
+            {
+                var card = brushCards[kind];
+                Show(card,run.InRoster(kind));
+                card.EnableInClassList("chosen",brush == kind);
+            }
             removeCard.EnableInClassList("chosen",brush == MonsterKind.None);
             int Placed(MonsterKind kind) => run.Placements.Count(p => p.Kind == kind);
             bool empty = run.Placements.Count == 0;
             summaryTitle.text = "배치 "+run.Placements.Count+"마리";
             summaryDetail.text = empty ? ""
-                : "해골 "+Placed(MonsterKind.Skeleton)+"  ·  유령 "+Placed(MonsterKind.Ghost)+"  ·  좀비 "+Placed(MonsterKind.Zombie);
+                : string.Join("  ·  ",run.Roster.Select(kind => DungeonRun.MonsterName(kind)+" "+Placed(kind)));
+            summaryNote.text = FeatureNote(run);
+        }
+
+        /// <summary>The stage's fixed features, which the GM plans around but cannot move.</summary>
+        private static string FeatureNote(DungeonRun run)
+        {
+            var features = new List<string>();
+            if (run.Patrols.Count > 0)
+                features.Add($"고정 순회조 {run.Patrols.Count}조 {run.PatrolMemberCount}마리 · 바닥의 색 선을 따라 돎");
+            var props = new List<string>();
+            if (run.Chests.Count > 0) props.Add($"보물 상자 {run.Chests.Count}");
+            if (run.Springs.Count > 0) props.Add($"샘물 {run.Springs.Count}");
+            if (props.Count > 0) features.Add(string.Join("  ·  ",props));
+            return string.Join("\n",features);
         }
 
         private void RefreshIntervention(DungeonRun run)
@@ -752,6 +792,9 @@ namespace DungeonTycoon.Unity
                 case PlacementCheck.NearEntrance: notice = "입구 근처에는 몬스터를 둘 수 없습니다."; break;
                 case PlacementCheck.NotFloor: notice = "벽에는 몬스터를 둘 수 없습니다."; break;
                 case PlacementCheck.NothingToRemove: notice = "이 칸에는 되돌릴 몬스터가 없습니다."; break;
+                case PlacementCheck.NotInRoster:
+                    notice = $"{HeroTraits.Particle(DungeonRun.MonsterName(brush),"은","는")} 이 스테이지에 배치할 수 없습니다.";
+                    break;
                 default: notice = ""; break;
             }
             noticeUntil = Time.unscaledTime+NoticeSeconds;

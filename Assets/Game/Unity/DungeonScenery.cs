@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DungeonTycoon.Core;
 using UnityEngine;
 
@@ -86,6 +87,43 @@ namespace DungeonTycoon.Unity
                 }
             }
             return m;
+        }
+
+        /// <summary>
+        /// A dashed line along a patrol's loop, with a chevron every few steps pointing the way the squad walks. A leg it
+        /// walks both ways is dashed once.
+        /// </summary>
+        internal static DungeonMesh PatrolRoute(IReadOnlyList<TilePoint> route, float tile, Func<TilePoint, Vector3> center)
+        {
+            var m = new DungeonMesh();
+            const float y = .02f;
+            var dashed = new HashSet<(TilePoint, TilePoint)>();
+            var marked = new HashSet<TilePoint>();
+            for (int i = 0; i < route.Count; i++)
+            {
+                TilePoint a = route[i], b = route[(i+1)%route.Count];
+                if (a == b) continue;
+                Vector3 from = center(a), to = center(b);
+                if (!dashed.Contains((b,a)) && dashed.Add((a,b)))
+                    Stroke(m, Vector3.Lerp(from,to,.24f), Vector3.Lerp(from,to,.76f), tile*.09f, y);
+                if (i%3 != 0 || !marked.Add(a)) continue;
+                var ahead = (to-from).normalized;
+                var side = new Vector3(ahead.z,0,-ahead.x);
+                var tip = from + ahead*tile*.13f;
+                var back = from - ahead*tile*.07f;
+                Stroke(m, back + side*tile*.17f, tip, tile*.07f, y);
+                Stroke(m, back - side*tile*.17f, tip, tile*.07f, y);
+            }
+            return m;
+        }
+
+        private static void Stroke(DungeonMesh m, Vector3 from, Vector3 to, float width, float y)
+        {
+            var span = to-from;
+            span.y = 0;
+            if (span.sqrMagnitude < .0001f) return;
+            var mid = (from+to)*.5f;
+            m.Box(mid.x,y,mid.z,width,.012f,span.magnitude,Finish.Ink,0,Mathf.Atan2(span.x,span.z)*Mathf.Rad2Deg,0);
         }
 
         /// <summary>A lid over every tile the party has not seen, with walls where it meets seen ground.</summary>

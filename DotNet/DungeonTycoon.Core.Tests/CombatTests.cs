@@ -15,7 +15,7 @@ namespace DungeonTycoon.Core.Tests
         /// </param>
         private static DungeonRun Crowded(int seed = 11, bool fragile = false, bool pack = false)
         {
-            var run = new DungeonRun(seed);
+            var run = DungeonRun.Sandbox(seed);
             if (fragile)
                 foreach (HeroRole role in Enum.GetValues(typeof(HeroRole)))
                     run.SetBuild(role, new HeroBuild(CombatTrait.Cornered, PersonalityTrait.Underdog));
@@ -55,11 +55,9 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        [Ignore("Pending enemy rescale: an empty dungeon no longer defeats the stronger trait-build heroes until the " +
-                "monsters are rebalanced on the undead roster from enemy-patterns.")]
         public void MonstersNeverGiveUpTheHuntAndTheBossChasesOutOfItsRoom()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var hunting = new HashSet<int>();
             bool bossLeftRoom = false;
             DungeonRunTests.Drive(run, () =>
@@ -131,7 +129,10 @@ namespace DungeonTycoon.Core.Tests
                             taunts[e.Target] = run.Ticks + DungeonRun.TauntTicks;
                             tauntCount++;
                         }
-                        if (e.Kind == CombatEventKind.Attack && !e.FromHero && taunts.TryGetValue(e.Source, out int until) &&
+                        // Telegraphed patterns hit everyone in their area; the taunt rule is about plain blows, so only
+                        // monsters without patterns are checked.
+                        if (e.Kind == CombatEventKind.Attack && !e.FromHero && run.Monsters[e.Source].Patterns.Count == 0 &&
+                            taunts.TryGetValue(e.Source, out int until) &&
                             run.Ticks < until && run.Party[(int)HeroRole.Tank].Hp > 0)
                         {
                             checkedHits++;
@@ -203,7 +204,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ADebateFreezesTheWholeDungeonUntilTheForkIsSettled()
         {
-            var blind = new DungeonRun();
+            var blind = DungeonRun.Sandbox();
             blind.Start();
             Assert.That(ExplorationTests.TickToFirstFork(blind), Is.True);
             var leader = blind.LeaderTile;
@@ -212,7 +213,7 @@ namespace DungeonTycoon.Core.Tests
                 .Where(t => Chebyshev(t, leader) > DungeonRun.DetectRadius && Chebyshev(t, leader) <= DungeonRun.DetectRadius + DungeonRun.WanderRadius)
                 .Take(6).ToList();
             Assert.That(spots, Is.Not.Empty);
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             foreach (var spot in spots) run.Place(spot, MonsterKind.Skeleton);
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);

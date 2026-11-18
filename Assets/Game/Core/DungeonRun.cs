@@ -63,16 +63,23 @@ namespace DungeonTycoon.Core
         public DungeonMap Map { get; private set; }
         /// <summary>Monsters in the order the GM placed them.</summary>
         public IReadOnlyList<MonsterPlacement> Placements { get; }
-        /// <summary>Live monsters after departure: one per placement in the same order, then the boss.</summary>
+        /// <summary>
+        /// Live monsters after departure: one per placement in the same order, then the members of each fixed patrol in
+        /// <see cref="Patrols"/> order, then the boss.
+        /// </summary>
         public IReadOnlyList<MonsterState> Monsters { get; }
-        public int BossIndex => placements.Count;
+        public int BossIndex => placements.Count + PatrolMemberCount;
         public int Ticks { get; private set; }
-        public int Budget { get; private set; } = 6;
+        public int Budget { get; private set; } = BudgetFor(1);
         public int Faith { get; private set; } = 1;
         public int TrialsLeft { get; private set; } = 2;
         public int Experience { get; private set; }
         /// <summary>Experience per party level. Balance value.</summary>
-        public const int ExperiencePerLevel = 5;
+        public const int ExperiencePerLevel = 10;
+        /// <summary>Attack every hero gains per party level. Balance value.</summary>
+        public const int LevelAttackGain = 3;
+        /// <summary>Maximum health every hero gains per party level. Balance value.</summary>
+        public const int LevelHpGain = 5;
         public int Level => 1 + Experience / ExperiencePerLevel;
         /// <summary>Experience gathered toward the next level, from 0 up to ExperiencePerLevel - 1.</summary>
         public int ExperienceIntoLevel => Experience % ExperiencePerLevel;
@@ -80,7 +87,8 @@ namespace DungeonTycoon.Core
         public string BossName => Boss?.Name ?? CreateBoss().Name;
         public int BossMaxHp => Boss?.MaxHp ?? CreateBoss().MaxHp;
         public bool PendingAdversity => pendingTrial != 0;
-        public int TrialDifficulty => Stage == 1 ? 13 : 15;
+        /// <summary>Adversity difficulty: 13, 14, 15 on stages 1 to 3. Balance value.</summary>
+        public int TrialDifficulty => 12 + Stage;
         public string LastTrial { get; private set; } = "";
         public IReadOnlyList<HeroState> Party { get; }
         public IReadOnlyList<string> Log { get; }
@@ -95,6 +103,7 @@ namespace DungeonTycoon.Core
                 case MonsterKind.Skeleton: return 1;
                 case MonsterKind.Ghost: return 2;
                 case MonsterKind.Zombie: return 3;
+                case MonsterKind.Archer: return 2;
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
@@ -107,6 +116,7 @@ namespace DungeonTycoon.Core
                 case MonsterKind.Skeleton: return "해골";
                 case MonsterKind.Ghost: return "유령";
                 case MonsterKind.Zombie: return "좀비";
+                case MonsterKind.Archer: return "해골 궁수";
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
@@ -128,7 +138,8 @@ namespace DungeonTycoon.Core
         public PlacementCheck CheckPlace(TilePoint tile, MonsterKind kind)
         {
             if (Phase != RunPhase.Planning) return PlacementCheck.Locked;
-            if (kind != MonsterKind.Skeleton && kind != MonsterKind.Ghost && kind != MonsterKind.Zombie) return PlacementCheck.InvalidKind;
+            if (Array.IndexOf(FullRoster, kind) < 0) return PlacementCheck.InvalidKind;
+            if (!InRoster(kind)) return PlacementCheck.NotInRoster;
             if (!Map.IsFloor(tile)) return PlacementCheck.NotFloor;
             if (!CanHoldMonster(tile)) return PlacementCheck.NearEntrance;
             if (Cost(kind) > Budget) return PlacementCheck.OverBudget;
@@ -181,7 +192,8 @@ namespace DungeonTycoon.Core
         /// </summary>
         public DungeonRun Rematch(int seed)
         {
-            var next = new DungeonRun(seed);
+            var next = new DungeonRun(seed) { sandbox = sandbox, sandboxFeatures = sandboxFeatures };
+            if (sandbox) next.LoadFeatures();
             foreach (var hero in party) next.party[(int)hero.Role].ApplyBuild(hero.Build);
             var known = new Dictionary<int, MonsterPlacement[]>(plans);
             if (Phase == RunPhase.Planning && placements.Count > 0) known[Stage] = placements.ToArray();
@@ -203,8 +215,11 @@ namespace DungeonTycoon.Core
             plans[Stage] = placements.ToArray();
             monsters.Clear();
             for (int i = 0; i < placements.Count; i++) monsters.Add(CreateMonster(i, placements[i].Kind, placements[i].Tile));
+            SpawnPatrols();
             monsters.Add(CreateBoss());
-            foreach (var monster in monsters) monster.WanderWait = 5 + dice.Next(0, 20);
+            // Patrols draw no wander dice, so adding them never shifts the rolls of the placed monsters.
+            foreach (var monster in monsters)
+                if (!monster.IsPatrol) monster.WanderWait = 5 + dice.Next(0, 20);
             foreach (var hero in party) hero.MoveReady = hero.ActReady = hero.MoveCarry = hero.StepUntil = 0;
             ClearCasts();
             ResetSkills();
@@ -219,6 +234,7 @@ namespace DungeonTycoon.Core
         private void LoadMap(DungeonMap map)
         {
             Map = map;
+            LoadFeatures();
             ResetExploration();
             ResetFatigue();
         }
@@ -249,6 +265,7 @@ namespace DungeonTycoon.Core
                 if (!InDungeon) return true;
                 MonsterTick(monster);
             }
+            PatrolTick();
             if (InDungeon) UpdateEngagement();
             CheckDesperation();
             return true;
@@ -390,15 +407,15 @@ namespace DungeonTycoon.Core
             if (gain == 0) return;
             foreach (var hero in party)
             {
-                hero.MaxHp += 3 * gain;
-                if (hero.Hp > 0) hero.Hp += 3 * gain;
+                hero.MaxHp += LevelHpGain * gain;
+                if (hero.Hp > 0) hero.Hp += LevelHpGain * gain;
             }
-            log.Add($"파티 레벨 {Level} • 공격력 +{2 * gain} / 최대 체력 +{3 * gain}");
+            log.Add($"파티 레벨 {Level} • 공격력 +{LevelAttackGain * gain} / 최대 체력 +{LevelHpGain * gain}");
         }
 
         private void ClearStage()
         {
-            if (Stage == 2)
+            if (Stage == FinalStage)
             {
                 Phase = RunPhase.Victory;
                 log.Add("마왕 토벌 • 살아남은 용사들이 왕국으로 귀환합니다!");
@@ -411,7 +428,7 @@ namespace DungeonTycoon.Core
             placements.Clear();
             monsters.Clear();
             LoadMap(DungeonMap.ForStage(Stage));
-            Budget = 7;
+            Budget = BudgetFor(Stage);
             TrialsLeft = 2;
             foreach (var hero in party)
             {
@@ -420,7 +437,9 @@ namespace DungeonTycoon.Core
             }
             Phase = RunPhase.Planning;
             LayOutInheritedPlan();
-            log.Add("야영 완료 • 용사들이 회복하고 쓰러진 동료도 복귀했습니다. 마왕성을 준비하세요.");
+            log.Add(Stage == FinalStage
+                ? "야영 완료 • 용사들이 회복하고 쓰러진 동료도 복귀했습니다. 마왕성을 준비하세요."
+                : $"야영 완료 • 용사들이 회복하고 쓰러진 동료도 복귀했습니다. {Stage} 스테이지를 준비하세요.");
         }
     }
 }

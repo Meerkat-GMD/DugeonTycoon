@@ -47,14 +47,17 @@ namespace DungeonTycoon.Core.Tests
 
         [TestCase(1)]
         [TestCase(2)]
+        [TestCase(3)]
         public void AnEmptyDungeonIsExploredUntilTheBossWithoutWalkingInCircles(int stage)
         {
-            var run = new DungeonRun();
-            if (stage == 2)
+            // The maps with their chests and springs; patrols stay out so a fight never cuts the walk short.
+            var run = DungeonRun.Sandbox(features: true);
+            while (run.Stage < stage)
             {
+                int next = run.Stage + 1;
                 run.Start();
-                DungeonRunTests.Drive(run, () => run.Stage == 2);
-                Assert.That(run.Stage, Is.EqualTo(2));
+                DungeonRunTests.Drive(run, () => (run.Stage == next && run.PendingLoot == null) || run.Phase == RunPhase.Defeat);
+                Assert.That(run.Stage, Is.EqualTo(next));
             }
             run.Start();
             DungeonRunTests.Drive(run, () => run.FightingBoss || !DungeonRunTests.InDungeon(run));
@@ -116,7 +119,8 @@ namespace DungeonTycoon.Core.Tests
         [TestCase(1)]
         public void AWayPassedOverIsNotArguedOverAgainWhenMoreOfItComesIntoView(int pick)
         {
-            var run = new DungeonRun();
+            // Only the memory of ways matters here, so no patrol interrupts the walk and no chest adds a way.
+            var run = DungeonRun.Sandbox();
             run.Start();
             Assert.That(TickToFirstFork(run), Is.True);
             var fork = run.PendingFork;

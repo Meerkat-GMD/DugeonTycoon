@@ -38,25 +38,60 @@ namespace DungeonTycoon.Core
             return taken;
         }
 
-        private MonsterState CreateMonster(int id, MonsterKind kind, TilePoint tile)
+        /// <summary>Tiles from which a skeleton archer shoots. Balance value.</summary>
+        public const int ArcherRange = 4;
+
+        /// <summary>
+        /// Health, attack and armour of a monster kind on a stage. Each stage is tuned for the party that should arrive
+        /// there: no gear on stage 1, common weapons and some armour with one rare piece on stage 2, a full common set
+        /// and two or more rare pieces on stage 3. Balance values.
+        /// </summary>
+        public static (int Hp, int Attack, int Armor) MonsterStats(MonsterKind kind, int stage)
         {
-            bool later = Stage == 2;
+            int s = Math.Max(1, Math.Min(FinalStage, stage)) - 1;
             switch (kind)
             {
-                case MonsterKind.Zombie:
-                    return new MonsterState(id, kind, false, "좀비", later ? 106 : 69, later ? 15 : 10, 2, 8, 5, 18, tile, MonsterPattern.Slam);
-                case MonsterKind.Ghost:
-                    return new MonsterState(id, kind, false, "유령", later ? 54 : 35, later ? 11 : 7, 0, 6, 2, 15, tile, MonsterPattern.SoulBolt);
-                default:
-                    return new MonsterState(id, kind, false, "해골", later ? 73 : 47, later ? 10 : 6, 0, 5, 3, 15, tile);
+                case MonsterKind.Skeleton: return (new[] { 60, 85, 110 }[s], new[] { 15, 19, 23 }[s], new[] { 2, 4, 5 }[s]);
+                case MonsterKind.Ghost: return (new[] { 40, 55, 70 }[s], new[] { 13, 17, 21 }[s], new[] { 0, 2, 3 }[s]);
+                case MonsterKind.Zombie: return (new[] { 110, 150, 190 }[s], new[] { 18, 22, 26 }[s], new[] { 4, 6, 8 }[s]);
+                case MonsterKind.Archer: return (new[] { 45, 55, 65 }[s], new[] { 14, 17, 20 }[s], new[] { 0, 1, 2 }[s]);
+                default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
 
-        private MonsterState CreateBoss() => Stage == 2
-            ? new MonsterState(placements.Count, MonsterKind.None, true, "네크로맨서", 158, 19, 10, 0, 4, 15, Map.BossTile,
-                MonsterPattern.Slam, MonsterPattern.TrackingBeam, MonsterPattern.Meteor)
-            : new MonsterState(placements.Count, MonsterKind.None, true, "무덤 기사", 64, 10, 1, 2, 4, 15, Map.BossTile,
-                MonsterPattern.Slam, MonsterPattern.TrackingBeam);
+        private MonsterState CreateMonster(int id, MonsterKind kind, TilePoint tile)
+        {
+            var (hp, attack, armor) = MonsterStats(kind, Stage);
+            switch (kind)
+            {
+                case MonsterKind.Zombie:
+                    return new MonsterState(id, kind, false, "좀비", hp, attack, armor, 6, 5, 18, tile, MonsterPattern.Slam);
+                case MonsterKind.Ghost:
+                    return new MonsterState(id, kind, false, "유령", hp, attack, armor, 4, 2, 15, tile, MonsterPattern.SoulBolt);
+                case MonsterKind.Archer:
+                    return new MonsterState(id, kind, false, "해골 궁수", hp, attack, armor, 4, 3, 18, tile) { Range = ArcherRange };
+                default:
+                    return new MonsterState(id, kind, false, "해골", hp, attack, armor, 3, 3, 15, tile);
+            }
+        }
+
+        /// <summary>This stage's boss. Balance values.</summary>
+        private MonsterState CreateBoss()
+        {
+            int id = BossIndex;
+            switch (Stage)
+            {
+                case 1:
+                    return new MonsterState(id, MonsterKind.None, true, "무덤 기사", 450, 22, 4, 2, 4, 15, Map.BossTile,
+                        MonsterPattern.Slam, MonsterPattern.TrackingBeam);
+                case 2:
+                    return new MonsterState(id, MonsterKind.None, true, "납골당 사제", 900, 28, 6, 3, 4, 15, Map.BossTile,
+                        MonsterPattern.Slam, MonsterPattern.Meteor);
+                default:
+                    return new MonsterState(id, MonsterKind.None, true, "네크로맨서", 2600, 38, 8, 0, 4, 15, Map.BossTile,
+                        MonsterPattern.Slam, MonsterPattern.TrackingBeam, MonsterPattern.Meteor);
+            }
+        }
 
         private static int Chebyshev(TilePoint a, TilePoint b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
 
@@ -80,6 +115,12 @@ namespace DungeonTycoon.Core
             bool seesHero = party.Any(hero => hero.Hp > 0 &&
                 InReach(monster.Tile, heroTiles[(int)hero.Role], DetectRadius));
             if (!seesHero) return;
+            StartHunt(monster);
+            RaiseSquad(monster);
+        }
+
+        private void StartHunt(MonsterState monster)
+        {
             monster.Mood = MonsterMood.Chasing;
             monster.WanderGoal = null;
             ArmPatterns(monster);
@@ -193,7 +234,7 @@ namespace DungeonTycoon.Core
                     if (target == null) return;
                     if (TryCast(monster, target)) return;
                     var tile = heroTiles[(int)target.Role];
-                    if (InReach(monster.Tile, tile, 1))
+                    if (InReach(monster.Tile, tile, monster.Range))
                     {
                         if (monster.AttackReady > Ticks) return;
                         monster.AttackReady = Ticks + monster.AttackTicks;
@@ -202,6 +243,9 @@ namespace DungeonTycoon.Core
                         Hurt(target, damage, monster.Name, false, monster);
                     }
                     else MonsterStep(monster, tile);
+                    break;
+                case MonsterMood.Patrolling:
+                    // The squad walks together; see PatrolTick.
                     break;
                 default:
                     Wander(monster);
@@ -328,7 +372,7 @@ namespace DungeonTycoon.Core
         }
 
         private int HitDamage(HeroState hero, MonsterState monster) =>
-            Math.Max(0, hero.Attack + 2 * (Level - 1) - FatigueAttackPenalty - monster.Armor);
+            Math.Max(0, hero.Attack + LevelAttackGain * (Level - 1) - FatigueAttackPenalty - monster.Armor);
 
         /// <summary>Deals the damage; a monster brought down gives experience and loot, and the boss clears the stage.</summary>
         private void Hit(HeroState hero, MonsterState monster, int damage)
@@ -343,7 +387,7 @@ namespace DungeonTycoon.Core
             DropLoot(monster);
             if (!monster.IsBoss) return;
             // The last boss ends the expedition; there is nothing left to share its loot for.
-            if (Stage == 1) SettleSpoils();
+            if (Stage < FinalStage) SettleSpoils();
             else spoils.Clear();
             ClearStage();
         }
