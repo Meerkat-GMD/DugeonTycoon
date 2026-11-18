@@ -99,13 +99,10 @@ namespace DungeonTycoon.Core
         /// <summary>Percent of a zombie's drops that are rare. Balance value.</summary>
         public const int ZombieRarePercent = 25;
 
-        /// <summary>Percent of a chest's items that are rare on stages 1, 2 and 3. Balance values.</summary>
-        public static readonly IReadOnlyList<int> ChestRarePercent = new[] { 15, 30, 50 };
-
-        /// <summary>What a treasure chest holds: always one item, rare more often on later stages.</summary>
+        /// <summary>What a treasure chest holds: always one item, rare more often on later stages (see <see cref="BalanceTable"/>).</summary>
         internal static Equipment RollChest(int stage, Random dice)
         {
-            int percent = ChestRarePercent[Math.Max(1, Math.Min(ChestRarePercent.Count, stage)) - 1];
+            int percent = BalanceTable.ForStage(BalanceTable.Current.chestRarePercent, stage);
             var pool = dice.Next(100) < percent ? Rare : Common;
             return pool[dice.Next(pool.Count)];
         }

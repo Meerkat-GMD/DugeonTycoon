@@ -68,8 +68,8 @@ namespace DungeonTycoon.Core
         public const int FinalStage = DungeonLayouts.StageCount;
         /// <summary>Patrol routes keep further than this many steps from the entrance. Balance value.</summary>
         public const int PatrolClearance = 8;
-        /// <summary>Fatigue steps a spring takes away. Balance value.</summary>
-        public const int SpringRelief = 40;
+        /// <summary>Fatigue steps a spring takes away. From <see cref="BalanceTable"/>.</summary>
+        public static int SpringRelief => BalanceTable.Current.springRelief;
         /// <summary>A chest or spring this many steps away or fewer is visited without a discussion. Balance value.</summary>
         public const int FeatureDetour = 4;
 
@@ -103,8 +103,8 @@ namespace DungeonTycoon.Core
         public IReadOnlyList<MonsterKind> Roster => RosterFor(Stage);
         public bool InRoster(MonsterKind kind) => Roster.Contains(kind) || (sandbox && Array.IndexOf(FullRoster, kind) >= 0);
 
-        /// <summary>Threat budget a stage opens with. Balance value.</summary>
-        public static int BudgetFor(int stage) => 4 + 2 * stage;
+        /// <summary>Threat budget a stage opens with. From <see cref="BalanceTable"/>.</summary>
+        public static int BudgetFor(int stage) => BalanceTable.ForStage(BalanceTable.Current.budget, stage);
 
         public IReadOnlyList<PatrolSquad> Patrols => patrols;
         public int PatrolMemberCount => patrols.Sum(squad => squad.Members.Count);
