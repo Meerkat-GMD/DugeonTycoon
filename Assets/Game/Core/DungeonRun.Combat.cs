@@ -283,7 +283,8 @@ namespace DungeonTycoon.Core
             Hit(hero, monster, HitDamage(hero, monster));
         }
 
-        private int HitDamage(HeroState hero, MonsterState monster) => Math.Max(0, hero.Attack + 2 * (Level - 1) - monster.Armor);
+        private int HitDamage(HeroState hero, MonsterState monster) =>
+            Math.Max(0, hero.Attack + 2 * (Level - 1) - FatigueAttackPenalty - monster.Armor);
 
         /// <summary>Deals the damage; a monster brought down gives experience and loot, and the boss clears the stage.</summary>
         private void Hit(HeroState hero, MonsterState monster, int damage)
