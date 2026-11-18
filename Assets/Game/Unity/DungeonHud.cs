@@ -277,11 +277,13 @@ namespace DungeonTycoon.Unity
                 historyList.Clear();
                 loggedRows = 0;
                 // A new expedition: forget the previous one's banner and pop-up bookkeeping.
-                shownSpoils = run.LastSpoils?.Number ?? 0;
                 seenExperience = run.Experience;
                 seenLevel = run.Level;
-                spoilsUntil = 0;
             }
+            shownSpoils = run.LastSpoils?.Number ?? 0;
+            spoilsUntil = 0;
+            spoilsBanner.RemoveFromClassList("show");
+            spoilsBanner.style.display = DisplayStyle.None;
             // Monster ids restart with every stage.
             deadFoes.Clear();
             foreach (var pop in livePops) pop.Label.RemoveFromHierarchy();

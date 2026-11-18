@@ -133,6 +133,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.Stage, Is.EqualTo(2));
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Planning));
             Assert.That(run.Map, Is.Not.SameAs(firstMap));
+            Assert.That(run.Party.Select(hero => hero.LastLine), Is.All.EqualTo(""));
             Assert.That(run.Map.Width, Is.Not.EqualTo(firstMap.Width));
             Assert.That(run.Placements, Is.Empty);
             Assert.That(run.Monsters, Is.Empty);

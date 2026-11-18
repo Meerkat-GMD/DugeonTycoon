@@ -433,6 +433,7 @@ namespace DungeonTycoon.Core
             {
                 hero.Hp = hero.MaxHp;
                 hero.Critical = false;
+                hero.LastLine = "";
             }
             Phase = RunPhase.Planning;
             LayOutInheritedPlan();
