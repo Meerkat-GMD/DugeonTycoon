@@ -13,7 +13,6 @@ namespace DungeonTycoon.Unity
         internal static DungeonMesh Dungeon(DungeonMap map, float tile, Func<TilePoint, Vector3> center)
         {
             var m = new DungeonMesh();
-            m.Box(0,-.32f,0,(map.Width+1)*tile,.5f,(map.Height+1)*tile,Finish.Ink);
             int bossLeft = int.MaxValue, bossRight = int.MinValue, bossTop = int.MaxValue, bossBottom = int.MinValue;
             for (int y = 0; y < map.Height; y++)
             for (int x = 0; x < map.Width; x++)

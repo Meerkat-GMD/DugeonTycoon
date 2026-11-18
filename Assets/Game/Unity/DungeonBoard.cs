@@ -258,7 +258,7 @@ namespace DungeonTycoon.Unity
             }
             boardCamera.orthographic = true;
             boardCamera.clearFlags = CameraClearFlags.SolidColor;
-            boardCamera.backgroundColor = new Color32(14,17,21,255);
+            boardCamera.backgroundColor = new Color32(148,124,105,255);
             boardCamera.nearClipPlane = .1f;
             ConfigureLight();
 
