@@ -172,6 +172,24 @@ namespace DungeonTycoon.Core.Tests
             new[] { new TilePoint(17, 11), new TilePoint(5, 9), new TilePoint(30, 19), new TilePoint(29, 5), new TilePoint(15, 12) }
         };
 
+        [Test]
+        public void BossPreviewMatchesTheBossTheStageFightsAndExperienceSplitsIntoLevels()
+        {
+            var run = new DungeonRun();
+            Assert.That(run.Boss, Is.Null);
+            string previewName = run.BossName;
+            int previewHp = run.BossMaxHp;
+            Assert.That(run.ExperienceIntoLevel, Is.Zero);
+            run.Start();
+            Assert.That(run.Boss.Name, Is.EqualTo(previewName));
+            Assert.That(run.Boss.MaxHp, Is.EqualTo(previewHp));
+            Drive(run, () => run.FightingBoss);
+            Assert.That(run.FightingBoss, Is.True);
+            Assert.That(run.BossName, Is.EqualTo(previewName));
+            Assert.That(run.Level, Is.EqualTo(1 + run.Experience / DungeonRun.ExperiencePerLevel));
+            Assert.That(run.ExperienceIntoLevel, Is.EqualTo(run.Experience % DungeonRun.ExperiencePerLevel));
+        }
+
         [TestCase(true, RunPhase.Victory)]
         [TestCase(false, RunPhase.Defeat)]
         public void PlannedExpeditionCanWinButEmptyExpeditionLosesEvenWithPerfectTrials(
