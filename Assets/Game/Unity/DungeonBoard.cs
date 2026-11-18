@@ -128,7 +128,7 @@ namespace DungeonTycoon.Unity
         private const float PatrolPlanningAlpha = .6f, PatrolExpeditionAlpha = .2f;
         private readonly List<Material> patrolMaterials = new List<Material>();
         private Transform chestPrototype, openChestPrototype, springPrototype, drySpringPrototype, haloPrototype;
-        private GameObject statuePrefab, bossGatePrefab;
+        private GameObject merchantPrefab, statuePrefab, bossGatePrefab;
         private bool planningView = true;
         private readonly Transform[] heroes = new Transform[4];
         private readonly Animator[] heroAnimators = new Animator[4];
@@ -312,6 +312,7 @@ namespace DungeonTycoon.Unity
             springPrototype = InstantiateProp(Resources.Load<GameObject>("DungeonProps/Spring"), "샘물", stock.transform)
                 ?? Draw("샘물", DungeonFigures.Spring(false), meshes, stock.transform);
             drySpringPrototype = Draw("마른 샘물", DungeonFigures.Spring(true), meshes, stock.transform);
+            merchantPrefab = Resources.Load<GameObject>("DungeonProps/Merchant");
             statuePrefab = Resources.Load<GameObject>("DungeonProps/PrayingKnight");
             bossGatePrefab = Resources.Load<GameObject>("DungeonProps/BossGate");
             var halo = new DungeonMesh();
@@ -590,7 +591,7 @@ namespace DungeonTycoon.Unity
         private Transform DrawPlanningEncounter(bool merchant, TilePoint tile)
         {
             string objectName = merchant ? "떠돌이 상인" : "조각상";
-            var prop = InstantiateProp(merchant ? null : statuePrefab, objectName, scenery)
+            var prop = InstantiateProp(merchant ? merchantPrefab : statuePrefab, objectName, scenery)
                 ?? Draw(objectName, DungeonFigures.Encounter(merchant), stageMeshes, scenery);
             prop.localPosition = TileCenter(tile);
             fixedPlanningTargets.Add(CreateTarget(prop, merchant ? PlanningKind.Merchant : PlanningKind.Statue));
