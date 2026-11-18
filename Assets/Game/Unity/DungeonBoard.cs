@@ -71,6 +71,34 @@ namespace DungeonTycoon.Unity
 
         /// <summary>World units per second; set so a hero crosses one tile per move.</summary>
         public float WalkSpeed { get; set; } = 4f;
+        private Transform heroMarker;
+        private int selectedHero = -1;
+
+        /// <summary>Shows a ring under the hero the GM picked for help; -1 hides it.</summary>
+        public void SetSelectedHero(int hero)
+        {
+            selectedHero = hero >= 0 && hero < heroes.Length ? hero : -1;
+            if (heroMarker) heroMarker.gameObject.SetActive(selectedHero >= 0);
+        }
+
+        /// <summary>The living hero drawn under the cursor, judged on screen around the figure's body.</summary>
+        public bool TryPickHero(Vector2 screenPosition, out int hero)
+        {
+            hero = -1;
+            if (!boardCamera) return false;
+            float pixelsPerUnit = boardCamera.pixelHeight/(2*boardCamera.orthographicSize);
+            float best = Tile*.55f*pixelsPerUnit;
+            for (int i = 0; i < heroes.Length; i++)
+            {
+                if (!living[i]) continue;
+                var body = boardCamera.WorldToScreenPoint(transform.TransformPoint(heroes[i].localPosition+Vector3.up*.6f));
+                float distance = Vector2.Distance(screenPosition, new Vector2(body.x, body.y));
+                if (distance >= best) continue;
+                best = distance;
+                hero = i;
+            }
+            return hero >= 0;
+        }
         public bool FollowParty { get; private set; }
 
         /// <summary>Follow mode is only useful up close, so turning it on also zooms in when the view is wider.</summary>
@@ -107,6 +135,8 @@ namespace DungeonTycoon.Unity
             hoverBlocked = Draw("놓을 수 없는 칸", DungeonScenery.TileMarker(Tile, Finish.Ember), meshes);
             hoverAllowed.gameObject.SetActive(false);
             hoverBlocked.gameObject.SetActive(false);
+            heroMarker = Draw("도움 대상", DungeonScenery.TileMarker(Tile*.8f, Finish.Gold), meshes);
+            heroMarker.gameObject.SetActive(false);
 
             var stock = new GameObject("원형");
             stock.transform.SetParent(transform,false);
@@ -587,6 +617,11 @@ namespace DungeonTycoon.Unity
             }
 
             Vector3 leader = heroes[Math.Max(0,leaderIndex)].localPosition;
+            if (selectedHero >= 0 && heroMarker.gameObject.activeSelf)
+            {
+                var spot = heroes[selectedHero].localPosition;
+                heroMarker.localPosition = new Vector3(spot.x,0,spot.z);
+            }
             foreach (var foe in foes)
             {
                 if (!foe.Alive) continue;

@@ -32,6 +32,11 @@ namespace DungeonTycoon.Unity
         public string SpotlightTitle { get; private set; } = "";
         public string SpotlightText { get; private set; } = "";
         public float SpotlightUntil { get; private set; }
+        /// <summary>0 when paused, otherwise 1 or 2. Speed only changes how many ticks run per second.</summary>
+        public int Speed { get; private set; } = 1;
+        /// <summary>The hero the GM picked as the target of help, or -1.</summary>
+        public int SelectedHero { get; private set; } = -1;
+        private int resumeSpeed = 1;
 
         private void Awake()
         {
@@ -40,9 +45,25 @@ namespace DungeonTycoon.Unity
             Run = new DungeonRun(Environment.TickCount);
             Board = gameObject.AddComponent<DungeonBoard>();
             Board.Initialize();
-            Board.WalkSpeed = DungeonBoard.Tile/(TickSeconds*DungeonRun.HeroMoveTicks);
+            SetSpeed(1);
             RefreshLayout();
             gameObject.AddComponent<DungeonHud>();
+        }
+
+        public void SetSpeed(int speed)
+        {
+            Speed = Mathf.Clamp(speed, 0, 2);
+            if (Speed > 0) resumeSpeed = Speed;
+            // Figures walk faster at 2x so they keep up with the ticks; while paused they only finish their last step.
+            Board.WalkSpeed = DungeonBoard.Tile/(TickSeconds*DungeonRun.HeroMoveTicks)*Mathf.Max(1, Speed);
+        }
+
+        public void TogglePause() => SetSpeed(Speed == 0 ? resumeSpeed : 0);
+
+        public void SelectHero(int hero)
+        {
+            SelectedHero = hero >= 0 && hero < Run.Party.Count && Run.Party[hero].Hp > 0 ? hero : -1;
+            Board.SetSelectedHero(SelectedHero);
         }
 
         public PlacementCheck Place(TilePoint tile, MonsterKind kind)
@@ -59,6 +80,7 @@ namespace DungeonTycoon.Unity
         {
             if (!Run.Start()) return;
             accumulator = 0;
+            SetSpeed(1);
             discussedFork = 0;
             plannedSituation = Run.Situation;
             RefreshLayout();
@@ -67,25 +89,26 @@ namespace DungeonTycoon.Unity
 
         private static bool InDungeon(DungeonRun run) => run.Phase == RunPhase.Travel || run.Phase == RunPhase.Combat;
 
-        /// <summary>Feeds fixed ticks to the run in real time; an adversity freezes the clock.</summary>
+        /// <summary>Feeds fixed ticks to the run at the chosen speed; pausing or an adversity stops the clock.</summary>
         private void Update()
         {
             var run = Run;
             if (run == null || !InDungeon(run)) return;
-            if (run.PendingAdversity)
-            {
-                accumulator = 0;
-                return;
-            }
-            accumulator += Time.deltaTime;
             int stage = run.Stage;
-            for (int i = 0; i < MaxTicksPerFrame && accumulator >= TickSeconds; i++)
+            if (run.PendingAdversity || Speed == 0) accumulator = 0;
+            else
             {
-                accumulator -= TickSeconds;
-                run.Tick();
-                if (!InDungeon(run) || run.Stage != stage || run.PendingAdversity) break;
+                accumulator += Time.deltaTime*Speed;
+                int budget = MaxTicksPerFrame*Speed;
+                for (int i = 0; i < budget && accumulator >= TickSeconds; i++)
+                {
+                    accumulator -= TickSeconds;
+                    run.Tick();
+                    if (!InDungeon(run) || run.Stage != stage || run.PendingAdversity) break;
+                }
+                if (accumulator > TickSeconds*budget) accumulator = 0;
             }
-            if (accumulator > TickSeconds*MaxTicksPerFrame) accumulator = 0;
+            if (SelectedHero >= 0 && run.Party[SelectedHero].Hp == 0) SelectHero(-1);
 
             if (run.Stage != stage)
             {
@@ -178,9 +201,12 @@ namespace DungeonTycoon.Unity
             RefreshParty();
         }
 
+        /// <summary>Blesses the hero the GM selected. Works while paused.</summary>
         public void Bless()
         {
-            if (Run.Bless()) RefreshParty();
+            if (SelectedHero < 0 || !Run.Bless((HeroRole)SelectedHero)) return;
+            Spotlight("축복", Run.Log[Run.Log.Count - 1]);
+            RefreshParty();
         }
 
         public void Restart()
@@ -193,6 +219,7 @@ namespace DungeonTycoon.Unity
 
         private void ClearTrialDisplay()
         {
+            SelectHero(-1);
             LastRoll = 0;
             TrialAnnouncement = "";
             SpotlightTitle = SpotlightText = "";

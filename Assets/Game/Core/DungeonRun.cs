@@ -190,10 +190,27 @@ namespace DungeonTycoon.Core
 
         // ── Interventions ────────────────────────────────────────────────
 
+        /// <summary>The GM can bless this hero now: on an expedition, with faith to spend, and the hero alive and hurt.</summary>
+        public bool CanBlessHero(HeroRole role)
+        {
+            int index = (int)role;
+            if (!InDungeon || Faith < BlessCost || index < 0 || index >= party.Length) return false;
+            var hero = party[index];
+            return hero.Hp > 0 && hero.Hp < hero.MaxHp;
+        }
+
+        /// <summary>Blesses the most hurt hero. A convenience for simulations; the GM picks a hero with <see cref="Bless(HeroRole)"/>.</summary>
         public bool Bless()
         {
-            if (!CanBless) return false;
             var target = WoundedHero();
+            return target != null && Bless(target.Role);
+        }
+
+        /// <summary>Restores the chosen hero right away, even while paused or during a boss fight.</summary>
+        public bool Bless(HeroRole role)
+        {
+            if (!CanBlessHero(role)) return false;
+            var target = party[(int)role];
             int restored = Math.Min(target.MaxHp - target.Hp, 12 + Level);
             Faith -= BlessCost;
             target.Hp += restored;

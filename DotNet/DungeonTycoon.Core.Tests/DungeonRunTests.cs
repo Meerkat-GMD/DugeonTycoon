@@ -165,6 +165,77 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.Bless(), Is.False);
         }
 
+        [Test]
+        public void TheGmChoosesWhoIsBlessedButNotTheFallenOrTheUnhurt()
+        {
+            var run = new DungeonRun();
+            Assert.That(run.CanBlessHero(HeroRole.Tank), Is.False, "no blessing before departure");
+            run.Start();
+            run.ResolveAdversity(run.BeginAdversity(), HeroRole.Tank, 1);
+            run.ResolveAdversity(run.BeginAdversity(), HeroRole.RangedDamage, 1);
+            var tank = run.Party[(int)HeroRole.Tank];
+            var ranged = run.Party[(int)HeroRole.RangedDamage];
+            Assert.That((double)ranged.Hp / ranged.MaxHp, Is.LessThan((double)tank.Hp / tank.MaxHp), "ranged is the most hurt");
+
+            Assert.That(run.CanBlessHero(HeroRole.Healer), Is.False, "the healer is unhurt");
+            Assert.That(run.Bless(HeroRole.Healer), Is.False);
+            int rangedBefore = ranged.Hp;
+            Assert.That(run.Bless(HeroRole.Tank), Is.True, "the GM may pick someone other than the most hurt");
+            Assert.That(tank.Hp, Is.EqualTo(tank.MaxHp));
+            Assert.That(ranged.Hp, Is.EqualTo(rangedBefore));
+            Assert.That(run.Faith, Is.Zero);
+            Assert.That(run.Bless(HeroRole.RangedDamage), Is.False, "no faith left");
+            Assert.That(run.Log.Last(), Does.Contain("가론"));
+        }
+
+        [Test]
+        public void AFallenHeroCannotBeBlessed()
+        {
+            var run = new DungeonRun();
+            run.Start();
+            Drive(run, () =>
+            {
+                if (run.Phase == RunPhase.Planning) run.Start();
+                return run.Party.Any(h => h.Hp == 0) || !InDungeon(run) && run.Phase != RunPhase.Planning;
+            }, 60000);
+            var fallen = run.Party.First(h => h.Hp == 0);
+            Assert.That(run.Faith, Is.Positive);
+            Assert.That(run.CanBlessHero(fallen.Role), Is.False);
+            Assert.That(run.Bless(fallen.Role), Is.False);
+        }
+
+        [Test]
+        public void GameSpeedOnlyChangesHowManyTicksRunPerFrame()
+        {
+            // The same interventions at the same ticks give the same expedition whether frames carry 1, 2 or 3 ticks.
+            List<string> Play(int ticksPerFrame)
+            {
+                var run = new DungeonRun(seed: 5);
+                foreach (var tile in TrainingGrounds[0]) run.Place(tile, MonsterKind.Goblin);
+                run.Start();
+                bool trialDone = false, blessDone = false;
+                for (int frame = 0; frame < 20000 && run.Stage == 1 && InDungeon(run); frame++)
+                {
+                    for (int i = 0; i < ticksPerFrame && run.Stage == 1 && InDungeon(run); i++)
+                    {
+                        if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
+                        run.Tick();
+                        if (!trialDone && run.Ticks >= 40)
+                        {
+                            run.ResolveAdversity(run.BeginAdversity(), HeroRole.MeleeDamage, 4);
+                            trialDone = true;
+                        }
+                        if (!blessDone && run.Ticks >= 120 && run.CanBlessHero(HeroRole.MeleeDamage))
+                            blessDone = run.Bless(HeroRole.MeleeDamage);
+                    }
+                }
+                return run.Log.ToList();
+            }
+            var single = Play(1);
+            Assert.That(Play(2), Is.EqualTo(single));
+            Assert.That(Play(3), Is.EqualTo(single));
+        }
+
         // Monsters on the first goblin-friendly tiles of each main room; the party meets most of them.
         private static readonly TilePoint[][] TrainingGrounds =
         {

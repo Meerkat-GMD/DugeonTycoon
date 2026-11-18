@@ -108,8 +108,10 @@ namespace DungeonTycoon.Unity
             blocked = history;
             solid.Clear();
 
+            TimeKeys(run);
             StageTitle(run);
             BossBar(run);
+            PauseBanner(run);
             ViewButtons(run);
             Party(run);
             BottomPanel(run,panelTop);
@@ -140,6 +142,35 @@ namespace DungeonTycoon.Unity
             Write(new Rect(box.xMax-110,box.y+4,100,18),bossHp+" / "+bossMaxHp,11,Muted,false,TextAnchor.MiddleRight);
             Write(new Rect(box.x+10,box.y+4,110,18),engaged ? "보스전" : "BOSS",11,engaged ? Ember : Muted,true);
             Meter(new Rect(box.x+10,box.y+26,w-20,6),bossMaxHp == 0 ? 0 : (float)bossHp/bossMaxHp,Health);
+        }
+
+        private static bool Exploring(DungeonRun run) => run.Phase == RunPhase.Travel || run.Phase == RunPhase.Combat;
+
+        /// <summary>Space pauses or resumes, 1 and 2 pick the speed.</summary>
+        private void TimeKeys(DungeonRun run)
+        {
+            var e = Event.current;
+            if (history || e.type != EventType.KeyDown || !Exploring(run)) return;
+            switch (e.keyCode)
+            {
+                case KeyCode.Space: game.TogglePause(); break;
+                case KeyCode.Alpha1: case KeyCode.Keypad1: game.SetSpeed(1); break;
+                case KeyCode.Alpha2: case KeyCode.Keypad2: game.SetSpeed(2); break;
+                default: return;
+            }
+            e.Use();
+        }
+
+        private void PauseBanner(DungeonRun run)
+        {
+            if (!Exploring(run)) return;
+            string banner = run.PendingAdversity ? "역경 판정 중  ·  시간이 멈췄습니다" :
+                game.Speed == 0 ? "일시정지  ·  스페이스로 다시 진행" : "";
+            if (banner.Length == 0) return;
+            var r = new Rect((width-300)/2,BossTop+BossHeight+8,300,26);
+            Fill(r,Fade(Ink,.85f));
+            Fill(new Rect(r.x,r.yMax-2,r.width,2),Gold);
+            Write(r,banner,13,Gold,true,TextAnchor.MiddleCenter);
         }
 
         private void ViewButtons(DungeonRun run)
@@ -179,7 +210,13 @@ namespace DungeonTycoon.Unity
         {
             bool down = hero.Hp == 0;
             Solid(card);
-            Fill(card,Fade(Ink,.78f));
+            bool picked = game.SelectedHero == index;
+            bool pickable = Exploring(run) && !down;
+            bool hover = pickable && !blocked && card.Contains(Event.current.mousePosition);
+            Fill(card,Fade(hover ? Card : Ink,.78f));
+            if (picked) Frame(card,2,Gold);
+            // Picking a hero chooses who the GM's help goes to; clicking again clears the choice.
+            if (pickable && Hit(card)) game.SelectHero(picked ? -1 : index);
             var portrait = new Rect(card.x+2,card.y+2,Portrait,Portrait);
             var accent = down ? Edge : RoleColors[index];
             Fill(portrait,accent);
@@ -239,6 +276,21 @@ namespace DungeonTycoon.Unity
                 if (planning && SmallButton(action,"원정 출발  ›",Gold,Ink)) game.Depart();
                 if (finished && SmallButton(action,"새 원정",Gold,Ink)) game.Restart();
                 right = action.x-14;
+            }
+            else
+            {
+                // Speed: pause, 1x, 2x. An adversity freezes time on its own and resumes at the chosen speed.
+                string[] labels = { "일시정지", "1배속", "2배속" };
+                for (int speed = 2; speed >= 0; speed--)
+                {
+                    float buttonWidth = speed == 0 ? 66 : 52;
+                    var button = new Rect(right-buttonWidth,top+5,buttonWidth,TabHeight-10);
+                    bool current = game.Speed == speed;
+                    if (SmallButton(button,labels[speed],current ? Hex(0x35534D) : Card,current ? Teal : Paper))
+                        game.SetSpeed(speed);
+                    right = button.x-4;
+                }
+                right -= 12;
             }
             right = Stat(right,"역경",run.TrialsLeft+" / 2",Paper,top);
             right = Stat(right,"신앙",run.Faith.ToString(),Teal,top);
@@ -308,8 +360,12 @@ namespace DungeonTycoon.Unity
                     false,canTrial))
                 game.Trial();
             x += ElementWidth+ElementGap;
-            if (ElementCard(new Rect(x,y,ElementWidth,ElementHeight),"+",Teal,"축복","신앙 "+DungeonRun.BlessCost+" 소모",
-                    false,run.CanBless))
+            int target = game.SelectedHero;
+            string blessDetail = target < 0 ? "용사를 먼저 고르세요" :
+                run.Party[target].Hp == run.Party[target].MaxHp ? run.Party[target].Name+" · 다치지 않음" :
+                run.Faith < DungeonRun.BlessCost ? "신앙 부족" : run.Party[target].Name+" · 신앙 "+DungeonRun.BlessCost;
+            if (ElementCard(new Rect(x,y,ElementWidth,ElementHeight),"+",Teal,"축복",blessDetail,
+                    false,target >= 0 && run.CanBlessHero((HeroRole)target)))
                 game.Bless();
             x += ElementWidth+16;
             Fill(new Rect(x,content.y+14,1,content.height-28),Edge);
@@ -417,6 +473,12 @@ namespace DungeonTycoon.Unity
             else if (e.type == EventType.MouseDown && e.button == 0 && onTile)
             {
                 Paint(tile);
+                e.Use();
+            }
+            else if (e.type == EventType.MouseDown && e.button == 0 && overBoard && Exploring(run) &&
+                     game.Board.TryPickHero(ToScreen(mouse),out int hero))
+            {
+                game.SelectHero(game.SelectedHero == hero ? -1 : hero);
                 e.Use();
             }
 
