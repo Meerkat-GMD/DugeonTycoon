@@ -132,7 +132,12 @@ namespace DungeonTycoon.Core
         }
         internal int MoveReady { get; set; }
         internal int ActReady { get; set; }
-        internal int TauntReady { get; set; }
+        /// <summary>Tick at which each of the role's two skills (see <see cref="HeroSkills.Of"/>) can fire again.</summary>
+        internal int[] SkillReady { get; } = new int[2];
+        /// <summary>The ranged hero's rapid fire lasts until this tick.</summary>
+        internal int RapidFireUntil { get; set; }
+        /// <summary>The tank's shield wall lasts until this tick.</summary>
+        internal int ShieldWallUntil { get; set; }
         internal bool Critical { get; set; }
     }
 

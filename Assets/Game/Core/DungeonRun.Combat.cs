@@ -12,9 +12,6 @@ namespace DungeonTycoon.Core
         public const int WanderRadius = 3;
         /// <summary>Ticks between a hero's attacks or heals. Balance value.</summary>
         public const int HeroAttackTicks = 15;
-        public const int TauntRadius = 3;
-        public const int TauntTicks = 30;
-        public const int TauntCooldownTicks = 60;
         private const int HealThreshold = 6;
 
         private readonly HeroTactic[] tactics = new HeroTactic[4];
@@ -170,7 +167,7 @@ namespace DungeonTycoon.Core
                     {
                         if (monster.AttackReady > Ticks) return;
                         monster.AttackReady = Ticks + monster.AttackTicks;
-                        int damage = Math.Max(0, monster.Attack - target.Armor);
+                        int damage = Shielded(target, Math.Max(0, monster.Attack - target.Armor));
                         events.Add(new CombatEvent(CombatEventKind.Attack, false, monster.Id, true, (int)target.Role, damage));
                         Hurt(target, damage, monster.Name, false);
                     }
@@ -252,14 +249,15 @@ namespace DungeonTycoon.Core
             if (engaged.Count == 0) return;
             var tactic = tactics[(int)hero.Role];
             var here = heroTiles[(int)hero.Role];
-            if (hero.Role == HeroRole.Tank) TryTaunt(hero, engaged);
-            if (hero.Role == HeroRole.Healer && TryHeal(hero, tactic)) return;
+            if (hero.Role == HeroRole.Tank) TankSkills(hero, engaged);
+            if (hero.Role == HeroRole.Healer && (TryRevive(hero) || TryHeal(hero, tactic))) return;
+            if (hero.Role == HeroRole.MeleeDamage && TryWhirlwind(hero, engaged)) return;
             var target = PickTarget(hero, engaged, tactic);
             if (hero.Range > 1 && engaged.Any(m => Chebyshev(m.Tile, here) <= 1) && hero.MoveReady <= Ticks && Retreat(hero, engaged))
                 return;
             if (InReach(here, target.Tile, hero.Range))
             {
-                if (hero.ActReady <= Ticks) Strike(hero, target);
+                if (hero.ActReady <= Ticks) Attack(hero, target, engaged);
             }
             else HeroStep(hero, target.Tile, hero.Range);
         }
@@ -281,8 +279,16 @@ namespace DungeonTycoon.Core
 
         private void Strike(HeroState hero, MonsterState monster)
         {
-            hero.ActReady = Ticks + hero.AttackTicks;
-            int damage = Math.Max(0, hero.Attack + 2 * (Level - 1) - monster.Armor);
+            hero.ActReady = Ticks + AttackCycle(hero);
+            Hit(hero, monster, HitDamage(hero, monster));
+        }
+
+        private int HitDamage(HeroState hero, MonsterState monster) => Math.Max(0, hero.Attack + 2 * (Level - 1) - monster.Armor);
+
+        /// <summary>Deals the damage; a monster brought down gives experience and loot, and the boss clears the stage.</summary>
+        private void Hit(HeroState hero, MonsterState monster, int damage)
+        {
+            if (!monster.Alive) return;
             events.Add(new CombatEvent(CombatEventKind.Attack, true, (int)hero.Role, false, monster.Id, damage));
             monster.Hp = Math.Max(0, monster.Hp - damage);
             if (monster.Hp > 0) return;
@@ -327,27 +333,13 @@ namespace DungeonTycoon.Core
             return true;
         }
 
-        private void TryTaunt(HeroState tank, List<MonsterState> engaged)
-        {
-            if (tank.TauntReady > Ticks) return;
-            var here = heroTiles[(int)tank.Role];
-            var near = engaged.Where(m => Chebyshev(m.Tile, here) <= TauntRadius).ToList();
-            var loose = near.Where(m => m.TauntedUntil <= Ticks).ToList();
-            // Taunt when a monster goes after someone else, or before a pack can spread its blows.
-            if (!loose.Any(m => MonsterTarget(m) != tank) && loose.Count < 2) return;
-            foreach (var monster in near)
-            {
-                monster.TauntedUntil = Ticks + TauntTicks;
-                events.Add(new CombatEvent(CombatEventKind.Taunt, true, (int)tank.Role, false, monster.Id, 0));
-            }
-            tank.TauntReady = Ticks + TauntCooldownTicks;
-            tank.LastLine = "이쪽이다! 덤벼라!";
-            log.Add($"{tank.Name} • 도발! {string.Join(", ", near.Select(m => m.Name))}의 시선을 끕니다.");
-        }
-
-        /// <summary>Heals the protected ally or the most hurt one. Returns true when healing took this hero's turn.</summary>
+        /// <summary>
+        /// Heals everyone close by with mass heal when it fits, else the protected ally or the most hurt one.
+        /// Returns true when healing took this hero's turn.
+        /// </summary>
         private bool TryHeal(HeroState healer, HeroTactic tactic)
         {
+            if (TryMassHeal(healer)) return true;
             HeroState patient = null;
             if (tactic != null && tactic.Protect >= 0 && tactic.Protect < party.Length)
             {
@@ -371,9 +363,9 @@ namespace DungeonTycoon.Core
                 return true;
             }
             if (healer.ActReady > Ticks) return true;
-            healer.ActReady = Ticks + healer.AttackTicks;
+            healer.ActReady = Ticks + AttackCycle(healer);
             int before = patient.Hp;
-            patient.Hp = Math.Min(patient.MaxHp, patient.Hp + 7 + Level);
+            patient.Hp = Math.Min(patient.MaxHp, patient.Hp + HealAmount);
             if (patient.Hp * 10 >= patient.MaxHp * 3) patient.Critical = false;
             events.Add(new CombatEvent(CombatEventKind.Heal, true, (int)healer.Role, true, (int)patient.Role, patient.Hp - before));
             return true;
