@@ -32,7 +32,9 @@ namespace DungeonTycoon.Unity
         private Label category, hint, budget, faith, trials, summaryTitle, summaryDetail;
         private Label infoHeading, infoText, infoNote, resultTitle, resultText;
         private Button follow, primary, collapse, goblinCard, ogreCard, removeCard, trialCard, blessCard;
-        private Label trialDetail, blessDetail;
+        private Label trialDetail, blessDetail, restDetail, fatigueStage, fatigueEffect;
+        private Button restCard;
+        private VisualElement fatigue, fatigueFill, fatigueTick1, fatigueTick2;
         private readonly Button[] speedButtons = new Button[3];
         private ScrollView historyList;
         private readonly HeroCard[] heroes = new HeroCard[4];
@@ -130,6 +132,14 @@ namespace DungeonTycoon.Unity
             blessCard = root.Q<Button>("bless");
             trialDetail = trialCard.Q<Label>("detail");
             blessDetail = blessCard.Q<Label>("detail");
+            restCard = root.Q<Button>("rest");
+            restDetail = restCard.Q<Label>("detail");
+            fatigue = root.Q("fatigue");
+            fatigueStage = root.Q<Label>("fatigue-stage");
+            fatigueEffect = root.Q<Label>("fatigue-effect");
+            fatigueFill = root.Q("fatigue-fill");
+            fatigueTick1 = root.Q("fatigue-tick-1");
+            fatigueTick2 = root.Q("fatigue-tick-2");
             info = root.Q("info");
             infoHeading = root.Q<Label>("info-heading");
             infoText = root.Q<Label>("info-text");
@@ -182,6 +192,7 @@ namespace DungeonTycoon.Unity
             removeCard.clicked += () => brush = MonsterKind.None;
             trialCard.clicked += () => game.Trial();
             blessCard.clicked += () => game.Bless();
+            restCard.clicked += () => game.RelieveFatigue();
         }
 
         private void PickHero(int index)
@@ -293,6 +304,7 @@ namespace DungeonTycoon.Unity
             for (int i = 0; i < heroes.Length; i++)
                 if (game.Presenting) MuteHero(run.Party[i],i);
                 else RefreshHero(run,run.Party[i],i,growth);
+            RefreshFatigue(run,exploring);
             aiMode.text = game.AiMode+(game.Thinking ? "  ·  판단 중" : "");
             aiMode.EnableInClassList("thinking",game.Thinking);
 
@@ -351,6 +363,23 @@ namespace DungeonTycoon.Unity
             Show(card.Bubble,speaking);
             if (speaking) card.Line.text = line;
             RefreshKit(run,hero,card);
+        }
+
+        /// <summary>One bar for the party: it fills toward 탈진, with marks at both thresholds, and changes colour by stage.</summary>
+        private void RefreshFatigue(DungeonRun run,bool exploring)
+        {
+            Show(fatigue,exploring);
+            if (!exploring) return;
+            var stage = run.Fatigue;
+            float full = Mathf.Max(1,run.FatigueSecondThreshold*1.3f);
+            fatigue.EnableInClassList("tired",stage == FatigueStage.Tired);
+            fatigue.EnableInClassList("exhausted",stage == FatigueStage.Exhausted);
+            fatigueStage.text = "피로 · "+DungeonRun.FatigueName(stage);
+            fatigueEffect.text = stage == FatigueStage.Rested ? "" :
+                stage == FatigueStage.Tired ? "공격력 -"+DungeonRun.TiredAttackPenalty : "공격력 -"+DungeonRun.TiredAttackPenalty+" · 체력 감소";
+            fatigueFill.style.width = Length.Percent(100f*Mathf.Clamp01(run.FatigueSteps/full));
+            fatigueTick1.style.left = Length.Percent(100f*run.FatigueFirstThreshold/full);
+            fatigueTick2.style.left = Length.Percent(100f*run.FatigueSecondThreshold/full);
         }
 
         /// <summary>Weapon and armour names, and the two skills: the second greyed until the party level opens it.</summary>
@@ -560,6 +589,9 @@ namespace DungeonTycoon.Unity
                 run.Party[target].Hp == run.Party[target].MaxHp ? run.Party[target].Name+" · 다치지 않음" :
                 run.Faith < DungeonRun.BlessCost ? "신앙 부족" : run.Party[target].Name+" · 신앙 "+DungeonRun.BlessCost);
             blessCard.SetEnabled(target >= 0 && run.CanBlessHero((HeroRole)target));
+            SetDetail(restDetail,run.FatigueSteps == 0 ? "피로 없음" : run.Faith < DungeonRun.BlessCost ? "신앙 부족" :
+                "피로 -"+DungeonRun.FatigueRelief+" · 신앙 "+DungeonRun.BlessCost);
+            restCard.SetEnabled(run.CanRelieveFatigue);
 
             var fork = run.PendingFork;
             if (run.PendingAdversity)

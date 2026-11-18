@@ -41,6 +41,18 @@
         </ui:VisualElement>
 
         <ui:VisualElement name="party" class="party" picking-mode="Ignore">
+            <!-- The party's fatigue: one bar with marks at the 지침 and 탈진 thresholds. -->
+            <ui:VisualElement name="fatigue" class="fatigue" picking-mode="Ignore">
+                <ui:VisualElement class="fatigue-row" picking-mode="Ignore">
+                    <ui:Label name="fatigue-stage" class="fatigue-stage" text="피로 · 여유" picking-mode="Ignore" />
+                    <ui:Label name="fatigue-effect" class="fatigue-effect" text="" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="fatigue-meter" picking-mode="Ignore">
+                    <ui:VisualElement name="fatigue-fill" class="fatigue-fill" picking-mode="Ignore" />
+                    <ui:VisualElement name="fatigue-tick-1" class="fatigue-tick" picking-mode="Ignore" />
+                    <ui:VisualElement name="fatigue-tick-2" class="fatigue-tick" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
             <ui:VisualElement name="hero-0" class="hero-card role-0">
                 <ui:Label name="portrait" class="portrait" picking-mode="Ignore">
                     <ui:VisualElement name="face" class="portrait-face" picking-mode="Ignore" />
@@ -227,6 +239,11 @@
                         <ui:Label class="card-icon icon-bless" text="+" picking-mode="Ignore" />
                         <ui:Label class="card-title" text="축복" picking-mode="Ignore" />
                         <ui:Label name="detail" class="card-detail" text="용사를 먼저 고르세요" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:Button name="rest" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-rest" text="쉼" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="피로 회복" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="신앙 1" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:VisualElement class="divider" />
                     <ui:VisualElement name="info" class="info status">

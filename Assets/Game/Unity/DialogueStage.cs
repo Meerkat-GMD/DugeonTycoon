@@ -27,6 +27,13 @@ namespace DungeonTycoon.Unity
         private static readonly Color[] RoleColors = { Hex(0x74C5C4), Hex(0xE2C77D), Hex(0xDB9AA8), Hex(0xA2CD88) };
         private static readonly int[] DotSteps = { 1, 2, 3, 2 };
 
+        /// <summary>How long the oracle cards wait before passing when auto-advance is on. Balance value.</summary>
+        private const float OracleSeconds = 5;
+        private const int Unpicked = -2;
+        /// <summary>The oracle card chosen so far: an option index, -1 to pass, or <see cref="Unpicked"/>.</summary>
+        private int picked = Unpicked;
+        private VisualElement godPanel, oraclePanel, oracleCards, oracleTimer;
+        private Label oracleQuestion;
         private VisualElement root, box, dcPanel, itemCard;
         private Label speaker, text, next, dcValue, stamp, itemGrade, itemName, itemStats, itemPower;
         private Button autoToggle;
@@ -52,6 +59,22 @@ namespace DungeonTycoon.Unity
         }
 
         public bool IsOpen { get; private set; }
+
+        /// <summary>
+        /// For automated play tests only: lines appear whole, nothing waits, dice land at once and the oracle takes
+        /// <see cref="FastOraclePick"/> straight away. Core settles every outcome first, so results do not change.
+        /// Set it from the Unity CLI (see tools.md); it is never saved and resets when play mode restarts.
+        /// </summary>
+        public static bool FastForward { get; set; }
+        /// <summary>The oracle answer under <see cref="FastForward"/>: an option index, or -1 to pass.</summary>
+        public static int FastOraclePick { get; set; } = -1;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetFastForward()
+        {
+            FastForward = false;
+            FastOraclePick = -1;
+        }
 
         // DungeonHud adds the UIDocument in its Awake and DungeonGame adds this component after the HUD, so by
         // Start the document and its `hud` element exist.
@@ -84,6 +107,11 @@ namespace DungeonTycoon.Unity
             dcPanel = root.Q("stage-dc");
             dcValue = root.Q<Label>("dc-value");
             stamp = root.Q<Label>("dc-stamp");
+            godPanel = root.Q("stage-god");
+            oraclePanel = root.Q("stage-oracle");
+            oracleQuestion = root.Q<Label>("oracle-question");
+            oracleCards = root.Q("oracle-cards");
+            oracleTimer = root.Q("oracle-timer");
             itemCard = root.Q("stage-item");
             itemGrade = root.Q<Label>("item-grade");
             itemName = root.Q<Label>("item-name");
@@ -214,6 +242,11 @@ namespace DungeonTycoon.Unity
         private async UniTask TypeAsync(string line, CancellationToken ct)
         {
             pressed = false;
+            if (FastForward)
+            {
+                text.text = line;
+                return;
+            }
             float start = Time.unscaledTime;
             int shown = 0;
             while (shown < line.Length)
@@ -229,6 +262,7 @@ namespace DungeonTycoon.Unity
         /// <summary>Blinks ▼ until the player advances, or until a line of this length has been readable long enough.</summary>
         private async UniTask WaitAdvanceAsync(int length, CancellationToken ct)
         {
+            if (FastForward) return;
             waitStartedAt = Time.unscaledTime;
             Show(next, true);
             try
@@ -258,23 +292,35 @@ namespace DungeonTycoon.Unity
             var views = new List<RollView>();
             foreach (var roll in beat.Rolls)
             {
-                var slot = slots[(int)roll.Role];
-                slot.Thinking = false;
-                RefreshThinking(slot);
-                slot.Root.AddToClassList("rolling");
+                // The god's die stands at the middle of the stage; a hero's die over that hero's portrait.
+                var slot = roll.IsGod ? null : slots[(int)roll.Role];
+                if (slot != null)
+                {
+                    slot.Thinking = false;
+                    RefreshThinking(slot);
+                    slot.Root.AddToClassList("rolling");
+                }
                 // Loot dice have no ability behind them: show the face alone.
                 bool plain = string.IsNullOrEmpty(roll.Ability) && roll.Modifier == 0;
                 var view = new RollView {
-                    Roll = roll, Slot = slot, Die = new Die(),
+                    Roll = roll, Slot = slot, Die = new Die(roll.IsGod),
                     Calc = new Label(plain ? roll.Face.ToString() : $"{roll.Face} {Signed(roll.Modifier)} = {roll.Total}"),
-                    Crown = new Label(plain ? "획득" : "설득 성공")
+                    Crown = new Label(roll.IsGod ? "신탁" : plain ? "획득" : "설득 성공")
                 };
                 view.Calc.AddToClassList("stage-calc");
                 view.Crown.AddToClassList("stage-crown");
                 view.Calc.pickingMode = view.Crown.pickingMode = PickingMode.Ignore;
-                slot.Over.Add(view.Crown);
-                slot.Over.Add(view.Die);
-                slot.Over.Add(view.Calc);
+                var holder = slot != null ? slot.Over : godPanel;
+                holder.Add(view.Crown);
+                if (roll.IsGod)
+                {
+                    var name = new Label("신") { pickingMode = PickingMode.Ignore };
+                    name.AddToClassList("stage-god-name");
+                    holder.Add(name);
+                }
+                holder.Add(view.Die);
+                holder.Add(view.Calc);
+                if (roll.IsGod) Show(godPanel, true);
                 views.Add(view);
             }
             bool check = beat.Difficulty > 0;
@@ -323,7 +369,7 @@ namespace DungeonTycoon.Unity
             if (playing) await HoldAsync(VerdictDelay, null, ct);
 
             if (check) stamp.AddToClassList("show");
-            else if (beat.Winner == null)
+            else if (beat.Winner == null && !beat.GodWon)
             {
                 // A tied round: the heroes sharing the top face are marked to roll again.
                 int top = 0;
@@ -339,9 +385,9 @@ namespace DungeonTycoon.Unity
             else
                 foreach (var view in views)
                 {
-                    bool won = beat.Winner == view.Roll.Role;
+                    bool won = view.Roll.IsGod ? beat.GodWon : !beat.GodWon && beat.Winner == view.Roll.Role;
                     view.Crown.EnableInClassList("show", won);
-                    view.Slot.Root.EnableInClassList("talk", won);
+                    view.Slot?.Root.EnableInClassList("talk", won);
                     view.Die.EnableInClassList("dim", !won);
                 }
 
@@ -352,6 +398,7 @@ namespace DungeonTycoon.Unity
         /// <summary>Runs <paramref name="tick"/> every frame for a while; false as soon as the player skips.</summary>
         private async UniTask<bool> HoldAsync(float seconds, Action<float> tick, CancellationToken ct)
         {
+            if (FastForward) return true;
             float start = Time.unscaledTime;
             while (Time.unscaledTime-start < seconds)
             {
@@ -373,6 +420,100 @@ namespace DungeonTycoon.Unity
             }
             stamp.RemoveFromClassList("show");
             Show(dcPanel, false);
+            godPanel.Clear();
+            Show(godPanel, false);
+        }
+
+        // ── Oracle ───────────────────────────────────────────────────────
+
+        /// <summary>One way the GM can reveal: its name and the heroes who argued for it.</summary>
+        public readonly struct OracleChoice
+        {
+            public OracleChoice(string label, IReadOnlyList<HeroRole> backers)
+            {
+                Label = label;
+                Backers = backers;
+            }
+
+            public string Label { get; }
+            public IReadOnlyList<HeroRole> Backers { get; }
+        }
+
+        /// <summary>
+        /// Lays numbered path cards above the portraits plus a last "넘어간다" card and waits for a click or the
+        /// number key. With auto-advance on, a bar runs down and the choice passes when it empties. Each portrait
+        /// carries the number of the way its hero argued for. Returns the chosen index, or -1 to pass.
+        /// <paramref name="hover"/> gets the index under the mouse, or -1, so the board can show that way.
+        /// </summary>
+        public async UniTask<int> ChooseOracleAsync(IReadOnlyList<OracleChoice> choices, int cost, Action<int> hover,
+            CancellationToken ct)
+        {
+            if (root == null || choices == null || choices.Count == 0) return -1;
+            if (FastForward) return FastOraclePick >= 0 && FastOraclePick < choices.Count ? FastOraclePick : -1;
+            foreach (var slot in slots) slot.Root.RemoveFromClassList("talk");
+            ShowNarrator("");
+            oracleQuestion.text = $"{DialogueLines.OracleQuestion}  (신앙 {cost})";
+            oracleCards.Clear();
+            picked = Unpicked;
+            for (int i = 0; i <= choices.Count; i++)
+            {
+                int index = i < choices.Count ? i : -1;
+                var card = new VisualElement();
+                card.AddToClassList("oracle-card");
+                card.EnableInClassList("skip", index < 0);
+                var number = new Label((i+1).ToString()) { pickingMode = PickingMode.Ignore };
+                number.AddToClassList("oracle-number");
+                var label = new Label(index < 0 ? DialogueLines.OracleSkip : choices[i].Label) { pickingMode = PickingMode.Ignore };
+                label.AddToClassList("oracle-label");
+                card.Add(number);
+                card.Add(label);
+                if (index >= 0)
+                {
+                    var backers = new VisualElement { pickingMode = PickingMode.Ignore };
+                    backers.AddToClassList("oracle-backers");
+                    foreach (var role in choices[i].Backers)
+                    {
+                        var face = new VisualElement { pickingMode = PickingMode.Ignore };
+                        face.AddToClassList("oracle-face");
+                        face.AddToClassList("role-"+(int)role);
+                        backers.Add(face);
+                        SetMark(role, $"{i+1}. {choices[i].Label}");
+                        slots[(int)role].Mark.AddToClassList("opt");
+                    }
+                    card.Add(backers);
+                }
+                card.RegisterCallback<ClickEvent>(_ => picked = index);
+                card.RegisterCallback<PointerEnterEvent>(_ => hover?.Invoke(index));
+                card.RegisterCallback<PointerLeaveEvent>(_ => hover?.Invoke(-1));
+                oracleCards.Add(card);
+            }
+            Show(oraclePanel, true);
+            float start = Time.unscaledTime;
+            try
+            {
+                while (picked == Unpicked)
+                {
+                    for (int i = 0; i <= choices.Count && i < 9; i++)
+                        if (Input.GetKeyDown(KeyCode.Alpha1+i) || Input.GetKeyDown(KeyCode.Keypad1+i))
+                            picked = i < choices.Count ? i : -1;
+                    float left = autoAdvance ? 1-(Time.unscaledTime-start)/OracleSeconds : 1;
+                    oracleTimer.style.width = Length.Percent(100*Mathf.Clamp01(left));
+                    Show(oracleTimer.parent, autoAdvance);
+                    if (autoAdvance && left <= 0) picked = -1;
+                    await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                }
+            }
+            finally
+            {
+                Show(oraclePanel, false);
+                oracleCards.Clear();
+                foreach (var slot in slots) slot.Mark.RemoveFromClassList("opt");
+                ClearMarks();
+                hover?.Invoke(-1);
+                // The click that picked a card must not also skip the next line.
+                pressed = false;
+            }
+            return picked;
         }
 
         // ── Input and per-frame animation ────────────────────────────────
@@ -489,12 +630,16 @@ namespace DungeonTycoon.Unity
             private static readonly Color Paper = Hex(0xF0EAE0), Ink = Hex(0x151B20);
             private static readonly Color Gold = Hex(0xFFD766), Glow = new Color(1f, .84f, .4f, .45f);
             private static readonly Color Cracked = Hex(0x8A2F22), Crack = Hex(0xFFD9CF);
+            private static readonly Color Divine = Hex(0xF3D27A);
             private readonly Label number;
+            private readonly bool god;
             private bool natural20, natural1;
 
-            public Die()
+            public Die(bool god = false)
             {
+                this.god = god;
                 AddToClassList("stage-die");
+                EnableInClassList("god", god);
                 pickingMode = PickingMode.Ignore;
                 number = new Label("?") { pickingMode = PickingMode.Ignore };
                 number.AddToClassList("stage-die-number");
@@ -529,7 +674,7 @@ namespace DungeonTycoon.Unity
                     painter.Fill();
                 }
                 Hexagon(painter, center, radius);
-                painter.fillColor = natural20 ? Gold : natural1 ? Cracked : Paper;
+                painter.fillColor = natural20 ? Gold : natural1 ? Cracked : god ? Divine : Paper;
                 painter.Fill();
                 painter.strokeColor = Ink;
                 painter.lineWidth = 3;

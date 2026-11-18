@@ -163,6 +163,11 @@ namespace DungeonTycoon.Unity
                 ? "막다른 길에 이르렀다. 지나쳐 온 길 중 어디로 되돌아갈지 정한다."
                 : "갈림길에 섰다. 아직 가 보지 않은 길이 여러 개다.");
             text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}. 보스방은 아직 보이지 않는다.");
+            // Wandering tires the party; the heroes feel it and should argue more decisively when worn out.
+            text.AppendLine(run.Fatigue == FatigueStage.Rested
+                ? "파티는 아직 지치지 않았다."
+                : $"파티의 피로: {DungeonRun.FatigueName(run.Fatigue)} — 길을 헤맨 탓에 지쳐 있다. 공격력이 떨어졌고" +
+                  (run.Fatigue == FatigueStage.Exhausted ? " 걸을 때마다 체력이 깎인다." : " 더 헤매면 체력도 깎이기 시작한다."));
             foreach (var option in fork.Options)
                 text.AppendLine($"길 {option.Index}: {option.Label} — {option.Distance}걸음, 지금 보이는 적 {option.VisibleMonsters}, " +
                                 $"입구에서 깊이 {option.Depth}, 트인 정도 {option.Openness}");

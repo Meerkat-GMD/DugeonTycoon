@@ -194,6 +194,19 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
+        public void TheFirstBossAlwaysDropsARareItemAndItIsSettledBeforeTheNextStage()
+        {
+            var run = new DungeonRun();
+            run.Start();
+            DungeonRunTests.Drive(run, () => run.Stage == 2 && run.PendingLoot == null || run.Phase == RunPhase.Defeat);
+            Assert.That(run.Stage, Is.EqualTo(2), "the bare party still beats the first boss");
+            var drop = run.Log.Single(line => line.StartsWith("전리품 • 성문 수호자"));
+            Assert.That(drop, Does.Contain("희귀"));
+            Assert.That(run.LastSpoils.Items.Single().Item.Grade, Is.EqualTo(EquipmentGrade.Rare));
+            Assert.That(run.Start(), Is.True, "nothing is left pending once the loot is shared");
+        }
+
+        [Test]
         public void PowerRanksRareAboveCommonInEverySlot()
         {
             foreach (var role in March)

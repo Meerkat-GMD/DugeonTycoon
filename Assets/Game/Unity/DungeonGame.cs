@@ -174,12 +174,33 @@ namespace DungeonTycoon.Unity
                 await stage.SayAsync(null, DialogueLines.Opening(fork), token);
                 var proposals = await discussion;
                 stage.SetThinking(Array.Empty<HeroRole>());
-                if (Run != expedition || !expedition.ResolveFork(fork.Token, proposals)) return;
+                if (Run != expedition) return;
+                var heard = expedition.HearFork(fork.Token, proposals);
+                if (heard == null) return;
+                await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
+
+                // With the faith for it, the GM may reveal a way before the dice.
+                int oracle = -1;
+                if (Run == expedition && expedition.CanOracle)
+                {
+                    var choices = new System.Collections.Generic.List<DialogueStage.OracleChoice>();
+                    foreach (var option in fork.Options)
+                    {
+                        var backers = new System.Collections.Generic.List<HeroRole>();
+                        foreach (var opinion in heard)
+                            if (opinion.Option == option.Index) backers.Add(opinion.Role);
+                        choices.Add(new DialogueStage.OracleChoice(option.Label, backers));
+                    }
+                    oracle = await stage.ChooseOracleAsync(choices, DungeonRun.OracleCost,
+                        index => Board.ShowRoute(index >= 0 ? fork.Options[index].Route : null), token);
+                }
+                if (Run != expedition || !expedition.ResolveFork(fork.Token, null, oracle)) return;
                 Spotlight(fork.Backtracking ? "막다른 길 · 결정" : "갈림길 · 결정", expedition.LastFork);
                 await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
             }
             finally
             {
+                if (Board) Board.ShowRoute(null);
                 if (stage) stage.Close();
             }
         }
@@ -301,6 +322,13 @@ namespace DungeonTycoon.Unity
             if (SelectedHero < 0 || !Run.Bless((HeroRole)SelectedHero)) return;
             Spotlight("축복", Run.Log[Run.Log.Count - 1]);
             RefreshParty();
+        }
+
+        /// <summary>Eases the party's fatigue for faith. Works while paused.</summary>
+        public void RelieveFatigue()
+        {
+            if (!Run.RelieveFatigue()) return;
+            Spotlight("신의 휴식", Run.Log[Run.Log.Count - 1]);
         }
 
         public void Restart()

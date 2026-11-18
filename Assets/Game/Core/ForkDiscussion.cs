@@ -28,6 +28,8 @@ namespace DungeonTycoon.Core
         /// <summary>How much unexplored edge lies that way.</summary>
         public int Openness => Frontier.Count;
         public TilePoint Target => Path[Path.Count - 1];
+        /// <summary>The tiles from the party to the edge of what it has seen that way, for highlighting.</summary>
+        public IReadOnlyList<TilePoint> Route => Path;
         internal IReadOnlyList<TilePoint> Path { get; }
         internal HashSet<TilePoint> Frontier { get; }
     }

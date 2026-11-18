@@ -221,6 +221,58 @@
     background-color: rgba(21, 27, 32, 0.78);
 }
 
+/* Fatigue bar above the hero cards; only on an expedition. */
+.hud .fatigue {
+    width: 216px;
+    margin-bottom: 8px;
+    padding: 4px 7px 6px 7px;
+    background-color: rgba(21, 27, 32, 0.78);
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+}
+
+.hud .fatigue-row {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.hud .fatigue-stage {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--teal);
+}
+
+.hud .fatigue-effect {
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.hud .fatigue-meter {
+    height: 7px;
+    margin-top: 3px;
+    background-color: rgba(0, 0, 0, 0.85);
+}
+
+.hud .fatigue-fill {
+    height: 100%;
+    width: 0;
+    background-color: var(--teal);
+}
+
+.hud .fatigue-tick {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background-color: rgba(240, 234, 224, 0.7);
+}
+
+.hud .fatigue.tired .fatigue-stage { color: var(--gold); }
+.hud .fatigue.tired .fatigue-fill { background-color: var(--gold); }
+.hud .fatigue.exhausted .fatigue-stage { color: var(--ember); }
+.hud .fatigue.exhausted .fatigue-fill { background-color: var(--ember); }
+.hud .fatigue.exhausted { border-color: var(--ember); }
+
 /* Weapon, armour and the two skills along the bottom of the card. */
 .hud .hero-kit {
     position: absolute;
@@ -656,6 +708,7 @@
 .hud .icon-remove { background-color: var(--muted); }
 .hud .icon-trial { background-color: var(--gold); font-size: 13px; }
 .hud .icon-bless { background-color: var(--teal); }
+.hud .icon-rest { background-color: #9FB7E0; }
 
 .hud .card:disabled .card-icon {
     background-color: var(--edge);

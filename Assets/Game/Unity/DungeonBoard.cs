@@ -377,6 +377,27 @@ namespace DungeonTycoon.Unity
             renderer.receiveShadows = false;
         }
 
+        private readonly List<Transform> routeMarks = new List<Transform>();
+
+        /// <summary>Lights the tiles of one way at a fork (the oracle card under the mouse); null clears it.</summary>
+        public void ShowRoute(IReadOnlyList<TilePoint> tiles)
+        {
+            int count = tiles?.Count ?? 0;
+            for (int i = 0; i < Mathf.Max(count, routeMarks.Count); i++)
+            {
+                if (i >= routeMarks.Count)
+                {
+                    var mark = Instantiate(hoverAllowed, transform, false);
+                    mark.name = "신탁 길";
+                    routeMarks.Add(mark);
+                }
+                // The first tile is where the party already stands.
+                bool on = i > 0 && i < count && map != null && map.Contains(tiles[i]);
+                routeMarks[i].gameObject.SetActive(on);
+                if (on) routeMarks[i].localPosition = TileCenter(tiles[i]);
+            }
+        }
+
         public void SetHover(TilePoint? tile, bool allowed)
         {
             bool visible = tile.HasValue && map != null && map.Contains(tile.Value);

@@ -233,6 +233,123 @@
     color: var(--ink);
 }
 
+.hud .stage-mark.opt {
+    background-color: var(--paper);
+    color: var(--ink);
+}
+
+/* ── The god's die, centred above the slots ──────────────────────── */
+
+.hud .stage-god {
+    position: absolute;
+    left: 50%;
+    bottom: 196px;
+    translate: -50% 0;
+    padding: 4px 14px;
+    align-items: center;
+    border-radius: 12px;
+    background-color: rgba(229, 185, 78, 0.16);
+    display: none;
+}
+
+.hud .stage-god-name {
+    padding: 0 8px;
+    border-radius: 6px;
+    background-color: var(--ink);
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--gold);
+}
+
+/* ── Oracle path cards ───────────────────────────────────────────── */
+
+.hud .stage-oracle {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 236px;
+    align-items: center;
+    display: none;
+}
+
+.hud .oracle-question {
+    margin-bottom: 6px;
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: var(--gold);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+.hud .oracle-cards {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-end;
+}
+
+.hud .oracle-card {
+    width: 150px;
+    margin: 0 6px;
+    padding: 6px 10px 8px 10px;
+    align-items: center;
+    background-color: rgba(18, 23, 26, 0.95);
+    border-width: 2px;
+    border-color: var(--edge);
+    border-radius: 8px;
+}
+
+.hud .oracle-card:hover {
+    border-color: var(--gold);
+    translate: 0 -4px;
+}
+
+.hud .oracle-card.skip {
+    width: 96px;
+    opacity: 0.8;
+}
+
+.hud .oracle-number {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: var(--gold);
+}
+
+.hud .oracle-label {
+    margin: 1px 0 4px 0;
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+.hud .oracle-backers {
+    flex-direction: row;
+}
+
+.hud .oracle-face {
+    width: 20px;
+    height: 20px;
+    margin: 0 1px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud .oracle-face.role-0 { background-image: url("/Assets/Art/Heroes/Portraits/portrait_tank.png"); }
+.hud .oracle-face.role-1 { background-image: url("/Assets/Art/Heroes/Portraits/portrait_healer.png"); }
+.hud .oracle-face.role-2 { background-image: url("/Assets/Art/Heroes/Portraits/portrait_melee.png"); }
+.hud .oracle-face.role-3 { background-image: url("/Assets/Art/Heroes/Portraits/portrait_ranged.png"); }
+
+.hud .oracle-countdown {
+    width: 220px;
+    height: 4px;
+    margin-top: 6px;
+    border-radius: 2px;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.hud .oracle-timer {
+    height: 100%;
+    width: 100%;
+    border-radius: 2px;
+    background-color: var(--gold);
+}
+
 /* ── The armour on the table, beside the slots ───────────────────── */
 
 .hud .stage-item {
