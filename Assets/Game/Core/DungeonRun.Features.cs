@@ -123,6 +123,7 @@ namespace DungeonTycoon.Core
             patrols.Clear();
             chests.Clear();
             springs.Clear();
+            PlaceEncounters();
             freshFeature = false;
             if (!sandbox)
             {

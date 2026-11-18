@@ -40,6 +40,24 @@
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────── */
+.hud .planning-tip {
+    position: absolute;
+    display: none;
+    width: 206px;
+    padding: 9px 12px;
+    background-color: var(--panel);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-top-width: 3px;
+    border-top-color: var(--tip-accent);
+}
+.hud .planning-tip { --tip-accent: var(--gold); }
+.hud .planning-tip.tip-encounter { --tip-accent: var(--teal); }
+.hud .planning-tip.tip-enemy { --tip-accent: var(--ember); }
+.hud .tip-kind, .hud .tip-fact { color: var(--tip-accent); }
+.hud .tip-name { font-size: 19px; -unity-font-style: bold; margin-bottom: 4px; }
+.hud .tip-description { white-space: normal; }
+.hud .tip-fact { border-top-width: 1px; border-top-color: var(--edge); margin-top: 7px; padding-top: 6px; }
 
 .hud .chip {
     height: 26px;

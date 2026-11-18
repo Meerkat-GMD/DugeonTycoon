@@ -186,6 +186,28 @@ namespace DungeonTycoon.Unity
         }
 
         /// <summary>A treasure chest. An opened one lifts its lid back and shows the empty inside to the camera.</summary>
+        internal static DungeonMesh Encounter(bool merchant)
+        {
+            var mesh = new DungeonMesh();
+            if (merchant)
+            {
+                mesh.Ring(0,.42f,0,.65f,.36f,.72f,Finish.Teal,8);
+                mesh.Box(0,.9f,0,.34f,.35f,.34f,Finish.Skin);
+                mesh.Ring(0,1.09f,0,.72f,.25f,.14f,Finish.Brass,8);
+                mesh.Box(0,.19f,-.34f,.94f,.34f,.36f,Finish.Wood);
+                for (int i = -1; i <= 1; i++)
+                    mesh.Ring(i*.24f,.41f,-.34f,.20f,.14f,.12f,Finish.Gold,6);
+            }
+            else
+            {
+                mesh.Box(0,.12f,0,.83f,.24f,.78f,Finish.Basalt);
+                mesh.Ring(0,.58f,0,.58f,.37f,.72f,Finish.Slate,6);
+                mesh.Box(0,.91f,0,.55f,.18f,.34f,Finish.Flagstone);
+                mesh.Box(0,1.14f,0,.31f,.32f,.30f,Finish.Ash);
+            }
+            return mesh;
+        }
+
         internal static DungeonMesh Chest(bool opened)
         {
             var m = new DungeonMesh();

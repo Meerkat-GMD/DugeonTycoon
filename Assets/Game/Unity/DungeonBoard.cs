@@ -85,8 +85,43 @@ namespace DungeonTycoon.Unity
         private GameObject headPrefab;
         private static readonly int MeteorState = Animator.StringToHash("Base Layer.Meteor");
         internal float AttackSpeed { get; set; } = 1;
+        private readonly List<Transform> encounterProps = new List<Transform>();
         private readonly List<Feature> chestProps = new List<Feature>();
         private readonly List<Feature> springProps = new List<Feature>();
+        internal enum PlanningKind { Chest, Spring, Merchant, Statue, Monster, Patrol, Boss }
+
+        internal sealed class PlanningTarget
+        {
+            public PlanningKind Kind;
+            public MonsterKind Monster;
+            public Renderer[] Parts;
+        }
+
+        private readonly List<PlanningTarget> planningTargets = new List<PlanningTarget>();
+        private readonly List<PlanningTarget> fixedPlanningTargets = new List<PlanningTarget>();
+
+        private static PlanningTarget CreateTarget(Transform model, PlanningKind kind, MonsterKind monster = MonsterKind.None)
+        {
+            return new PlanningTarget { Kind = kind, Monster = monster, Parts = model.GetComponentsInChildren<Renderer>() };
+        }
+
+        internal PlanningTarget PickPlanningTarget(Vector2 mouse, out Vector2 anchor)
+        {
+            var ray = boardCamera.ScreenPointToRay(mouse);
+            float nearest = float.PositiveInfinity;
+            PlanningTarget picked = null;
+            anchor = default;
+            foreach (var target in planningTargets)
+                foreach (var part in target.Parts)
+                {
+                    if (!part.enabled || !part.gameObject.activeInHierarchy ||
+                        !part.bounds.IntersectRay(ray, out float distance) || distance >= nearest) continue;
+                    nearest = distance;
+                    picked = target;
+                    anchor = boardCamera.WorldToScreenPoint(target.Parts[0].bounds.center);
+                }
+            return picked;
+        }
         // Patrol routes are painted on the floor in one colour per squad: clear while the GM plans around them,
         // faint during the expedition so the GM can still read where a squad is heading.
         private static readonly Color[] PatrolColors = { new Color(.74f,.55f,1f,1), new Color(.45f,.75f,1f,1) };
@@ -473,13 +508,22 @@ namespace DungeonTycoon.Unity
         /// squad by squad, then the stage's boss.
         /// </summary>
         public void SetStage(int stage, DungeonMap map, IReadOnlyList<MonsterPlacement> placements,
-            IReadOnlyList<PatrolSquad> patrols, Func<TilePoint,bool> placeable)
+            IReadOnlyList<PatrolSquad> patrols, Func<TilePoint,bool> placeable, IReadOnlyList<MapEncounter> encounters)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
             if (!ReferenceEquals(this.map, map))
             {
                 this.map = map;
                 BuildScenery(placeable, patrols);
+                fixedPlanningTargets.Clear();
+                foreach (var chest in chestProps) fixedPlanningTargets.Add(CreateTarget(chest.Fresh, PlanningKind.Chest));
+                foreach (var spring in springProps) fixedPlanningTargets.Add(CreateTarget(spring.Fresh, PlanningKind.Spring));
+                encounterProps.Clear();
+                foreach (var encounter in encounters)
+                {
+                    bool merchant = encounter.Kind == EncounterKind.Merchant;
+                    encounterProps.Add(DrawPlanningEncounter(merchant, encounter.Tile));
+                }
                 for (int i = 0; i < heroes.Length; i++)
                 {
                     heroGoals[i] = TileCenter(map.Entrance);
@@ -494,10 +538,13 @@ namespace DungeonTycoon.Unity
                 this.stage = stage;
             }
             ClearFoes();
+            planningTargets.Clear();
+            planningTargets.AddRange(fixedPlanningTargets);
             var tiles = new List<TilePoint>();
             foreach (var placement in placements)
             {
                 AddFoe(DungeonFigures.TierOf(placement.Kind));
+                planningTargets.Add(CreateTarget(foes[foes.Count-1].Body, PlanningKind.Monster, placement.Kind));
                 tiles.Add(placement.Tile);
             }
             if (patrols != null)
@@ -505,9 +552,11 @@ namespace DungeonTycoon.Unity
                     for (int k = 0; k < squad.Members.Count; k++)
                     {
                         AddFoe(DungeonFigures.TierOf(squad.Members[k]), squad.Index);
+                        planningTargets.Add(CreateTarget(foes[foes.Count-1].Body, PlanningKind.Patrol, squad.Members[k]));
                         tiles.Add(squad.StartOf(k));
                     }
             AddFoe(DungeonFigures.BossTier(stage));
+            planningTargets.Add(CreateTarget(foes[foes.Count-1].Body, PlanningKind.Boss));
             tiles.Add(map.BossTile);
             PlaceFoePreviews(tiles);
         }
@@ -523,6 +572,14 @@ namespace DungeonTycoon.Unity
                 if (foe.Bar) Destroy(foe.Bar.gameObject);
             }
             foes.Clear();
+        }
+
+        private Transform DrawPlanningEncounter(bool merchant, TilePoint tile)
+        {
+            var prop = Draw(merchant ? "떠돌이 상인" : "조각상", DungeonFigures.Encounter(merchant), stageMeshes, scenery);
+            prop.localPosition = TileCenter(tile);
+            fixedPlanningTargets.Add(CreateTarget(prop, merchant ? PlanningKind.Merchant : PlanningKind.Statue));
+            return prop;
         }
 
         /// <summary>Adds a monster figure; a patrol member (<paramref name="squad"/> ≥ 0) stands on its squad's ring.</summary>
@@ -660,6 +717,17 @@ namespace DungeonTycoon.Unity
                 Spend(chestProps[i], chests != null && i < chests.Count && chests[i].Opened);
             for (int i = 0; i < springProps.Count; i++)
                 Spend(springProps[i], springs != null && i < springs.Count && springs[i].Used);
+        }
+
+        public void UpdateEncounters(IReadOnlyList<MapEncounter> encounters)
+        {
+            for (int i = 0; i < encounters.Count; i++)
+            {
+                var encounter = encounters[i];
+                bool visible = encounter.Kind == EncounterKind.Merchant ? !encounter.Visited : !encounter.Accepted;
+                var prop = encounterProps[i].gameObject;
+                if (prop.activeSelf != visible) prop.SetActive(visible);
+            }
         }
 
         private static void Spend(Feature prop, bool spent)

@@ -297,6 +297,12 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <ui:VisualElement name="planning-tip" class="planning-tip" picking-mode="Ignore">
+            <ui:Label name="kind" class="tip-kind" picking-mode="Ignore" />
+            <ui:Label name="name" class="tip-name" picking-mode="Ignore" />
+            <ui:Label name="description" class="tip-description" picking-mode="Ignore" />
+            <ui:Label name="fact" class="tip-fact" picking-mode="Ignore" />
+        </ui:VisualElement>
         <ui:VisualElement name="history" class="history-backdrop">
             <ui:VisualElement class="history-box">
                 <ui:VisualElement class="history-head">

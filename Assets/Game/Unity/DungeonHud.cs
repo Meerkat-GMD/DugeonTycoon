@@ -34,6 +34,9 @@ namespace DungeonTycoon.Unity
         private Label resultTitle, resultText;
         private Button follow, primary, collapse, removeCard, trialCard, blessCard;
         private Label summaryNote;
+        private VisualElement planningTip;
+        private Label tipKind, tipName, tipDescription, tipFact;
+        private DungeonBoard.PlanningTarget shownTarget;
         // One placement card per monster kind; only the kinds on the stage's roster are shown.
         private static readonly (MonsterKind Kind, string Name)[] Brushes =
         {
@@ -113,6 +116,11 @@ namespace DungeonTycoon.Unity
         {
             root.pickingMode = PickingMode.Ignore;
             hud = root.Q("hud");
+            planningTip = hud.Q("planning-tip");
+            tipKind = planningTip.Q<Label>("kind");
+            tipName = planningTip.Q<Label>("name");
+            tipDescription = planningTip.Q<Label>("description");
+            tipFact = planningTip.Q<Label>("fact");
             hud.style.display = DisplayStyle.None;
             titleScreen = root.Q("title-screen");
             var newGame = titleScreen.Q<Button>("title-new");
@@ -754,7 +762,7 @@ namespace DungeonTycoon.Unity
         private void BoardInput(DungeonRun run)
         {
             Vector2 mouse = Input.mousePosition;
-            bool overBoard = !HistoryOpen && !OverHud(mouse) && game.Board.ContainsScreenPoint(mouse);
+            bool overBoard = !HistoryOpen && !game.Formation.IsOpen && !OverHud(mouse) && game.Board.ContainsScreenPoint(mouse);
             bool editing = overBoard && run.Phase == RunPhase.Planning;
             TilePoint tile = default;
             bool onTile = editing && game.Board.TryPickTile(mouse,out tile);
@@ -790,6 +798,48 @@ namespace DungeonTycoon.Unity
                 game.Board.SetHover(run.Map.IsFloor(tile) ? tile : (TilePoint?)null,check == PlacementCheck.Allowed);
             }
             else game.Board.SetHover(null,false);
+            UpdatePlanningTip(run, mouse, editing && !panning && !game.Presenting);
+        }
+
+        private void UpdatePlanningTip(DungeonRun run, Vector2 mouse, bool enabled)
+        {
+            Vector2 anchor = default;
+            var target = enabled ? game.Board.PickPlanningTarget(mouse, out anchor) : null;
+            if (target != shownTarget)
+            {
+                shownTarget = target;
+                Show(planningTip, target != null);
+                if (target != null) DescribePlanningTarget(run, target);
+            }
+            if (target == null) return;
+            var point = RuntimePanelUtils.ScreenToPanel(hud.panel, new Vector2(anchor.x, Screen.height-anchor.y));
+            point = hud.WorldToLocal(point);
+            var area = hud.contentRect;
+            float width = planningTip.layout.width, height = planningTip.layout.height;
+            if (float.IsNaN(width) || float.IsNaN(height)) return;
+            float x = point.x + 18;
+            if (x + width > area.xMax - 4) x = point.x - width - 18;
+            planningTip.style.left = Mathf.Clamp(x, 4, area.xMax - width - 4);
+            planningTip.style.top = Mathf.Clamp(point.y - height/2, 4, area.yMax - height - 4);
+        }
+
+        private void DescribePlanningTarget(DungeonRun run, DungeonBoard.PlanningTarget target)
+        {
+            var kind = target.Kind;
+            bool enemy = kind == DungeonBoard.PlanningKind.Monster || kind == DungeonBoard.PlanningKind.Patrol || kind == DungeonBoard.PlanningKind.Boss;
+            planningTip.EnableInClassList("tip-enemy", enemy);
+            planningTip.EnableInClassList("tip-encounter", !enemy && kind != DungeonBoard.PlanningKind.Chest);
+            (tipKind.text, tipName.text, tipDescription.text, tipFact.text) = kind switch
+            {
+                DungeonBoard.PlanningKind.Chest => ("보물 · 고정 배치", "보물 상자", "전투가 끝난 뒤 파티가 상자 칸에 서면 장비를 얻습니다.", "보상　장비 1개"),
+                DungeonBoard.PlanningKind.Spring => ("시설 · 고정 배치", "샘물", "지친 파티가 들러 물을 마시면 피로가 줄어듭니다.", "사용　스테이지당 1회"),
+                DungeonBoard.PlanningKind.Merchant => ("NPC · 거래", "떠돌이 상인", "파티가 다가가면 강장차나 여행빵을 살지 의논합니다.", "가격　금화 1닢"),
+                DungeonBoard.PlanningKind.Statue => ("조우 · 고정 배치", "금이 간 조각상", "봉인을 깨면 금화를 얻고 파티에 축복이나 저주가 깃듭니다.", "효과 지속　이번 스테이지"),
+                DungeonBoard.PlanningKind.Boss => ("적 · 스테이지 보스", run.BossName, "보스방을 지키다가 용사를 발견하면 방 밖까지 추격합니다.", $"최대 체력　{run.BossMaxHp}"),
+                _ => (kind == DungeonBoard.PlanningKind.Patrol ? "적 · 고정 순회조" : "적 · 배치 몬스터",
+                    DungeonRun.MonsterName(target.Monster), brushCards[target.Monster].Q<Label>(className:"placement-description").text,
+                    kind == DungeonBoard.PlanningKind.Patrol ? "위협 예산 소모 없음" : $"위협 비용　{DungeonRun.Cost(target.Monster)}")
+            };
         }
 
         private void Paint(TilePoint tile)

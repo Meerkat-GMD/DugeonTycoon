@@ -411,7 +411,7 @@ namespace DungeonTycoon.Unity
         private void RefreshLayout()
         {
             bool planning = Run.Phase == RunPhase.Planning;
-            Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.Patrols, Run.CanHoldMonster);
+            Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.Patrols, Run.CanHoldMonster, Run.Encounters);
             Board.SetFeatures(Run.Chests, Run.Springs);
             if (!planning) Board.SetMonsters(Run.Monsters);
             Board.SetCasts(planning ? null : Run.Casts, Run.Ticks);
