@@ -82,8 +82,9 @@ namespace DungeonTycoon.Core
             switch (kind)
             {
                 case MonsterKind.None: return 0;
-                case MonsterKind.Goblin: return 1;
-                case MonsterKind.Ogre: return 2;
+                case MonsterKind.Skeleton: return 1;
+                case MonsterKind.Ghost: return 2;
+                case MonsterKind.Zombie: return 3;
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
@@ -93,8 +94,9 @@ namespace DungeonTycoon.Core
             switch (kind)
             {
                 case MonsterKind.None: return "빈 길";
-                case MonsterKind.Goblin: return "고블린";
-                case MonsterKind.Ogre: return "오우거";
+                case MonsterKind.Skeleton: return "해골";
+                case MonsterKind.Ghost: return "유령";
+                case MonsterKind.Zombie: return "좀비";
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
@@ -116,7 +118,7 @@ namespace DungeonTycoon.Core
         public PlacementCheck CheckPlace(TilePoint tile, MonsterKind kind)
         {
             if (Phase != RunPhase.Planning) return PlacementCheck.Locked;
-            if (kind != MonsterKind.Goblin && kind != MonsterKind.Ogre) return PlacementCheck.InvalidKind;
+            if (kind != MonsterKind.Skeleton && kind != MonsterKind.Ghost && kind != MonsterKind.Zombie) return PlacementCheck.InvalidKind;
             if (!Map.IsFloor(tile)) return PlacementCheck.NotFloor;
             if (!CanHoldMonster(tile)) return PlacementCheck.NearEntrance;
             if (Cost(kind) > Budget) return PlacementCheck.OverBudget;
@@ -154,7 +156,8 @@ namespace DungeonTycoon.Core
             for (int i = 0; i < placements.Count; i++) monsters.Add(CreateMonster(i, placements[i].Kind, placements[i].Tile));
             monsters.Add(CreateBoss());
             foreach (var monster in monsters) monster.WanderWait = 5 + dice.Next(0, 20);
-            foreach (var hero in party) hero.MoveReady = hero.ActReady = 0;
+            foreach (var hero in party) hero.MoveReady = hero.ActReady = hero.StepUntil = 0;
+            ClearCasts();
             ResetSkills();
             ResetFatigue();
             Phase = RunPhase.Travel;
@@ -180,6 +183,8 @@ namespace DungeonTycoon.Core
             Ticks++;
             foreach (var monster in monsters) Perceive(monster);
             UpdateEngagement();
+            if (Phase == RunPhase.Combat) AdvanceCasts();
+            if (!InDungeon) return true;
             if (Phase == RunPhase.Combat)
             {
                 foreach (var role in MarchOrder)
@@ -344,6 +349,7 @@ namespace DungeonTycoon.Core
             }
             Stage++;
             ReviveUsed = false;
+            ClearCasts();
             placements.Clear();
             monsters.Clear();
             LoadMap(DungeonMap.ForStage(Stage));

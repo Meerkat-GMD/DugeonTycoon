@@ -17,7 +17,7 @@ namespace DungeonTycoon.Core.Tests
         private static DungeonRun Arena(int goblins, int level = 1)
         {
             var run = new DungeonRun();
-            for (int i = 0; i < goblins; i++) Assert.That(run.Place(run.Map.BossTile, MonsterKind.Goblin), Is.True);
+            for (int i = 0; i < goblins; i++) Assert.That(run.Place(run.Map.BossTile, MonsterKind.Skeleton), Is.True);
             run.Start();
             DungeonRunTests.Drive(run, () => run.Phase == RunPhase.Combat);
             Assert.That(run.Phase, Is.EqualTo(RunPhase.Combat));
@@ -44,10 +44,15 @@ namespace DungeonTycoon.Core.Tests
         private static void Freeze(HeroState hero)
         {
             hero.MoveReady = hero.ActReady = Never;
+            hero.StepUntil = 0;
             hero.SkillReady[0] = hero.SkillReady[1] = Never;
         }
 
-        private static void Freeze(MonsterState monster) => monster.MoveReady = monster.AttackReady = Never;
+        private static void Freeze(MonsterState monster)
+        {
+            monster.MoveReady = monster.AttackReady = Never;
+            monster.StepUntil = 0;
+        }
 
         /// <summary>Lets the hero act now with only the listed skills ready.</summary>
         private static void Ready(HeroState hero, params int[] skills)

@@ -13,8 +13,8 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = new DungeonRun(seed);
             foreach (var tile in new[] { new TilePoint(16, 15), new TilePoint(5, 7), new TilePoint(17, 6) })
-                run.Place(tile, MonsterKind.Goblin);
-            run.Place(new TilePoint(19, 8), MonsterKind.Ogre);
+                run.Place(tile, MonsterKind.Skeleton);
+            run.Place(new TilePoint(19, 8), MonsterKind.Zombie);
             run.Start();
             return run;
         }
@@ -136,7 +136,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void TacticsAnswerOnlyTheirSituationAndInvalidEntriesAreIgnored()
         {
-            var run = DungeonRunTests.RunInCombat(MonsterKind.Ogre);
+            var run = DungeonRunTests.RunInCombat(MonsterKind.Zombie);
             int situation = run.Situation;
             var foe = run.Engaged.First();
             Assert.That(run.ApplyTactics(situation - 1, new[] { new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "늦은 작전") }), Is.False);
@@ -174,7 +174,7 @@ namespace DungeonTycoon.Core.Tests
                 .Take(6).ToList();
             Assert.That(spots, Is.Not.Empty);
             var run = new DungeonRun();
-            foreach (var spot in spots) run.Place(spot, MonsterKind.Goblin);
+            foreach (var spot in spots) run.Place(spot, MonsterKind.Skeleton);
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
 

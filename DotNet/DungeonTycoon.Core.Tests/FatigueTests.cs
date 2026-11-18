@@ -86,7 +86,7 @@ namespace DungeonTycoon.Core.Tests
         {
             // Over a whole stage with fights, forks and loot, fatigue moves exactly with the exploring steps.
             var run = new DungeonRun();
-            foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 40 == 0).Take(3)) run.Place(tile, MonsterKind.Goblin);
+            foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 40 == 0).Take(3)) run.Place(tile, MonsterKind.Skeleton);
             run.Start();
             int steps = run.StepsTaken, fatigue = run.FatigueSteps;
             bool fought = false;

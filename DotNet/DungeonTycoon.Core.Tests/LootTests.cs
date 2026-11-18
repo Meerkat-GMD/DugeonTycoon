@@ -17,13 +17,13 @@ namespace DungeonTycoon.Core.Tests
         /// Each one drops the next item. The fight runs to its end without settling the loot;
         /// <paramref name="midFight"/> runs once the fight has started.
         /// </summary>
-        private static DungeonRun FightOneGoblin(params string[] drops) => FightOneGoblin(null, drops);
+        private static DungeonRun FightOneSkeleton(params string[] drops) => FightOneSkeleton(null, drops);
 
-        private static DungeonRun FightOneGoblin(Action<DungeonRun> midFight, params string[] drops)
+        private static DungeonRun FightOneSkeleton(Action<DungeonRun> midFight, params string[] drops)
         {
             var run = new DungeonRun();
             var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
-            for (int i = 0; i < Math.Max(1, drops.Length); i++) Assert.That(run.Place(tile, MonsterKind.Goblin), Is.True);
+            for (int i = 0; i < Math.Max(1, drops.Length); i++) Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
             var queue = new Queue<string>(drops);
             run.DropOverride = _ => queue.Count > 0 ? Item(queue.Dequeue()) : null;
             run.Start();
@@ -43,7 +43,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AWeaponGoesStraightToItsOwnerWhenItIsAnUpgrade()
         {
-            var run = FightOneGoblin("강철 대검");
+            var run = FightOneSkeleton("강철 대검");
             var melee = Hero(run, HeroRole.MeleeDamage);
             Assert.That(run.PendingLoot, Is.Null, "weapons are never debated");
             Assert.That(melee.Weapon.Name, Is.EqualTo("강철 대검"));
@@ -56,13 +56,13 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AFasterWeaponShortensTheAttackCycleAndAWorseOneIsThrownAway()
         {
-            var run = FightOneGoblin("바람의 장궁");
+            var run = FightOneSkeleton("바람의 장궁");
             var ranged = Hero(run, HeroRole.RangedDamage);
             Assert.That(ranged.Weapon.Name, Is.EqualTo("바람의 장궁"));
             Assert.That(ranged.AttackTicks, Is.EqualTo(DungeonRun.HeroAttackTicks - 2));
 
             // A common bow after a rare one: thrown away with the reason on the banner.
-            var again = FightOneGoblin(r => Hero(r, HeroRole.RangedDamage).Equip(Item("바람의 장궁")), "사냥꾼의 활");
+            var again = FightOneSkeleton(r => Hero(r, HeroRole.RangedDamage).Equip(Item("바람의 장궁")), "사냥꾼의 활");
             var result = again.LastSpoils.Items.Single();
             Assert.That(result.Wearer, Is.Null);
             Assert.That(result.Reason, Is.EqualTo("지금 무기가 더 낫다"));
@@ -72,7 +72,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AFallenHeroGetsNoWeaponAndHasNoSayInTheArmour()
         {
-            var run = FightOneGoblin(r => Hero(r, HeroRole.Healer).Hp = 0, "참나무 지팡이", "사슬 갑옷");
+            var run = FightOneSkeleton(r => Hero(r, HeroRole.Healer).Hp = 0, "참나무 지팡이", "사슬 갑옷");
             Assert.That(Hero(run, HeroRole.Healer).Weapon, Is.Null);
             Assert.That(run.LastSpoils, Is.Null, "the banner waits until the armour is shared out");
             var loot = run.PendingLoot;
@@ -91,7 +91,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ArmourFreezesTheDungeonUntilTheHeroesShareItOut()
         {
-            var run = FightOneGoblin("사슬 갑옷");
+            var run = FightOneSkeleton("사슬 갑옷");
             var loot = run.PendingLoot;
             Assert.That(loot, Is.Not.Null);
             Assert.That(loot.Heroes, Is.EqualTo(March));
@@ -108,7 +108,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void TwoWantersRollAPlainD20AndATieRollsAgainBetweenTheTiedOnly()
         {
-            var run = FightOneGoblin("사슬 갑옷");
+            var run = FightOneSkeleton("사슬 갑옷");
             var faces = new Queue<int>(new[] { 12, 12, 7, 15 });
             run.LootRollOverride = () => faces.Dequeue();
             var melee = Hero(run, HeroRole.MeleeDamage);
@@ -142,7 +142,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AHeroWhoseArmourWouldGetWorseIsLeftOutAndALoneWanterTakesItWithoutDice()
         {
-            var run = FightOneGoblin(r => Hero(r, HeroRole.Tank).Equip(Item("사슬 갑옷")), "가죽 갑옷");
+            var run = FightOneSkeleton(r => Hero(r, HeroRole.Tank).Equip(Item("사슬 갑옷")), "가죽 갑옷");
             Assert.That(run.ResolveLoot(run.PendingLoot.Token, Wishes(run, HeroRole.Tank, HeroRole.RangedDamage)), Is.True);
 
             var scene = run.LastScene;
@@ -157,7 +157,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ArmourNobodyWantsIsThrownAwayAndBadAnswersFallBackToTheLocalWish()
         {
-            var run = FightOneGoblin("누빈 조끼", "축복받은 로브");
+            var run = FightOneSkeleton("누빈 조끼", "축복받은 로브");
             var loot = run.PendingLoot;
             Assert.That(loot.Items.Select(i => i.Name), Is.EqualTo(new[] { "누빈 조끼", "축복받은 로브" }));
             // Nobody wants the vest; for the robe only the tank answers, and with an empty line.
@@ -183,7 +183,7 @@ namespace DungeonTycoon.Core.Tests
             {
                 var run = new DungeonRun(seed: 11);
                 foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 9 == 0).Take(5))
-                    run.Place(tile, MonsterKind.Ogre);
+                    run.Place(tile, MonsterKind.Zombie);
                 run.Start();
                 DungeonRunTests.Drive(run, () => !DungeonRunTests.InDungeon(run));
                 return run.Log.Where(line => line.StartsWith("전리품") || line.StartsWith("장착") || line.StartsWith("버림")).ToList();
@@ -200,7 +200,7 @@ namespace DungeonTycoon.Core.Tests
             run.Start();
             DungeonRunTests.Drive(run, () => run.Stage == 2 && run.PendingLoot == null || run.Phase == RunPhase.Defeat);
             Assert.That(run.Stage, Is.EqualTo(2), "the bare party still beats the first boss");
-            var drop = run.Log.Single(line => line.StartsWith("전리품 • 성문 수호자"));
+            var drop = run.Log.Single(line => line.StartsWith("전리품 • 무덤 기사"));
             Assert.That(drop, Does.Contain("희귀"));
             Assert.That(run.LastSpoils.Items.Single().Item.Grade, Is.EqualTo(EquipmentGrade.Rare));
             Assert.That(run.Start(), Is.True, "nothing is left pending once the loot is shared");

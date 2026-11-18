@@ -41,14 +41,22 @@ namespace DungeonTycoon.Core
         private MonsterState CreateMonster(int id, MonsterKind kind, TilePoint tile)
         {
             bool later = Stage == 2;
-            return kind == MonsterKind.Ogre
-                ? new MonsterState(id, kind, false, "오우거", later ? 106 : 69, later ? 15 : 10, 2, 8, 4, 18, tile)
-                : new MonsterState(id, kind, false, "고블린", later ? 73 : 47, later ? 10 : 6, 0, 5, 3, 15, tile);
+            switch (kind)
+            {
+                case MonsterKind.Zombie:
+                    return new MonsterState(id, kind, false, "좀비", later ? 106 : 69, later ? 15 : 10, 2, 8, 5, 18, tile, MonsterPattern.Slam);
+                case MonsterKind.Ghost:
+                    return new MonsterState(id, kind, false, "유령", later ? 54 : 35, later ? 11 : 7, 0, 6, 2, 15, tile, MonsterPattern.SoulBolt);
+                default:
+                    return new MonsterState(id, kind, false, "해골", later ? 73 : 47, later ? 10 : 6, 0, 5, 3, 15, tile);
+            }
         }
 
         private MonsterState CreateBoss() => Stage == 2
-            ? new MonsterState(placements.Count, MonsterKind.None, true, "마왕 벨자크", 158, 19, 10, 0, 4, 15, Map.BossTile)
-            : new MonsterState(placements.Count, MonsterKind.None, true, "성문 수호자", 64, 10, 1, 2, 4, 15, Map.BossTile);
+            ? new MonsterState(placements.Count, MonsterKind.None, true, "네크로맨서", 158, 19, 10, 0, 4, 15, Map.BossTile,
+                MonsterPattern.Slam, MonsterPattern.TrackingBeam, MonsterPattern.Meteor)
+            : new MonsterState(placements.Count, MonsterKind.None, true, "무덤 기사", 64, 10, 1, 2, 4, 15, Map.BossTile,
+                MonsterPattern.Slam, MonsterPattern.TrackingBeam);
 
         private static int Chebyshev(TilePoint a, TilePoint b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
 
@@ -74,6 +82,7 @@ namespace DungeonTycoon.Core
             if (!seesHero) return;
             monster.Mood = MonsterMood.Chasing;
             monster.WanderGoal = null;
+            ArmPatterns(monster);
             joined.Add(monster);
         }
 
@@ -106,6 +115,7 @@ namespace DungeonTycoon.Core
             {
                 Phase = RunPhase.Travel;
                 Array.Clear(tactics, 0, tactics.Length);
+                ClearCasts();
                 Regroup();
                 int hp = party.Sum(h => h.Hp), max = party.Sum(h => h.MaxHp);
                 log.Add($"전투 종료 • 파티 체력 {hp} / {max}");
@@ -160,8 +170,11 @@ namespace DungeonTycoon.Core
             switch (monster.Mood)
             {
                 case MonsterMood.Chasing:
+                    // A monster telegraphing a pattern stands still; one mid-step neither attacks nor casts.
+                    if (CastOf(monster) != null || Moving(monster)) return;
                     var target = MonsterTarget(monster);
                     if (target == null) return;
+                    if (TryCast(monster, target)) return;
                     var tile = heroTiles[(int)target.Role];
                     if (InReach(monster.Tile, tile, 1))
                     {
@@ -200,7 +213,7 @@ namespace DungeonTycoon.Core
             }
             if (next == null) return;
             monster.Tile = next.Value;
-            monster.MoveReady = Ticks + monster.MoveTicks;
+            monster.MoveReady = monster.StepUntil = Ticks + monster.MoveTicks;
         }
 
         private void Wander(MonsterState monster)
@@ -226,7 +239,7 @@ namespace DungeonTycoon.Core
                 : Map.FindPath(monster.Tile, monster.WanderGoal.Value, area.Contains);
             if (path.Count < 2) return;
             monster.Tile = path[1];
-            monster.MoveReady = Ticks + monster.MoveTicks;
+            monster.MoveReady = monster.StepUntil = Ticks + monster.MoveTicks;
         }
 
         private readonly Dictionary<MonsterState, HashSet<TilePoint>> wanderAreas = new Dictionary<MonsterState, HashSet<TilePoint>>();
@@ -247,6 +260,8 @@ namespace DungeonTycoon.Core
         {
             var engaged = monsters.Where(m => m.Alive && m.Mood == MonsterMood.Chasing).ToList();
             if (engaged.Count == 0) return;
+            // A step must finish before the hero attacks, heals or uses a skill.
+            if (Moving(hero) || AnswerPatterns(hero)) return;
             var tactic = tactics[(int)hero.Role];
             var here = heroTiles[(int)hero.Role];
             if (hero.Role == HeroRole.Tank) TankSkills(hero, engaged);
@@ -310,8 +325,9 @@ namespace DungeonTycoon.Core
             var here = heroTiles[(int)hero.Role];
             var path = Map.FindPath(here, goal);
             if (path.Count < 2 || (path.Count == 2 && range <= 1)) return;
-            heroTiles[(int)hero.Role] = path[1];
-            hero.MoveReady = Ticks + HeroMoveTicks;
+            // Wait at the edge rather than walk into an area the hero is dodging.
+            if (Dangerous(hero, path[1]) && !Dangerous(hero, here)) return;
+            StepHero(hero, path[1]);
         }
 
         /// <summary>Back-liners step away from an adjacent monster when an open tile puts more room between them.</summary>
@@ -324,13 +340,12 @@ namespace DungeonTycoon.Core
             foreach (var step in new[] { new TilePoint(0, -1), new TilePoint(1, 0), new TilePoint(0, 1), new TilePoint(-1, 0) })
             {
                 var candidate = new TilePoint(here.X + step.X, here.Y + step.Y);
-                if (!Map.IsFloor(candidate) || Room(candidate) <= best) continue;
+                if (!Map.IsFloor(candidate) || Room(candidate) <= best || Dangerous(hero, candidate)) continue;
                 best = Room(candidate);
                 choice = candidate;
             }
             if (choice == null) return false;
-            heroTiles[(int)hero.Role] = choice.Value;
-            hero.MoveReady = Ticks + HeroMoveTicks;
+            StepHero(hero, choice.Value);
             return true;
         }
 

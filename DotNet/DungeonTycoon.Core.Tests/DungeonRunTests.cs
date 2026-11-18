@@ -34,7 +34,7 @@ namespace DungeonTycoon.Core.Tests
         }
 
         /// <summary>A goblin on the boss tile is always met near the boss, whatever way the party takes.</summary>
-        internal static DungeonRun RunInCombat(MonsterKind kind = MonsterKind.Goblin)
+        internal static DungeonRun RunInCombat(MonsterKind kind = MonsterKind.Skeleton)
         {
             var run = new DungeonRun();
             run.Place(run.Map.BossTile, kind);
@@ -49,26 +49,26 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = new DungeonRun();
             var tiles = PlaceableTiles(run);
-            Assert.That(run.Place(tiles[0], MonsterKind.Ogre), Is.True);
-            Assert.That(run.Place(tiles[0], MonsterKind.Ogre), Is.True);
-            Assert.That(run.Place(tiles[1], MonsterKind.Ogre), Is.True);
+            Assert.That(run.Place(tiles[0], MonsterKind.Zombie), Is.True);
+            Assert.That(run.Place(tiles[0], MonsterKind.Ghost), Is.True);
+            Assert.That(run.Place(tiles[1], MonsterKind.Skeleton), Is.True);
             Assert.That(run.Budget, Is.Zero);
             Assert.That(run.CountAt(tiles[0]), Is.EqualTo(2));
-            Assert.That(run.CheckPlace(tiles[2], MonsterKind.Goblin), Is.EqualTo(PlacementCheck.OverBudget));
-            Assert.That(run.Place(tiles[2], MonsterKind.Goblin), Is.False);
+            Assert.That(run.CheckPlace(tiles[2], MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.OverBudget));
+            Assert.That(run.Place(tiles[2], MonsterKind.Skeleton), Is.False);
 
             Assert.That(run.Remove(tiles[0]), Is.True);
             Assert.That(run.Budget, Is.EqualTo(2));
             Assert.That(run.CountAt(tiles[0]), Is.EqualTo(1));
-            Assert.That(run.Place(tiles[0], MonsterKind.Goblin), Is.True);
+            Assert.That(run.Place(tiles[0], MonsterKind.Skeleton), Is.True);
             // The most recent monster on a tile comes back first.
             Assert.That(run.Remove(tiles[0]), Is.True);
-            Assert.That(run.Placements.Single(p => p.Tile == tiles[0]).Kind, Is.EqualTo(MonsterKind.Ogre));
+            Assert.That(run.Placements.Single(p => p.Tile == tiles[0]).Kind, Is.EqualTo(MonsterKind.Zombie));
             Assert.That(run.CheckRemove(tiles[2]), Is.EqualTo(PlacementCheck.NothingToRemove));
 
             Assert.That(run.Start(), Is.True);
             Assert.That(run.Start(), Is.False);
-            Assert.That(run.CheckPlace(tiles[2], MonsterKind.Goblin), Is.EqualTo(PlacementCheck.Locked));
+            Assert.That(run.CheckPlace(tiles[2], MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.Locked));
             Assert.That(run.Remove(tiles[0]), Is.False);
             Assert.That(run.Placements.Count, Is.EqualTo(2));
             Assert.That(run.Monsters.Count, Is.EqualTo(3), "two placed monsters and the boss");
@@ -80,9 +80,9 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = new DungeonRun();
             var map = run.Map;
-            Assert.That(run.CheckPlace(new TilePoint(0, 0), MonsterKind.Goblin), Is.EqualTo(PlacementCheck.NotFloor));
-            Assert.That(run.CheckPlace(new TilePoint(-1, 3), MonsterKind.Goblin), Is.EqualTo(PlacementCheck.NotFloor));
-            Assert.That(run.CheckPlace(map.Entrance, MonsterKind.Goblin), Is.EqualTo(PlacementCheck.NearEntrance));
+            Assert.That(run.CheckPlace(new TilePoint(0, 0), MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.NotFloor));
+            Assert.That(run.CheckPlace(new TilePoint(-1, 3), MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.NotFloor));
+            Assert.That(run.CheckPlace(map.Entrance, MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.NearEntrance));
             Assert.That(run.CheckPlace(PlaceableTiles(run)[0], MonsterKind.None), Is.EqualTo(PlacementCheck.InvalidKind));
 
             for (int y = 0; y < map.Height; y++)
@@ -92,9 +92,9 @@ namespace DungeonTycoon.Core.Tests
                 int distance = map.WalkDistance(tile);
                 if (distance < 0) continue;
                 var expected = distance <= DungeonRun.EntranceClearance ? PlacementCheck.NearEntrance : PlacementCheck.Allowed;
-                Assert.That(run.CheckPlace(tile, MonsterKind.Goblin), Is.EqualTo(expected), tile.ToString());
+                Assert.That(run.CheckPlace(tile, MonsterKind.Skeleton), Is.EqualTo(expected), tile.ToString());
             }
-            Assert.That(run.CheckPlace(map.BossTile, MonsterKind.Ogre), Is.EqualTo(PlacementCheck.Allowed));
+            Assert.That(run.CheckPlace(map.BossTile, MonsterKind.Zombie), Is.EqualTo(PlacementCheck.Allowed));
         }
 
         [Test]
@@ -212,7 +212,7 @@ namespace DungeonTycoon.Core.Tests
             List<string> Play(int ticksPerFrame)
             {
                 var run = new DungeonRun(seed: 5);
-                foreach (var tile in TrainingGrounds[0]) run.Place(tile, MonsterKind.Goblin);
+                foreach (var tile in TrainingGrounds[0]) run.Place(tile, MonsterKind.Skeleton);
                 run.Start();
                 bool trialDone = false, blessDone = false;
                 for (int frame = 0; frame < 20000 && run.Stage == 1 && InDungeon(run); frame++)
@@ -289,7 +289,7 @@ namespace DungeonTycoon.Core.Tests
                     }
                     if (placeMonsters)
                         foreach (var tile in TrainingGrounds[run.Stage - 1])
-                            Assert.That(run.Place(tile, MonsterKind.Goblin), Is.True, tile.ToString());
+                            Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True, tile.ToString());
                     run.Start();
                 }
                 // Spend one trial while exploring and save one for the stage boss.
@@ -328,8 +328,8 @@ namespace DungeonTycoon.Core.Tests
             {
                 var run = new DungeonRun(seed: 7);
                 var tiles = PlaceableTiles(run);
-                run.Place(tiles[tiles.Count / 3], MonsterKind.Goblin);
-                run.Place(tiles[tiles.Count / 2], MonsterKind.Ogre);
+                run.Place(tiles[tiles.Count / 3], MonsterKind.Skeleton);
+                run.Place(tiles[tiles.Count / 2], MonsterKind.Zombie);
                 run.Start();
                 Drive(run, () => !InDungeon(run));
                 return run.Log.ToList();

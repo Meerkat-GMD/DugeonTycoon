@@ -93,11 +93,11 @@ namespace DungeonTycoon.Core
         };
 
         /// <summary>Percent chance that a goblin drops something; always common. Balance value.</summary>
-        public const int GoblinDropPercent = 20;
+        public const int SkeletonDropPercent = 20;
         /// <summary>Percent chance that an ogre drops something. Balance value.</summary>
-        public const int OgreDropPercent = 45;
+        public const int ZombieDropPercent = 45;
         /// <summary>Percent of an ogre's drops that are rare. Balance value.</summary>
-        public const int OgreRarePercent = 25;
+        public const int ZombieRarePercent = 25;
 
         public static Equipment Find(string name) => Common.Concat(Rare).FirstOrDefault(item => item.Name == name);
 
@@ -109,14 +109,14 @@ namespace DungeonTycoon.Core
         {
             EquipmentGrade grade;
             if (monster.IsBoss) grade = EquipmentGrade.Rare;
-            else if (monster.Kind == MonsterKind.Ogre)
+            else if (monster.Kind == MonsterKind.Zombie)
             {
-                if (dice.Next(100) >= OgreDropPercent) return null;
-                grade = dice.Next(100) < OgreRarePercent ? EquipmentGrade.Rare : EquipmentGrade.Common;
+                if (dice.Next(100) >= ZombieDropPercent) return null;
+                grade = dice.Next(100) < ZombieRarePercent ? EquipmentGrade.Rare : EquipmentGrade.Common;
             }
             else
             {
-                if (dice.Next(100) >= GoblinDropPercent) return null;
+                if (dice.Next(100) >= SkeletonDropPercent) return null;
                 grade = EquipmentGrade.Common;
             }
             var pool = grade == EquipmentGrade.Rare ? Rare : Common;
