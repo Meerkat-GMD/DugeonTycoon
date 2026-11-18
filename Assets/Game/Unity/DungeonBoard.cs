@@ -75,6 +75,10 @@ namespace DungeonTycoon.Unity
         private Transform chestPrototype, openChestPrototype, springPrototype, drySpringPrototype, haloPrototype;
         private bool planningView = true;
         private readonly Transform[] heroes = new Transform[4];
+        private readonly Animator[] heroAnimators = new Animator[4];
+        private static readonly string[] HeroModels = { "Lion", "Rabbit", "Bear", "Crow" };
+        private static readonly string[] HeroActions = { "Block", "Heal", "Slash", "Shoot" };
+        private static readonly int IdleParameter = Animator.StringToHash("PreviewIdle");
         private readonly Vector3[] heroGoals = new Vector3[4];
         private readonly float[] heroLungeAt = { -1000, -1000, -1000, -1000 };
         private readonly Vector3[] heroLungeDirection = new Vector3[4];
@@ -231,8 +235,17 @@ namespace DungeonTycoon.Unity
             haloPrototype = Draw("순회조 표시", halo, meshes, stock.transform);
             for (int i = 0; i < heroes.Length; i++)
             {
-                heroes[i] = Draw(new[] {"탱커","힐러","근딜","원딜"}[i], DungeonFigures.Hero(i), meshes);
+                var stand = new DungeonMesh();
+                DungeonFigures.Stand(stand, .78f, Finish.Teal);
+                heroes[i] = Draw(new[] {"탱커","힐러","근딜","원딜"}[i], stand, meshes);
                 heroes[i].gameObject.AddComponent<HeroView>().SetRole((HeroRole)i);
+                var prefab = Resources.Load<GameObject>("MainCharacters/" + HeroModels[i]);
+                var model = Instantiate(prefab, heroes[i], false);
+                model.transform.localPosition = Vector3.up * .14f;
+                model.transform.localRotation = Quaternion.Euler(0, 180, 0);
+                heroAnimators[i] = model.GetComponentInChildren<Animator>();
+                heroAnimators[i].applyRootMotion = false;
+                heroAnimators[i].SetBool(IdleParameter, true);
             }
             CreateFeedback(stock.transform);
         }
@@ -797,6 +810,9 @@ namespace DungeonTycoon.Unity
                 }
                 if (e.FromHero && (e.Source < 0 || e.Source >= heroes.Length)) continue;
                 if (!e.FromHero && (e.Source < 0 || e.Source >= foes.Count)) continue;
+                if (e.FromHero && (e.Kind == CombatEventKind.Attack || e.Kind == CombatEventKind.Heal ||
+                                   e.Kind == CombatEventKind.Taunt))
+                    heroAnimators[e.Source].SetTrigger(HeroActions[e.Source]);
                 Vector3 to = e.ToHero
                     ? (e.Target >= 0 && e.Target < heroes.Length ? heroes[e.Target].localPosition : Vector3.zero)
                     : (e.Target >= 0 && e.Target < foes.Count ? foes[e.Target].Body.localPosition : Vector3.zero);
@@ -950,6 +966,7 @@ namespace DungeonTycoon.Unity
                 Transform hero = heroes[i];
                 if (!living[i])
                 {
+                    heroAnimators[i].speed = 0;
                     var fallen = Quaternion.Euler(0,hero.localEulerAngles.y,0)*Quaternion.Euler(4,0,77);
                     hero.localRotation = Quaternion.RotateTowards(hero.localRotation,fallen,Time.deltaTime*220);
                     continue;
@@ -959,6 +976,8 @@ namespace DungeonTycoon.Unity
                 Vector3 toward = goal-hero.localPosition;
                 toward.y = 0;
                 float travel = toward.magnitude;
+                heroAnimators[i].speed = 1;
+                heroAnimators[i].SetBool(IdleParameter, travel <= .05f);
                 float beat = Mathf.Sin(Time.time*12f + i*1.47f);
                 float lunge = Pulse(heroLungeAt[i], LungeSeconds);
                 float hop = i == (int)HeroRole.Tank ? Pulse(tauntAt, .45f) : 0;
