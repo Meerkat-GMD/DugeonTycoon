@@ -190,6 +190,102 @@ namespace DungeonTycoon.Core
             }
         }
 
+        /// <summary>The mark above a hero who grumbles through a fork debate.</summary>
+        public const string Grumbles = "투덜";
+
+        /// <summary>A worn-out hero's sour argument for the way they still pick as usual. Every label ends in "길".</summary>
+        public static string GrumbleOpinion(Voice voice, string way, bool exhausted)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return exhausted ? $"아 진짜, 언제까지 걸을 건데? {way}로 가든가." : $"또 갈림길이야? 짜증 나네. {way}로 가.";
+                case Voice.Careful: return exhausted ? $"…더는 못 걷겠어요. {way}… 아무 데나요." : $"이렇게 헤매다 다 쓰러지겠어요. 그냥 {way}로 가요.";
+                case Voice.Curious: return exhausted ? $"구경이고 뭐고 다 귀찮아. {way}로 가." : $"길 고르는 것도 지겹다. {way}이면 되겠지.";
+                default: return exhausted ? $"발이 안 떨어져. {way}든 어디든 빨리 정해." : $"또 헤매는 거야? {way}로 가자, 이제.";
+            }
+        }
+
+        /// <summary>A grumbling hero's sour answer to the oracle, whether or not it points their way.</summary>
+        public static string OracleGrumble(Voice voice, bool agrees)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return agrees ? "그래, 그쪽으로 가지 뭐. 빨리 끝내자." : "지금 와서 계시? 됐어, 내 길로 가.";
+                case Voice.Careful: return agrees ? "계시든 뭐든… 쉴 수만 있으면 좋겠어요." : "신께서 직접 걸어 보시라죠… 전 싫어요.";
+                default: return agrees ? "이제야 알려 주시나. 진작 좀 해 주지." : "헤매는 동안엔 조용하더니, 이제 와서?";
+            }
+        }
+
+        /// <summary>A grumbling hero's cry as a fight starts.</summary>
+        public static string GrumbleBattleCry(Voice voice)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return "하필 지금이야? 귀찮게 하네!";
+                case Voice.Careful: return "또 싸워요…? 다리가 후들거려요.";
+                case Voice.Curious: return "적이라니, 하나도 안 반갑다.";
+                default: return "쉬지도 못하고 또 싸움이냐.";
+            }
+        }
+
+        /// <summary>What a grumbling hero says when a new battle plan comes. They still follow it.</summary>
+        public static string GrumbleTactic(Voice voice)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return "알았어, 한다고. 빨리 끝내자.";
+                case Voice.Careful: return "하라는 대로 할게요… 힘들지만요.";
+                case Voice.Curious: return "작전이고 뭐고, 그냥 끝내자.";
+                default: return "으휴, 이번엔 또 뭐야.";
+            }
+        }
+
+        /// <summary>A grumbling hero's declaration against an adversity.</summary>
+        public static string GrumbleDeclaration(Voice voice)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return "돌까지 떨어지냐? 내가 막는다, 막아!";
+                case Voice.Careful: return "왜 하필 지금… 제가 할게요, 해 볼게요.";
+                case Voice.Curious: return "천장까지 무너지네. 오늘 운 최악이다.";
+                default: return "정말 끝이 없구나. 내가 해 볼게.";
+            }
+        }
+
+        /// <summary>What a grumbling hero says once the adversity is over.</summary>
+        public static string GrumbleReaction(Voice voice, bool success)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return success ? "됐지? 이제 좀 쉬자고." : "젠장… 오늘은 되는 게 없어.";
+                case Voice.Careful: return success ? "겨우 넘겼어요… 더는 무리예요." : "아파요… 이럴 줄 알았어요.";
+                default: return success ? "넘기긴 했는데, 하나도 안 기뻐." : "역시나. 지친 날엔 다 꼬여.";
+            }
+        }
+
+        /// <summary>A grumbling hero turns down every piece of armour in the scene.</summary>
+        public static string GrumblePass(Voice voice)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return "갑옷 갈아입을 기운도 없어. 패스.";
+                case Voice.Careful: return "무거운 건 더는 못 들어요… 다른 분 주세요.";
+                case Voice.Curious: return "지금은 뭘 봐도 감흥이 없어. 아무나 가져가.";
+                default: return "귀찮아. 아무나 가져가.";
+            }
+        }
+
+        /// <summary>A grumbling hero turns down the prayer, blaming the god for the wandering.</summary>
+        public static string GrumbleRefusal(Voice voice)
+        {
+            switch (voice)
+            {
+                case Voice.Bold: return "신이고 뭐고, 이렇게 헤매게 둔 게 누군데.";
+                case Voice.Careful: return "…이렇게 지쳤는데, 기도할 힘도 없어요.";
+                default: return "기도해 봤자 길이 줄어들진 않잖아.";
+            }
+        }
+
         public const string LootRollTitle = "전리품 주사위 — d20";
         public const string LootRerollTitle = "다시 굴림 — d20";
         public const string Wants = "원함";

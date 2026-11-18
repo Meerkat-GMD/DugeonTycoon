@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DungeonTycoon.Core
 {
@@ -9,7 +11,7 @@ namespace DungeonTycoon.Core
     /// Travel fatigue: the price of getting lost. Only the leader's steps while exploring count, so fights, fork
     /// debates, adversities, loot sharing and waiting for a revive never tire the party. The thresholds come from
     /// the stage's shortest entrance-to-boss walk, so a party that heads straight for the boss stays rested and
-    /// only one that wanders into dead ends pays for it. Nothing here rolls dice.
+    /// only one that wanders into dead ends pays for it. Only grumbling rolls dice, on dice of its own.
     /// </summary>
     public sealed partial class DungeonRun
     {
@@ -69,6 +71,36 @@ namespace DungeonTycoon.Core
             var before = Fatigue;
             FatigueSteps = Math.Max(0, FatigueSteps - steps);
             LogFatigueChange(before);
+        }
+
+        /// <summary>Percent chance that a hero grumbles through a scene while the party is tired. Balance value.</summary>
+        public const int TiredGrumblePercent = 35;
+        /// <summary>Percent chance that a hero grumbles through a scene while the party is exhausted. Balance value.</summary>
+        public const int ExhaustedGrumblePercent = 70;
+
+        /// <summary>How likely each hero is to grumble through the next fork, loot sharing or prayer, in percent.</summary>
+        public int GrumbleChance =>
+            Fatigue == FatigueStage.Exhausted ? ExhaustedGrumblePercent :
+            Fatigue == FatigueStage.Tired ? TiredGrumblePercent : 0;
+
+        /// <summary>Tests pin who grumbles. Only asked while the chance is above zero, so a rested party never grumbles.</summary>
+        internal Func<HeroRole, bool> GrumbleOverride { get; set; }
+
+        /// <summary>
+        /// Rolls, once per scene, which of these heroes are worn out enough to answer negatively: they complain,
+        /// back no oracle against their own way, pass on the armour and refuse to pray. A rested party rolls nothing.
+        /// </summary>
+        private IReadOnlyList<HeroRole> RollGrumblers(IEnumerable<HeroRole> heroes)
+        {
+            int chance = GrumbleChance;
+            var grumblers = new List<HeroRole>();
+            if (chance <= 0) return grumblers.AsReadOnly();
+            foreach (var role in heroes)
+                if (GrumbleOverride?.Invoke(role) ?? moodDice.Next(100) < chance) grumblers.Add(role);
+            if (grumblers.Count > 0)
+                log.Add($"피로 • {HeroTraits.Subject(string.Join(", ", grumblers.Select(role => party[(int)role].Name)))} " +
+                        $"지쳐서 투덜댄다 (확률 {chance}%)");
+            return grumblers.AsReadOnly();
         }
 
         /// <summary>Attack the current fatigue takes off every hero's blow.</summary>

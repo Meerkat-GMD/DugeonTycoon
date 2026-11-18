@@ -115,6 +115,7 @@ namespace DungeonTycoon.Core
             {
                 Phase = RunPhase.Travel;
                 Array.Clear(tactics, 0, tactics.Length);
+                combatGrumblers = new HeroRole[0];
                 ClearCasts();
                 Regroup();
                 int hp = party.Sum(h => h.Hp), max = party.Sum(h => h.MaxHp);
@@ -130,11 +131,20 @@ namespace DungeonTycoon.Core
             Array.Clear(tactics, 0, tactics.Length);
         }
 
+        /// <summary>Heroes too worn out to sound keen in the fight going on now. Their actions do not change.</summary>
+        private IReadOnlyList<HeroRole> combatGrumblers = new HeroRole[0];
+
         private void SetBattleCries()
         {
+            combatGrumblers = RollGrumblers(party.Where(h => h.Hp > 0).Select(h => h.Role));
             foreach (var hero in party)
             {
                 if (hero.Hp == 0) continue;
+                if (combatGrumblers.Contains(hero.Role))
+                {
+                    hero.LastLine = DialogueLines.GrumbleBattleCry(hero.Voice);
+                    continue;
+                }
                 switch (hero.Role)
                 {
                     case HeroRole.Tank: hero.LastLine = "내 뒤로 붙어!"; break;
@@ -444,7 +454,8 @@ namespace DungeonTycoon.Core
                 bool protectOk = tactic.Protect < 0 || (tactic.Protect < party.Length && party[tactic.Protect].Hp > 0);
                 if (hero.Hp == 0 || !focusOk || !protectOk || string.IsNullOrWhiteSpace(tactic.Line)) continue;
                 tactics[(int)tactic.Role] = tactic;
-                hero.LastLine = tactic.Line;
+                // A worn-out hero follows the plan but grumbles about it.
+                hero.LastLine = combatGrumblers.Contains(hero.Role) ? DialogueLines.GrumbleTactic(hero.Voice) : tactic.Line;
             }
             return true;
         }

@@ -37,6 +37,8 @@ namespace DungeonTycoon.Core
         /// wandering, forks and adversities.
         /// </summary>
         private readonly Random lootDice;
+        /// <summary>Grumbling has its own seeded dice too, so a tired party never shifts the other rolls.</summary>
+        private readonly Random moodDice;
         private int nextTrialToken;
         private int pendingTrial;
 
@@ -45,6 +47,7 @@ namespace DungeonTycoon.Core
             Seed = seed;
             dice = new Random(seed);
             lootDice = new Random(unchecked(seed * 31 + 7));
+            moodDice = new Random(unchecked(seed * 37 + 11));
             Placements = placements.AsReadOnly();
             Monsters = monsters.AsReadOnly();
             Party = Array.AsReadOnly(party);
@@ -325,7 +328,10 @@ namespace DungeonTycoon.Core
                 case HeroRole.MeleeDamage: fallback = "바위를 쳐내겠다!"; break;
                 default: fallback = "바위가 떨어지기 전에 피하자!"; break;
             }
-            actor.LastLine = string.IsNullOrWhiteSpace(declaration) ? fallback : declaration;
+            // A worn-out hero still answers the adversity, but grumbles whatever the AI declared.
+            bool grumbles = RollGrumblers(new[] { actor.Role }).Count > 0;
+            if (grumbles) actor.LastLine = DialogueLines.GrumbleDeclaration(actor.Voice);
+            else actor.LastLine = string.IsNullOrWhiteSpace(declaration) ? fallback : declaration;
             string outcome = success ? "성공 • 경험치 +1 / 신앙 +1" : $"실패 • 체력 -{TrialDamage}";
             LastTrial = $"{actor.Name} “{actor.LastLine}”\nd20 [{roll}] + {ability} {modifier} = {roll + modifier} / 난이도 {TrialDifficulty} → {outcome}";
             log.Add(LastTrial);
@@ -347,7 +353,7 @@ namespace DungeonTycoon.Core
             };
             if (actor.Hp > 0)
             {
-                string reaction = DialogueLines.Reaction(actor.Role, success);
+                string reaction = grumbles ? DialogueLines.GrumbleReaction(actor.Voice, success) : DialogueLines.Reaction(actor.Role, success);
                 scene.Add(DialogueBeat.Line(actor.Role, reaction));
                 log.Add($"{actor.Name} “{reaction}”");
             }

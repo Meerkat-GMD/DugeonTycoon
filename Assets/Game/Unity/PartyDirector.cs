@@ -380,7 +380,8 @@ namespace DungeonTycoon.Unity
         public async UniTask<PrayerProposal> PrayAsync(DungeonRun run, PrayerRequest prayer, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            if (!Online || prayer == null) return null;
+            // A grumbling hero refuses whatever the AI would say, so there is nothing to ask.
+            if (!Online || prayer == null || prayer.Grumbling) return null;
             var answer = await RequestAsync<PrayerReply>(run, PrayerPrompt, token, DescribePrayer(run, prayer));
             if (answer == null) return null;
             if (answer.pray == "no") return new PrayerProposal(false, "");

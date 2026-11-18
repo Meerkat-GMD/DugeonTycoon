@@ -26,13 +26,18 @@ namespace DungeonTycoon.Core
     public sealed class LootDistribution
     {
         internal LootDistribution(int token, IReadOnlyList<Equipment> items, IReadOnlyList<HeroRole> heroes,
-            IReadOnlyList<LootWish> local)
+            IReadOnlyList<LootWish> local, IReadOnlyList<HeroRole> grumbling)
         {
             Token = token;
             Items = items;
             Heroes = heroes;
             LocalWishes = local;
+            Grumbling = grumbling;
         }
+
+        /// <summary>The heroes too worn out to care: they pass on every piece of this armour.</summary>
+        public IReadOnlyList<HeroRole> Grumbling { get; }
+        public bool Grumbles(HeroRole role) => Grumbling.Contains(role);
 
         public int Token { get; }
         /// <summary>The armour, in the order it dropped.</summary>
@@ -152,21 +157,28 @@ namespace DungeonTycoon.Core
             }
             else
             {
+                log.Add("전리품 분배 • 용사들이 " + HeroTraits.Particle(string.Join(", ", armour.Select(item => item.Name)), "을", "를") +
+                        " 누가 입을지 의논합니다.");
+                var grumbling = RollGrumblers(standing);
                 var local = new List<LootWish>();
                 for (int i = 0; i < armour.Count; i++)
                 {
                     int index = i;
-                    local.AddRange(TraitWishes(armour[i], i, standing, role => LocalWish(party[(int)role], armour[index], index)));
+                    local.AddRange(TraitWishes(armour[i], i, standing, grumbling,
+                        role => LocalWish(party[(int)role], armour[index], index, grumbling.Contains(role))));
                 }
-                PendingLoot = new LootDistribution(++nextLootToken, armour.AsReadOnly(), standing.AsReadOnly(), local.AsReadOnly());
-                log.Add("전리품 분배 • 용사들이 " + HeroTraits.Particle(string.Join(", ", armour.Select(item => item.Name)), "을", "를") +
-                        " 누가 입을지 의논합니다.");
+                PendingLoot = new LootDistribution(++nextLootToken, armour.AsReadOnly(), standing.AsReadOnly(), local.AsReadOnly(),
+                    grumbling);
             }
         }
 
-        /// <summary>A hero wants armour that is better than what they wear. A greedy hero wants it anyway.</summary>
-        public LootWish LocalWish(HeroState hero, Equipment item, int index)
+        /// <summary>
+        /// A hero wants armour that is better than what they wear. A greedy hero wants it anyway. A grumbling hero
+        /// wants nothing.
+        /// </summary>
+        public LootWish LocalWish(HeroState hero, Equipment item, int index, bool grumbling = false)
         {
+            if (grumbling) return new LootWish(hero.Role, index, false, DialogueLines.GrumblePass(hero.Voice));
             bool better = Gain(hero, item) > 0;
             if (hero.Personality == PersonalityTrait.Greedy)
                 return new LootWish(hero.Role, index, true, DialogueLines.GreedyBid(better));
@@ -181,15 +193,19 @@ namespace DungeonTycoon.Core
         /// so the same situation always ends in the same bids. A greedy hero always bids; worse armour still drops
         /// them from the roll. A generous hero passes when another standing hero bids validly and gains more. Who
         /// bids is judged on the first answers, so two generous heroes never both step back for each other.
+        /// Grumbling comes before all of it: a worn-out hero passes, greedy or not, whatever the AI said.
         /// </summary>
-        private List<LootWish> TraitWishes(Equipment item, int index, IReadOnlyList<HeroRole> heroes, Func<HeroRole, LootWish> first)
+        private List<LootWish> TraitWishes(Equipment item, int index, IReadOnlyList<HeroRole> heroes,
+            IReadOnlyList<HeroRole> grumbling, Func<HeroRole, LootWish> first)
         {
             var wishes = new List<LootWish>();
             foreach (var role in heroes)
             {
                 var hero = party[(int)role];
                 var wish = first(role);
-                if (hero.Personality == PersonalityTrait.Greedy && !wish.Wants)
+                if (grumbling.Contains(role))
+                    wish = new LootWish(role, index, false, DialogueLines.GrumblePass(hero.Voice));
+                else if (hero.Personality == PersonalityTrait.Greedy && !wish.Wants)
                     wish = new LootWish(role, index, true, DialogueLines.GreedyBid(Gain(hero, item) > 0));
                 wishes.Add(wish);
             }
@@ -227,11 +243,11 @@ namespace DungeonTycoon.Core
                 scene.Add(DialogueBeat.Narration($"{HeroTraits.Particle(item.Name, "을", "를")} 얻었다.", item));
                 var wanting = new List<HeroRole>();
                 int index = i;
-                var decided = TraitWishes(item, i, loot.Heroes, role =>
+                var decided = TraitWishes(item, i, loot.Heroes, loot.Grumbling, role =>
                 {
                     var proposal = wishes?.FirstOrDefault(w => w != null && w.Role == role && w.Item == index);
                     return proposal != null && !string.IsNullOrWhiteSpace(proposal.Line)
-                        ? proposal : LocalWish(party[(int)role], item, index);
+                        ? proposal : LocalWish(party[(int)role], item, index, loot.Grumbles(role));
                 });
                 foreach (var wish in decided)
                 {

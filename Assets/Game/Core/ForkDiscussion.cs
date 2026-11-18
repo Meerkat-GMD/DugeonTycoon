@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DungeonTycoon.Core
 {
@@ -51,13 +52,19 @@ namespace DungeonTycoon.Core
 
     public sealed class ForkDiscussion
     {
-        internal ForkDiscussion(int token, bool backtracking, IReadOnlyList<ForkOption> options, IReadOnlyList<ForkOpinion> local)
+        internal ForkDiscussion(int token, bool backtracking, IReadOnlyList<ForkOption> options, IReadOnlyList<ForkOpinion> local,
+            IReadOnlyList<HeroRole> grumbling)
         {
             Token = token;
             Backtracking = backtracking;
             Options = options;
             LocalOpinions = local;
+            Grumbling = grumbling;
         }
+
+        /// <summary>The heroes too worn out to argue nicely at this fork: they complain and back no oracle against their way.</summary>
+        public IReadOnlyList<HeroRole> Grumbling { get; }
+        public bool Grumbles(HeroRole role) => Grumbling.Contains(role);
 
         public int Token { get; }
         /// <summary>True when the party stands at a dead end and chooses which skipped way to return to.</summary>

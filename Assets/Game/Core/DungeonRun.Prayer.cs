@@ -26,15 +26,18 @@ namespace DungeonTycoon.Core
     /// <summary>A desperate hero the party is waiting on. The dungeon is frozen until it is settled.</summary>
     public sealed class PrayerRequest
     {
-        internal PrayerRequest(int token, HeroRole role, PrayerProposal local)
+        internal PrayerRequest(int token, HeroRole role, PrayerProposal local, bool grumbling)
         {
             Token = token;
             Role = role;
             Local = local;
+            Grumbling = grumbling;
         }
 
         public int Token { get; }
         public HeroRole Role { get; }
+        /// <summary>The hero is too worn out to pray: they refuse whatever the AI says.</summary>
+        public bool Grumbling { get; }
         /// <summary>What the hero does without an AI response.</summary>
         public PrayerProposal Local { get; }
         /// <summary>The hero chose to pray and now waits for the GM's answer.</summary>
@@ -144,11 +147,13 @@ namespace DungeonTycoon.Core
             if (prayer == null || token != prayer.Token || prayer.Praying) return null;
             var hero = party[(int)prayer.Role];
             var choice = proposal != null && (!proposal.Prays || !string.IsNullOrWhiteSpace(proposal.Line)) ? proposal : prayer.Local;
-            // The trait decides, not the AI: a skeptic never prays.
-            if (hero.Personality == PersonalityTrait.Skeptic) choice = prayer.Local;
+            // The trait and the fatigue decide, not the AI: a skeptic or a grumbling hero never prays.
+            if (hero.Personality == PersonalityTrait.Skeptic || prayer.Grumbling) choice = prayer.Local;
             if (!choice.Prays)
             {
-                prayer.Line = DialogueLines.PrayerRefusal(hero.Personality);
+                prayer.Line = prayer.Grumbling && hero.Personality != PersonalityTrait.Skeptic
+                    ? DialogueLines.GrumbleRefusal(hero.Voice)
+                    : DialogueLines.PrayerRefusal(hero.Personality);
                 hero.LastLine = prayer.Line;
                 prayerHolds[(int)hero.Role] = Phase == RunPhase.Combat ? PrayerHold.UntilCombatEnds : PrayerHold.UntilNextFork;
                 log.Add($"기도 거절 • {hero.Name} “{prayer.Line}”");
@@ -220,10 +225,11 @@ namespace DungeonTycoon.Core
                 if (chosen == null || hero.Hp * chosen.MaxHp < chosen.Hp * hero.MaxHp) chosen = hero;
             }
             if (chosen == null) return;
-            bool prays = chosen.Personality != PersonalityTrait.Skeptic;
-            var local = new PrayerProposal(prays, DialogueLines.Prayer(chosen.Voice));
-            PendingPrayer = new PrayerRequest(++nextPrayerToken, chosen.Role, local);
             log.Add($"절망 • {chosen.Name} 체력 {chosen.Hp} / {chosen.MaxHp} — 신에게 기도할지 망설인다.");
+            bool grumbling = RollGrumblers(new[] { chosen.Role }).Count > 0;
+            bool prays = chosen.Personality != PersonalityTrait.Skeptic && !grumbling;
+            var local = new PrayerProposal(prays, DialogueLines.Prayer(chosen.Voice));
+            PendingPrayer = new PrayerRequest(++nextPrayerToken, chosen.Role, local, grumbling);
         }
 
         /// <summary>Heroes who refused to pray may be asked again once their hold is over.</summary>

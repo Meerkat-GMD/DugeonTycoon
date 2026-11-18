@@ -294,15 +294,16 @@ namespace DungeonTycoon.Core
                 fromEntrance.TryGetValue(ways[i].Path[ways[i].Path.Count - 1], out int depth);
                 options.Add(new ForkOption(i, label, ways[i].Path, ways[i].Tiles, seenMonsters, depth));
             }
+            log.Add((backtracking ? "막다른 길 • 어디로 되돌아갈지 논의합니다: " : "갈림길 • 용사들이 길을 논의합니다: ") +
+                    string.Join(" / ", options.Select(option => option.Label)));
+            var grumbling = RollGrumblers(MarchOrder.Where(role => party[(int)role].Hp > 0));
             var local = new List<ForkOpinion>();
             foreach (var role in MarchOrder)
             {
                 var hero = party[(int)role];
-                if (hero.Hp > 0) local.Add(LocalOpinion(hero, options));
+                if (hero.Hp > 0) local.Add(LocalOpinion(hero, options, grumbling.Contains(role)));
             }
-            PendingFork = new ForkDiscussion(++nextForkToken, backtracking, options, local);
-            log.Add((backtracking ? "막다른 길 • 어디로 되돌아갈지 논의합니다: " : "갈림길 • 용사들이 길을 논의합니다: ") +
-                    string.Join(" / ", options.Select(option => option.Label)));
+            PendingFork = new ForkDiscussion(++nextForkToken, backtracking, options, local, grumbling);
         }
 
         private void CancelFork()
@@ -348,8 +349,11 @@ namespace DungeonTycoon.Core
             return max > 0 && hp * 10 < max * 6;
         }
 
-        /// <summary>What a hero argues for from personality, strength, the visible danger and the party's health.</summary>
-        public ForkOpinion LocalOpinion(HeroState hero, IReadOnlyList<ForkOption> options)
+        /// <summary>
+        /// What a hero argues for from personality, strength, the visible danger and the party's health. A
+        /// grumbling hero argues for the same way, only sourly.
+        /// </summary>
+        public ForkOpinion LocalOpinion(HeroState hero, IReadOnlyList<ForkOption> options, bool grumbling = false)
         {
             bool hurt = PartyHurt();
             int best = 0;
@@ -371,6 +375,7 @@ namespace DungeonTycoon.Core
             // Fatigue colours what the heroes say, never which way they vote.
             var fatigue = Fatigue;
             bool exhausted = fatigue == FatigueStage.Exhausted;
+            if (grumbling) return new ForkOpinion(hero.Role, best, DialogueLines.GrumbleOpinion(hero.Voice, choice.Label, exhausted));
             string line;
             switch (hero.Voice)
             {

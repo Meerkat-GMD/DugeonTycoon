@@ -45,6 +45,10 @@ namespace DungeonTycoon.Core
                 bool valid = proposal != null && proposal.Option >= 0 && proposal.Option < fork.Options.Count &&
                              !string.IsNullOrWhiteSpace(proposal.Line);
                 var opinion = valid ? proposal : local;
+                // Fatigue decides the tone, not the AI: a grumbler keeps the AI's way but always complains.
+                if (valid && fork.Grumbles(local.Role))
+                    opinion = new ForkOpinion(local.Role, proposal.Option, DialogueLines.GrumbleOpinion(
+                        party[(int)local.Role].Voice, fork.Options[proposal.Option].Label, Fatigue == FatigueStage.Exhausted));
                 opinions.Add(opinion);
                 var hero = party[(int)opinion.Role];
                 hero.LastLine = opinion.Line;
@@ -52,7 +56,9 @@ namespace DungeonTycoon.Core
             }
             // The stage shows the debate front to back, the way the party marches.
             fork.Heard = opinions.OrderBy(o => Array.IndexOf(MarchOrder, o.Role)).ToList().AsReadOnly();
-            LastScene = fork.Heard.Select(o => DialogueBeat.Line(o.Role, o.Line)).ToList().AsReadOnly();
+            LastScene = fork.Heard.Select(o => fork.Grumbles(o.Role)
+                ? DialogueBeat.Line(o.Role, o.Line, DialogueLines.Grumbles)
+                : DialogueBeat.Line(o.Role, o.Line)).ToList().AsReadOnly();
             return fork.Heard;
         }
 
@@ -85,8 +91,11 @@ namespace DungeonTycoon.Core
                 foreach (var opinion in opinions)
                 {
                     var hero = party[(int)opinion.Role];
-                    bool accepts = opinion.Option == oracle || hero.Belief == Belief.Firm;
-                    string reaction = DialogueLines.OracleReaction(hero.Voice, accepts);
+                    bool grumbles = fork.Grumbles(hero.Role);
+                    bool agrees = opinion.Option == oracle;
+                    string reaction = grumbles
+                        ? DialogueLines.OracleGrumble(hero.Voice, agrees)
+                        : DialogueLines.OracleReaction(hero.Voice, agrees || hero.Belief == Belief.Firm);
                     hero.LastLine = reaction;
                     scene.Add(DialogueBeat.Line(hero.Role, reaction));
                 }
@@ -94,9 +103,12 @@ namespace DungeonTycoon.Core
             else oracle = -1;
 
             // A hero whose prayer the god answered does not argue with it: they drop their own way and back the
-            // oracle without rolling. A hero the god ignored holds their ground harder against it.
-            bool Yields(ForkOpinion o) => oracle >= 0 && o.Option != oracle && party[(int)o.Role].Belief == Belief.Firm;
-            bool Defies(ForkOpinion o) => oracle >= 0 && o.Option != oracle && party[(int)o.Role].Belief == Belief.Shaken;
+            // oracle without rolling, unless they are too worn out to listen. A hero the god ignored holds their
+            // ground harder against it.
+            bool Against(ForkOpinion o) => oracle >= 0 && o.Option != oracle;
+            bool Firm(ForkOpinion o) => party[(int)o.Role].Belief == Belief.Firm;
+            bool Yields(ForkOpinion o) => Against(o) && Firm(o) && !fork.Grumbles(o.Role);
+            bool Defies(ForkOpinion o) => Against(o) && party[(int)o.Role].Belief == Belief.Shaken;
             int Backs(ForkOpinion o) => Yields(o) ? oracle : o.Option;
             var yielding = opinions.Where(Yields).ToList();
             if (yielding.Count > 0)
@@ -104,6 +116,13 @@ namespace DungeonTycoon.Core
                 string names = string.Join(", ", yielding.Select(o => party[(int)o.Role].Name));
                 scene.Add(DialogueBeat.Narration($"{HeroTraits.Subject(names)} 굳건한 믿음으로 계시를 따른다."));
                 log.Add($"믿음 • {names} 굳건 — 신탁을 따른다");
+            }
+            var sulking = opinions.Where(o => Against(o) && Firm(o) && fork.Grumbles(o.Role)).ToList();
+            if (sulking.Count > 0)
+            {
+                string names = string.Join(", ", sulking.Select(o => party[(int)o.Role].Name));
+                scene.Add(DialogueBeat.Narration($"{HeroTraits.Subject(names)} 믿음이 굳건한데도 지쳐서 계시를 따르지 않는다."));
+                log.Add($"피로 • {names} 굳건하지만 투덜댄다 — 신탁을 따르지 않고 굴린다");
             }
 
             int chosen;

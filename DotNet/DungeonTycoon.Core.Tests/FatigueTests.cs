@@ -298,6 +298,8 @@ namespace DungeonTycoon.Core.Tests
                 var run = new DungeonRun();
                 run.Start();
                 run.SetFatigueSteps(steps(run));
+                // Grumbling has its own lines; this test is about the calm ones.
+                run.GrumbleOverride = _ => false;
                 Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
                 Assert.That(run.Fatigue, Is.EqualTo(expected));
                 return run.PendingFork;
