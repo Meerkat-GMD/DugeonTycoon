@@ -154,7 +154,8 @@ namespace DungeonTycoon.Core
             for (int i = 0; i < placements.Count; i++) monsters.Add(CreateMonster(i, placements[i].Kind, placements[i].Tile));
             monsters.Add(CreateBoss());
             foreach (var monster in monsters) monster.WanderWait = 5 + dice.Next(0, 20);
-            foreach (var hero in party) hero.MoveReady = hero.ActReady = hero.TauntReady = 0;
+            foreach (var hero in party) hero.MoveReady = hero.ActReady = 0;
+            ResetSkills();
             Phase = RunPhase.Travel;
             log.Add($"{Stage} 스테이지 출발 • 용사들이 던전에 들어섰습니다.");
             Reveal();
@@ -182,7 +183,7 @@ namespace DungeonTycoon.Core
                 foreach (var role in MarchOrder)
                     if (Phase == RunPhase.Combat && party[(int)role].Hp > 0) HeroCombatTick(party[(int)role]);
             }
-            else if (Phase == RunPhase.Travel) ExploreTick();
+            else if (Phase == RunPhase.Travel && !ReviveOnTheMarch()) ExploreTick();
             if (!InDungeon) return true;
             Reveal();
             foreach (var monster in monsters)
@@ -340,6 +341,7 @@ namespace DungeonTycoon.Core
                 return;
             }
             Stage++;
+            ReviveUsed = false;
             placements.Clear();
             monsters.Clear();
             LoadMap(DungeonMap.ForStage(Stage));
