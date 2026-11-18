@@ -10,7 +10,8 @@ namespace DungeonTycoon.Unity
         internal const float WallHeight = .95f;
 
         /// <summary>Floor, walls and props for a stage. Positions come from <paramref name="center"/>.</summary>
-        internal static DungeonMesh Dungeon(DungeonMap map, float tile, Func<TilePoint, Vector3> center)
+        internal static DungeonMesh Dungeon(DungeonMap map, float tile, Func<TilePoint, Vector3> center,
+            bool includeGate, out Vector3 gatePosition)
         {
             var m = new DungeonMesh();
             int bossLeft = int.MaxValue, bossRight = int.MinValue, bossTop = int.MaxValue, bossBottom = int.MinValue;
@@ -55,8 +56,8 @@ namespace DungeonTycoon.Unity
                 DungeonFigures.Jewel(m,px,.42f,pz,.18f,.32f,Finish.Mint);
             }
 
-            var throne = center(new TilePoint(map.BossTile.X,bossTop));
-            Gate(m,throne.x,throne.z+tile*.25f);
+            gatePosition = center(new TilePoint(map.BossTile.X,bossTop)) + Vector3.forward * (tile * .25f);
+            if (includeGate) Gate(m,gatePosition.x,gatePosition.z);
             var nearLeft = center(new TilePoint(bossLeft,bossBottom));
             var nearRight = center(new TilePoint(bossRight,bossBottom));
             Torch(m,nearLeft.x,nearLeft.z,.63f);
