@@ -822,7 +822,13 @@
 
 .hud .summary-title {
     font-size: 17px;
-    -unity-font-style: bold;
+}
+
+.hud .tab-bar .tab,
+.hud .tab-bar .stat-value,
+.hud .tab-bar .primary,
+.hud .summary-title {
+    -unity-font-style: normal;
 }
 
 .hud .summary-detail {
