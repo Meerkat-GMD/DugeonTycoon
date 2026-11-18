@@ -40,6 +40,7 @@ namespace DungeonTycoon.Unity
                 // Dark wall caps keep rooms readable against the lighter flagstones from above.
                 m.Box(c.x,WallHeight*.5f-.05f,c.z,tile,WallHeight,tile,Finish.Basalt);
                 m.Box(c.x,WallHeight-.03f,c.z,tile-.06f,.08f,tile-.06f,variation%4 == 0 ? Finish.Basalt : Finish.Ink);
+                WallCoping(m,map,point,c,tile);
                 // Sconces hang on walls that face the viewer across an open floor.
                 if (map.IsFloor(new TilePoint(x,y+1)) && variation%6 == 1)
                     Sconce(m,c.x,c.z-tile*.5f);
@@ -62,6 +63,25 @@ namespace DungeonTycoon.Unity
             Torch(m,nearLeft.x,nearLeft.z,.63f);
             Torch(m,nearRight.x,nearRight.z,.63f);
             return m;
+        }
+
+        // A pale stone lip follows the room-facing edge, including on foreground walls
+        // where the camera sees the cap but hides the vertical face.
+        private static void WallCoping(DungeonMesh m, DungeonMap map, TilePoint p, Vector3 c, float tile)
+        {
+            float width = tile*.1f, offset = (tile-width)*.5f;
+            float y = WallHeight+.02f;
+            bool north = map.IsFloor(new TilePoint(p.X,p.Y-1));
+            bool south = map.IsFloor(new TilePoint(p.X,p.Y+1));
+            if (north) m.Box(c.x,y,c.z+offset,tile,.06f,width,Finish.Ash);
+            if (south) m.Box(c.x,y,c.z-offset,tile,.06f,width,Finish.Ash);
+
+            float start = c.z-tile*.5f+(south ? width : 0);
+            float end = c.z+tile*.5f-(north ? width : 0);
+            if (map.IsFloor(new TilePoint(p.X-1,p.Y)))
+                m.Box(c.x-offset,y,(start+end)*.5f,width,.06f,end-start,Finish.Ash);
+            if (map.IsFloor(new TilePoint(p.X+1,p.Y)))
+                m.Box(c.x+offset,y,(start+end)*.5f,width,.06f,end-start,Finish.Ash);
         }
 
         /// <summary>Outline around floor that is too close to the entrance for monsters.</summary>
