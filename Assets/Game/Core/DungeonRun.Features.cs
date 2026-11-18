@@ -83,11 +83,13 @@ namespace DungeonTycoon.Core
         /// <summary>
         /// For tests that set up their own monsters or only check the maps: the stage maps without patrols, every
         /// monster kind placeable from the first stage, and chests and springs only when <paramref name="features"/>.
+        /// <paramref name="map"/> replaces the stage's map, so a draft layout can be checked before it joins the game.
         /// </summary>
-        internal static DungeonRun Sandbox(int seed = 20261118, bool features = false)
+        internal static DungeonRun Sandbox(int seed = 20261118, bool features = false, int stage = 1, DungeonMap map = null)
         {
-            var run = new DungeonRun(seed) { sandbox = true, sandboxFeatures = features };
-            run.LoadFeatures();
+            var run = new DungeonRun(seed) { sandbox = true, sandboxFeatures = features, Stage = stage };
+            run.Budget = BudgetFor(stage);
+            run.LoadMap(map ?? DungeonMap.ForStage(stage));
             return run;
         }
 
