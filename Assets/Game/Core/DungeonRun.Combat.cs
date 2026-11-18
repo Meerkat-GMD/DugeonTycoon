@@ -102,6 +102,8 @@ namespace DungeonTycoon.Core
             else if (joined.Count > 0 && Phase == RunPhase.Combat)
             {
                 log.Add("합류 • " + HeroTraits.Subject(string.Join(", ", joined.Select(m => m.Name))) + " 전투에 끼어듭니다.");
+                foreach (var monster in joined) monster.Reinforcement = true;
+                SpotReinforcements(joined);
                 BumpSituation();
             }
             if (joined.Any(m => m.IsBoss) && !ReachedBoss)
@@ -117,6 +119,7 @@ namespace DungeonTycoon.Core
                 Array.Clear(tactics, 0, tactics.Length);
                 combatGrumblers = new HeroRole[0];
                 ClearCasts();
+                ClearTraitState();
                 Regroup();
                 int hp = party.Sum(h => h.Hp), max = party.Sum(h => h.MaxHp);
                 log.Add($"전투 종료 • 파티 체력 {hp} / {max}");
@@ -159,7 +162,8 @@ namespace DungeonTycoon.Core
         {
             var tank = party[(int)HeroRole.Tank];
             if (monster.TauntedUntil > Ticks && tank.Hp > 0) return tank;
-            // The nearest hero; among equally near ones, the most hurt. This is what the tank's taunt is for.
+            // The nearest hero; among equally near ones, one guarding against this monster, then the most hurt. This
+            // is what the tank's taunt is for.
             HeroState best = null;
             int bestDistance = int.MaxValue;
             foreach (var hero in party)
@@ -167,7 +171,9 @@ namespace DungeonTycoon.Core
                 if (hero.Hp == 0) continue;
                 int distance = Chebyshev(monster.Tile, heroTiles[(int)hero.Role]);
                 bool nearer = distance < bestDistance;
-                bool weaker = distance == bestDistance && hero.Hp * best.MaxHp < best.Hp * hero.MaxHp;
+                bool weaker = distance == bestDistance && (Guards(hero, monster) != Guards(best, monster)
+                    ? Guards(hero, monster)
+                    : hero.Hp * best.MaxHp < best.Hp * hero.MaxHp);
                 if (!nearer && !weaker) continue;
                 best = hero;
                 bestDistance = distance;
@@ -193,7 +199,7 @@ namespace DungeonTycoon.Core
                         monster.AttackReady = Ticks + monster.AttackTicks;
                         int damage = Shielded(target, Math.Max(0, monster.Attack - target.Armor));
                         events.Add(new CombatEvent(CombatEventKind.Attack, false, monster.Id, true, (int)target.Role, damage));
-                        Hurt(target, damage, monster.Name, false);
+                        Hurt(target, damage, monster.Name, false, monster);
                     }
                     else MonsterStep(monster, tile);
                     break;
@@ -272,14 +278,24 @@ namespace DungeonTycoon.Core
             var engaged = monsters.Where(m => m.Alive && m.Mood == MonsterMood.Chasing).ToList();
             if (engaged.Count == 0) return;
             // A step must finish before the hero attacks, heals or uses a skill.
-            if (Moving(hero) || AnswerPatterns(hero)) return;
+            if (Moving(hero)) return;
+            // A rescue leader runs to the fallen before minding any telegraphed attack.
+            if (hero.Role == HeroRole.Healer && hero.CombatTrait == CombatTrait.RescueLeader && TryRevive(hero, bold: true)) return;
+            if (AnswerPatterns(hero)) return;
             var tactic = tactics[(int)hero.Role];
             var here = heroTiles[(int)hero.Role];
             if (hero.Role == HeroRole.Tank) TankSkills(hero, engaged);
-            if (hero.Role == HeroRole.Healer && (TryRevive(hero) || TryHeal(hero, tactic))) return;
+            if (TryRally(hero)) return;
+            if (hero.Role == HeroRole.Healer && (TryTriage(hero) || TryRevive(hero) || TryHeal(hero, tactic))) return;
             if (hero.Role == HeroRole.MeleeDamage && TryWhirlwind(hero, engaged)) return;
+            if (TrySurvive(hero)) return;
             var target = PickTarget(hero, engaged, tactic);
-            if (hero.Range > 1 && engaged.Any(m => Chebyshev(m.Tile, here) <= 1) && hero.MoveReady <= Ticks && Retreat(hero, engaged))
+            if (TryGuard(hero, engaged, tactic, ref target, out bool guardingNow)) return;
+            // A cornered hero who can hit back stands their ground; a guard stays on the monster it holds.
+            bool cornered = hero.CombatTrait == CombatTrait.Cornered && Low(hero) && InReach(here, target.Tile, hero.Range);
+            if (cornered) TraitShout(hero, "물러나지 않고 맞섭니다.");
+            if (!cornered && !guardingNow && hero.Range > 1 && engaged.Any(m => Chebyshev(m.Tile, here) <= 1) &&
+                hero.MoveReady <= Ticks && Retreat(hero, engaged))
                 return;
             if (InReach(here, target.Tile, hero.Range))
             {
@@ -295,6 +311,8 @@ namespace DungeonTycoon.Core
                 var focus = engaged.FirstOrDefault(m => m.Id == tactic.Focus);
                 if (focus != null) return focus;
             }
+            var chosen = TraitTarget(hero, engaged);
+            if (chosen != null) return chosen;
             var here = heroTiles[(int)hero.Role];
             if (hero.Role == HeroRole.Tank)
                 return engaged.OrderBy(m => Chebyshev(m.Tile, here)).ThenBy(m => m.Id).First();
@@ -330,14 +348,15 @@ namespace DungeonTycoon.Core
             ClearStage();
         }
 
-        private void HeroStep(HeroState hero, TilePoint goal, int range)
+        /// <summary>One step toward <paramref name="goal"/>. A <paramref name="bold"/> hero walks into areas it would otherwise wait out.</summary>
+        private void HeroStep(HeroState hero, TilePoint goal, int range, bool bold = false)
         {
             if (hero.MoveReady > Ticks) return;
             var here = heroTiles[(int)hero.Role];
             var path = Map.FindPath(here, goal);
             if (path.Count < 2 || (path.Count == 2 && range <= 1)) return;
             // Wait at the edge rather than walk into an area the hero is dodging.
-            if (Dangerous(hero, path[1]) && !Dangerous(hero, here)) return;
+            if (!bold && Dangerous(hero, path[1]) && !Dangerous(hero, here)) return;
             StepHero(hero, path[1]);
         }
 
@@ -395,7 +414,31 @@ namespace DungeonTycoon.Core
                     if (patient == null || hero.Hp * patient.MaxHp < patient.Hp * hero.MaxHp) patient = hero;
                 }
             }
+            return patient != null && HealOne(healer, patient);
+        }
+
+        /// <summary>
+        /// Triage: a badly hurt ally is healed before revive, mass heal or the tactic's ward. Returns true when that
+        /// took the healer's turn.
+        /// </summary>
+        private bool TryTriage(HeroState healer)
+        {
+            if (healer.CombatTrait != CombatTrait.Triage) return false;
+            HeroState patient = null;
+            foreach (var role in MarchOrder)
+            {
+                var hero = party[(int)role];
+                if (!Low(hero)) continue;
+                if (patient == null || hero.Hp * patient.MaxHp < patient.Hp * hero.MaxHp) patient = hero;
+            }
             if (patient == null) return false;
+            TraitShout(healer, $"{HeroTraits.Particle(patient.Name, "을", "를")} 먼저 치료합니다.");
+            return HealOne(healer, patient);
+        }
+
+        /// <summary>Walks into reach of the patient, waits for the next action, then heals. Always takes the turn.</summary>
+        private bool HealOne(HeroState healer, HeroState patient)
+        {
             var here = heroTiles[(int)healer.Role];
             var there = heroTiles[(int)patient.Role];
             if (!InReach(here, there, healer.Range))
@@ -407,12 +450,20 @@ namespace DungeonTycoon.Core
             healer.ActReady = Ticks + AttackCycle(healer);
             int before = patient.Hp;
             patient.Hp = Math.Min(patient.MaxHp, patient.Hp + HealAmount);
-            if (patient.Hp * 10 >= patient.MaxHp * 3) patient.Critical = false;
             events.Add(new CombatEvent(CombatEventKind.Heal, true, (int)healer.Role, true, (int)patient.Role, patient.Hp - before));
+            Recovered(healer, patient);
             return true;
         }
 
-        private void Hurt(HeroState target, int damage, string source, bool announce = true)
+        /// <summary>A healed hero back at 30% or more is out of danger, and a cheerer says so.</summary>
+        private void Recovered(HeroState healer, HeroState patient)
+        {
+            if (!patient.Critical || patient.Hp * 10 < patient.MaxHp * 3) return;
+            patient.Critical = false;
+            Cheer(healer, patient);
+        }
+
+        private void Hurt(HeroState target, int damage, string source, bool announce = true, MonsterState attacker = null)
         {
             target.Hp = Math.Max(0, target.Hp - damage);
             if (announce) log.Add($"{source} → {target.Name} • {damage} 피해{(target.Hp == 0 ? " / 쓰러짐" : "")}");
@@ -421,6 +472,7 @@ namespace DungeonTycoon.Core
                 if (!announce) log.Add($"{source} → {target.Name} • 쓰러짐");
                 target.LastLine = "";
                 BumpSituation();
+                Downed(target, attacker);
             }
             else if (!target.Critical && target.Hp * 10 < target.MaxHp * 3)
             {

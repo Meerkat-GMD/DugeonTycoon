@@ -182,7 +182,7 @@ namespace DungeonTycoon.Unity
         {
             if (trait.OnlyFor is HeroRole only && only != role)
                 return $"{trait.Summary} <color=#EC9179>({RoleName(only)} 전용)</color>";
-            if (combat || !trait.Works) return $"{trait.Summary} <color=#7E8A8E>(미구현)</color>";
+            if (!trait.Works) return $"{trait.Summary} <color=#7E8A8E>(미구현)</color>";
             return trait.Summary;
         }
 
@@ -323,7 +323,7 @@ namespace DungeonTycoon.Unity
             about.AddToClassList("trait-about");
             about.Add(Text($"<b>{chosen.Name}</b> · {chosen.Trigger}", null));
             about.Add(Text($"“{chosen.Line}”", "line"));
-            if (combat || !chosen.Works) about.Add(Text(Status(chosen, combat), "note"));
+            if (!chosen.Works || (chosen.OnlyFor is HeroRole only && only != editing)) about.Add(Text(Status(chosen, combat), "note"));
             body.Add(about);
         }
 
@@ -343,9 +343,9 @@ namespace DungeonTycoon.Unity
             var head = new VisualElement { pickingMode = PickingMode.Ignore };
             head.AddToClassList("trait-head");
             head.Add(Text(trait.Name, "trait-name"));
-            var badge = Text(blocked ? RoleName(trait.OnlyFor.Value) + " 전용" : !combat && trait.Works ? "동작" : "행동 미구현", "trait-badge");
+            var badge = Text(blocked ? RoleName(trait.OnlyFor.Value) + " 전용" : trait.Works ? "동작" : "행동 미구현", "trait-badge");
             badge.EnableInClassList("only", blocked);
-            badge.EnableInClassList("works", !blocked && !combat && trait.Works);
+            badge.EnableInClassList("works", !blocked && trait.Works);
             head.Add(badge);
             button.Add(head);
             button.Add(Text(Describe(trait.Bonus), "trait-mods"));
@@ -357,7 +357,7 @@ namespace DungeonTycoon.Unity
         {
             if (trait.OnlyFor is HeroRole only && only != editing)
                 return $"{RoleName(only)}가 아니라 발동하지 않는다. 스탯 보정만 적용된다.";
-            if (trait.Works) return "첫 구현에서 동작한다.";
+            if (trait.Works) return "동작한다.";
             return combat
                 ? "대응할 상황이 아직 없어 스탯 보정만 적용된다. 그 밖의 상황은 역할 기본 전술을 따른다."
                 : "아직 행동이 없어 스탯 보정만 적용된다.";

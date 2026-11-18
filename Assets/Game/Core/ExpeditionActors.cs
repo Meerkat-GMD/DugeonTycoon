@@ -206,6 +206,10 @@ namespace DungeonTycoon.Core
         public bool Alive => Mood != MonsterMood.Defeated;
         /// <summary>The party has seen this monster at least once.</summary>
         public bool Spotted { get; internal set; }
+        /// <summary>Joined a fight that was already going on: what lookouts, interceptors, finishers and giant hunters answer.</summary>
+        public bool Reinforcement { get; internal set; }
+        /// <summary>A zombie or a boss: the big monsters a giant hunter goes for.</summary>
+        public bool IsBig => IsBoss || Kind == MonsterKind.Zombie;
         internal int Experience { get; }
         internal int MoveTicks { get; }
         internal int AttackTicks { get; }

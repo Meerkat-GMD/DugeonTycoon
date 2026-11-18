@@ -98,10 +98,14 @@ namespace DungeonTycoon.Unity
         {
             if (root == null) return;
             var praying = run.Party[(int)prayer.Role];
+            // A devout hero may kneel for a desperate ally; the healing miracle then goes to that ally.
+            var healed = run.Party[(int)prayer.For];
             Open(prayer.Role, praying.Name);
             try
             {
-                await TypeAsync(narration, DialogueLines.PrayerOpening(praying.Name), ct);
+                await TypeAsync(narration, prayer.ForAlly
+                    ? DialogueLines.PrayerOpeningFor(praying.Name, healed.Name)
+                    : DialogueLines.PrayerOpening(praying.Name), ct);
                 await HoldAsync(NarrationHold, ct);
                 bubble.AddToClassList("show");
                 await TypeAsync(line, prayer.Line, ct);
@@ -113,7 +117,9 @@ namespace DungeonTycoon.Unity
                     buttons[i].Q<Label>("title").text = DialogueLines.PrayerAnswerName(choice);
                     buttons[i].Q<Label>("desc").text = choice switch
                     {
-                        PrayerAnswer.HealingMiracle => $"{praying.Name} 체력 전부 회복 · 믿음 굳건",
+                        PrayerAnswer.HealingMiracle => prayer.ForAlly
+                            ? $"{healed.Name} 체력 전부 회복 · {praying.Name} 믿음 굳건"
+                            : $"{praying.Name} 체력 전부 회복 · 믿음 굳건",
                         PrayerAnswer.RestMiracle => $"파티 피로 -{System.Math.Min(run.FatigueSteps, DungeonRun.RestMiracleRelief)} · 믿음 굳건",
                         _ => "신앙 소모 없음 · 믿음 흔들림"
                     };

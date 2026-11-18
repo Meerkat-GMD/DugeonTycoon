@@ -198,11 +198,12 @@ namespace DungeonTycoon.Core
                 cast.hits.Add((int)role);
                 struck.Add($"{hero.Name} {damage}");
                 events.Add(new CombatEvent(CombatEventKind.Attack, false, caster.Id, true, (int)role, damage));
-                Hurt(hero, damage, caster.Name, false);
+                Hurt(hero, damage, caster.Name, false, caster);
                 if (!InDungeon) break;
             }
             string name = MonsterPatterns.Name(cast.Pattern);
             log.Add(struck.Count == 0 ? $"{name} 발동 • 아무도 맞지 않았습니다." : $"{name} 발동 • {string.Join(", ", struck)} 피해");
+            if (struck.Count > 0 && InDungeon) Nag(cast);
         }
 
         /// <summary>

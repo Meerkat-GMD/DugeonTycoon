@@ -83,9 +83,7 @@ namespace DungeonTycoon.Core.Tests
             }
             Assert.That(TraitCatalog.CombatTraits.Count() + TraitCatalog.PersonalityTraits.Count(), Is.EqualTo(30));
             Assert.That(TraitCatalog.Of(CombatTrait.Triage).OnlyFor, Is.EqualTo(HeroRole.Healer));
-            Assert.That(TraitCatalog.PersonalityTraits.Where(t => TraitCatalog.Of(t).Works),
-                Is.EquivalentTo(new[] { PersonalityTrait.Greedy, PersonalityTrait.Generous, PersonalityTrait.Challenger,
-                    PersonalityTrait.CautiousGuide, PersonalityTrait.Curious, PersonalityTrait.Skeptic }));
+            Assert.That(all.Where(info => !info.Works).Select(info => info.Name), Is.Empty, "every trait acts in play now");
         }
 
         // ── Formation ────────────────────────────────────────────────────

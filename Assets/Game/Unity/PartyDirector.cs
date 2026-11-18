@@ -317,7 +317,8 @@ namespace DungeonTycoon.Unity
                   (run.Fatigue == FatigueStage.Exhausted ? " 걸을 때마다 체력이 깎인다." : " 더 헤매면 체력도 깎이기 시작한다."));
             foreach (var option in fork.Options)
                 text.AppendLine($"길 {option.Index}: {option.Label} — {option.Distance}걸음, 지금 보이는 적 {option.VisibleMonsters}, " +
-                                $"입구에서 깊이 {option.Depth}, 트인 정도 {option.Openness}");
+                                $"입구에서 깊이 {option.Depth}, 트인 정도 {option.Openness}" +
+                                (option.MarkerDistance >= 0 ? $", 기억하는 보스방 표식까지 {option.MarkerDistance}칸" : ""));
             foreach (var hero in run.Party)
             {
                 if (hero.Hp == 0) continue;
@@ -404,6 +405,12 @@ namespace DungeonTycoon.Unity
                             (run.FightingBoss ? ", 보스와 싸우는 중" : run.Phase == RunPhase.Combat ? ", 전투 중" : ", 탐색 중"));
             text.AppendLine($"기도할지 정할 용사: {hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 성격 성향 {Personality(hero)}, " +
                             $"신을 향한 믿음 {DungeonRun.BeliefName(hero.Belief)}");
+            if (prayer.ForAlly)
+            {
+                var ward = run.Party[(int)prayer.For];
+                text.AppendLine($"이 용사는 절망에 빠진 동료 {ward.Name}(HP {ward.Hp}/{ward.MaxHp})를 위해 대신 기도하려 한다. " +
+                                "기도 대사는 그 동료를 위한 기도로 써.");
+            }
             foreach (var ally in run.Party)
             {
                 if (ally == hero) continue;
