@@ -208,6 +208,7 @@ namespace DungeonTycoon.Core
             for (int i = 0; i < fork.Options.Count; i++)
                 if (i != chosen && !MatchesSkipped(fork.Options[i].Frontier)) skipped.Add(new HashSet<TilePoint>(fork.Options[i].Frontier));
             ForgetSkipped(fork.Options[chosen].Frontier);
+            Head(new HashSet<TilePoint>(fork.Options[chosen].Frontier));
             route.Clear();
             var path = Map.FindPath(LeaderTile, fork.Options[chosen].Target, Known);
             if (path.Count >= 2) FollowPath(path, false);

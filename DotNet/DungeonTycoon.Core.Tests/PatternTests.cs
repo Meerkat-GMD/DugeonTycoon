@@ -384,21 +384,28 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AWholeRunWithUndeadUsesPatternsAndReplaysTheSame()
         {
-            List<string> Play()
+            List<string> Play(int ghost, int pack)
             {
                 var run = new DungeonRun(seed: 5);
                 var tiles = DungeonRunTests.PlaceableTiles(run);
-                run.Place(tiles[tiles.Count / 3], MonsterKind.Ghost);
-                run.Place(tiles[tiles.Count / 2], MonsterKind.Zombie);
-                run.Place(tiles[tiles.Count / 2], MonsterKind.Skeleton);
+                run.Place(tiles[ghost], MonsterKind.Ghost);
+                run.Place(tiles[pack], MonsterKind.Zombie);
+                run.Place(tiles[pack], MonsterKind.Skeleton);
                 run.Start();
                 DungeonRunTests.Drive(run, () => !DungeonRunTests.InDungeon(run) || run.Stage == 2);
                 return run.Log.ToList();
             }
-            var first = Play();
-            Assert.That(first, Has.Some.Contains("발동 •"), "some pattern landed");
-            Assert.That(first, Has.Some.Contains("회피"), "some hero dodged");
-            Assert.That(Play(), Is.EqualTo(first));
+            // Which monsters the party meets depends on the way it takes; look for a layout whose fights show both.
+            int count = DungeonRunTests.PlaceableTiles(new DungeonRun(seed: 5)).Count;
+            for (int step = 2; step <= 10; step++)
+            {
+                int ghost = count / 3, pack = count * step / 12;
+                var first = Play(ghost, pack);
+                if (!first.Any(line => line.Contains("발동 •")) || !first.Any(line => line.Contains("회피"))) continue;
+                Assert.That(Play(ghost, pack), Is.EqualTo(first));
+                return;
+            }
+            Assert.Fail("no layout had a pattern land and a hero dodge");
         }
 
         [Test]

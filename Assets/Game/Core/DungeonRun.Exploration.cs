@@ -21,6 +21,8 @@ namespace DungeonTycoon.Core
         private readonly List<TilePoint> trail = new List<TilePoint>();
         private readonly Queue<TilePoint> route = new Queue<TilePoint>();
         private readonly List<HashSet<TilePoint>> skipped = new List<HashSet<TilePoint>>();
+        /// <summary>The way the party last chose to take; it grows like a skipped way and outranks them.</summary>
+        private readonly HashSet<TilePoint> heading = new HashSet<TilePoint>();
         private bool[,] seen;
         private bool[,] visible;
         private bool routeToBoss;
@@ -54,6 +56,7 @@ namespace DungeonTycoon.Core
             route.Clear();
             routeToBoss = false;
             skipped.Clear();
+            heading.Clear();
             PendingFork = null;
             ReachedBoss = false;
             Array.Clear(tactics, 0, tactics.Length);
@@ -122,7 +125,7 @@ namespace DungeonTycoon.Core
         private void Reveal()
         {
             Array.Clear(visible, 0, visible.Length);
-            bool grew = false;
+            var fresh = new HashSet<TilePoint>();
             foreach (var hero in party)
             {
                 if (hero.Hp == 0) continue;
@@ -137,10 +140,14 @@ namespace DungeonTycoon.Core
                     visible[x, y] = true;
                     if (seen[x, y]) continue;
                     seen[x, y] = true;
-                    grew = true;
+                    fresh.Add(tile);
                 }
             }
-            if (grew) SeenVersion++;
+            if (fresh.Count > 0)
+            {
+                SeenVersion++;
+                GrowSkipped(fresh);
+            }
             foreach (var monster in monsters)
                 if (monster.Alive && IsVisible(monster.Tile)) monster.Spotted = true;
         }
@@ -164,7 +171,8 @@ namespace DungeonTycoon.Core
             var options = FrontierOptions(leader);
             var ahead = new List<Frontier>();
             var behind = new List<Frontier>();
-            foreach (var option in options) (MatchesSkipped(option.Tiles) ? behind : ahead).Add(option);
+            foreach (var option in options)
+                (MatchesSkipped(option.Tiles) && !Touches(heading, option.Tiles) ? behind : ahead).Add(option);
             RefreshSkipped(options);
 
             // A corner a couple of steps away is simply looked around, not argued over.
@@ -183,6 +191,7 @@ namespace DungeonTycoon.Core
             {
                 log.Add($"막다른 길 • 지나쳐 온 {Describe(leader, behind[0].Path)}로 되돌아갑니다.");
                 ForgetSkipped(behind[0].Tiles);
+                Head(behind[0].Tiles);
                 FollowPath(behind[0].Path, false);
                 return true;
             }
@@ -263,6 +272,54 @@ namespace DungeonTycoon.Core
             return false;
         }
 
+        /// <summary>
+        /// A skipped way stays the same way while the party glimpses more of it from elsewhere: floor seen for the
+        /// first time that joins a skipped way joins its memory, so its edge can move off without being mistaken for a
+        /// new way to argue over.
+        /// </summary>
+        private void GrowSkipped(HashSet<TilePoint> fresh)
+        {
+            if (skipped.Count == 0) return;
+            fresh.RemoveWhere(tile => !Map.IsFloor(tile));
+            // The chosen way claims what it opens onto first, so a room both ways reach stays the chosen one.
+            fresh.ExceptWith(Grow(heading, fresh));
+            foreach (var way in skipped) Grow(way, fresh);
+        }
+
+        /// <summary>Adds to a way the fresh floor joined to it; returns the tiles it took.</summary>
+        private static List<TilePoint> Grow(HashSet<TilePoint> way, HashSet<TilePoint> fresh)
+        {
+            var taken = new List<TilePoint>();
+            if (way.Count == 0) return taken;
+            var queue = new Queue<TilePoint>(fresh.Where(tile => Borders(way, tile)));
+            while (queue.Count > 0)
+            {
+                var tile = queue.Dequeue();
+                if (!way.Add(tile)) continue;
+                taken.Add(tile);
+                foreach (var next in Neighbours(tile))
+                    if (fresh.Contains(next) && !way.Contains(next)) queue.Enqueue(next);
+            }
+            return taken;
+        }
+
+        private void Head(HashSet<TilePoint> way)
+        {
+            heading.Clear();
+            heading.UnionWith(way);
+        }
+
+        private static IEnumerable<TilePoint> Neighbours(TilePoint tile)
+        {
+            yield return new TilePoint(tile.X, tile.Y - 1);
+            yield return new TilePoint(tile.X + 1, tile.Y);
+            yield return new TilePoint(tile.X, tile.Y + 1);
+            yield return new TilePoint(tile.X - 1, tile.Y);
+        }
+
+        private static bool Borders(HashSet<TilePoint> way, TilePoint tile) =>
+            !way.Contains(tile) && Neighbours(tile).Any(way.Contains);
+
         /// <summary>Follows each skipped way as its edge shifts; drops the ones that have been fully seen.</summary>
         private void RefreshSkipped(List<Frontier> current)
         {
@@ -274,7 +331,7 @@ namespace DungeonTycoon.Core
                     skipped.RemoveAt(i);
                     continue;
                 }
-                skipped[i] = new HashSet<TilePoint>(matches.SelectMany(option => option.Tiles));
+                skipped[i].UnionWith(matches.SelectMany(option => option.Tiles));
             }
         }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -109,6 +110,30 @@ namespace DungeonTycoon.Core.Tests
                 return;
             }
             Assert.Fail("no placement left a single skeleton in sight at the first fork");
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        public void AWayPassedOverIsNotArguedOverAgainWhenMoreOfItComesIntoView(int pick)
+        {
+            var run = new DungeonRun();
+            run.Start();
+            Assert.That(TickToFirstFork(run), Is.True);
+            var fork = run.PendingFork;
+            Assert.That(fork.Options.Count, Is.EqualTo(2), "stage 1 opens with a north/north-east fork");
+            var passed = fork.Options[1 - pick].Target;
+            var unanimous = run.Party.Select(hero => new ForkOpinion(hero.Role, pick, "이쪽으로.")).ToList();
+            Assert.That(run.ResolveFork(fork.Token, unanimous), Is.True);
+
+            int before = run.StepsTaken;
+            Assert.That(TickToFirstFork(run), Is.True);
+            var next = run.PendingFork;
+            // Walking off reveals more of the way passed over, which moves its edge; it is still the same way.
+            if (!next.Backtracking)
+                foreach (var option in next.Options)
+                    Assert.That(Math.Max(Math.Abs(option.Target.X - passed.X), Math.Abs(option.Target.Y - passed.Y)),
+                        Is.GreaterThan(DungeonRun.PeekDistance + 1), $"{option.Label} is the way passed over at {passed}");
+            Assert.That(run.StepsTaken - before, Is.GreaterThan(DungeonRun.PeekDistance), "the party walks on before arguing again");
         }
 
         [Test]

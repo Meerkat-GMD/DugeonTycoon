@@ -13,14 +13,18 @@ namespace DungeonTycoon.Core.Tests
         /// Builds that strip armour and points, so the skeletons draw blood whatever the current balance and the healer
         /// has someone to heal.
         /// </param>
-        private static DungeonRun Crowded(int seed = 11, bool fragile = false)
+        private static DungeonRun Crowded(int seed = 11, bool fragile = false, bool pack = false)
         {
             var run = new DungeonRun(seed);
             if (fragile)
                 foreach (HeroRole role in Enum.GetValues(typeof(HeroRole)))
                     run.SetBuild(role, new HeroBuild(CombatTrait.Cornered, PersonalityTrait.Underdog));
-            foreach (var tile in new[] { new TilePoint(21, 23), new TilePoint(6, 11), new TilePoint(22, 7) })
-                run.Place(tile, MonsterKind.Skeleton);
+            // Every first route walks the north corridor, so a pack there is always met together.
+            var skeletons = pack
+                ? new[] { new TilePoint(6, 11), new TilePoint(6, 11), new TilePoint(6, 11) }
+                : new[] { new TilePoint(21, 23), new TilePoint(6, 11), new TilePoint(22, 7) };
+            foreach (var tile in skeletons)
+                Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
             run.Place(new TilePoint(25, 9), MonsterKind.Zombie);
             run.Start();
             return run;
@@ -116,7 +120,7 @@ namespace DungeonTycoon.Core.Tests
             int tauntCount = 0, violations = 0, checkedHits = 0;
             for (int seed = 1; seed <= 4; seed++)
             {
-                var run = Crowded(seed);
+                var run = Crowded(seed, pack: true);
                 var taunts = new Dictionary<int, int>();
                 DungeonRunTests.Drive(run, () =>
                 {
