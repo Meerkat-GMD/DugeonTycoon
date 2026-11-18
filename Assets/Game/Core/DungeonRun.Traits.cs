@@ -246,7 +246,7 @@ namespace DungeonTycoon.Core
         /// <summary>A nagging hero points out what an ally the pattern caught should have watched.</summary>
         private void Nag(PatternCast cast)
         {
-            bool ground = cast.Pattern == MonsterPattern.Slam || cast.Pattern == MonsterPattern.Meteor;
+            bool ground = MonsterPatterns.IsGround(cast.Pattern);
             foreach (var role in MarchOrder)
             {
                 var nagger = party[(int)role];

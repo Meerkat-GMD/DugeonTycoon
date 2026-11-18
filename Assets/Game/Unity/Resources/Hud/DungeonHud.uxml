@@ -188,25 +188,25 @@
                     <ui:Button name="brush-skeleton" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-skeleton-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="해골" picking-mode="Ignore" />
-                        <ui:Label class="placement-description" text="저비용 근접 몬스터" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="근접 · 전방 크게 베기" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-ghost" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-ghost-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="유령" picking-mode="Ignore" />
-                        <ui:Label class="placement-description" text="빠른 이동 · 영혼 화살" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="두 용사 발밑에 쌍묘비" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-zombie" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-zombie-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="좀비" picking-mode="Ignore" />
-                        <ui:Label class="placement-description" text="높은 체력 · 내려찍기" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="높은 체력 · 방패 밀치기" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-archer" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-archer-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="해골 궁수" picking-mode="Ignore" />
-                        <ui:Label class="placement-description" text="원거리 사격 · 낮은 체력" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="머리 투척 · 3×3 폭발" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-remove" class="skill-button placement-button" focusable="false">

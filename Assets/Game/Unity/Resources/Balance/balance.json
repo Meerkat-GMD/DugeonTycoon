@@ -8,11 +8,11 @@
 
     "skeleton": { "cost": 1, "experience": 4, "moveTicks": 3, "attackTicks": 15, "range": 1,
                   "hp": 100, "attack": 22, "armor": 3 },
-    "ghost":    { "cost": 2, "experience": 5, "moveTicks": 2, "attackTicks": 15, "range": 1,
+    "ghost":    { "cost": 2, "experience": 8, "moveTicks": 2, "attackTicks": 15, "range": 5,
                   "hp": 90, "attack": 22, "armor": 1 },
     "zombie":   { "cost": 3, "experience": 8, "moveTicks": 5, "attackTicks": 18, "range": 1,
                   "hp": 220, "attack": 28, "armor": 6 },
-    "archer":   { "cost": 2, "experience": 5, "moveTicks": 3, "attackTicks": 18, "range": 4,
+    "archer":   { "cost": 2, "experience": 8, "moveTicks": 3, "attackTicks": 18, "range": 4,
                   "hp": 85, "attack": 24, "armor": 2 },
 
     "graveKnight": { "hp": 450, "attack": 22, "armor": 4, "experience": 2, "moveTicks": 4, "attackTicks": 15 },

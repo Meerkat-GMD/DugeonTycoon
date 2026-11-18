@@ -64,7 +64,8 @@ namespace DungeonTycoon.Core
     /// <summary>Something the board can animate. Ids are hero roles or monster ids.</summary>
     public sealed class CombatEvent
     {
-        internal CombatEvent(CombatEventKind kind, bool fromHero, int source, bool toHero, int target, int amount)
+        internal CombatEvent(CombatEventKind kind, bool fromHero, int source, bool toHero, int target, int amount,
+            bool isPatternDamage = false)
         {
             Kind = kind;
             FromHero = fromHero;
@@ -72,6 +73,7 @@ namespace DungeonTycoon.Core
             ToHero = toHero;
             Target = target;
             Amount = amount;
+            IsPatternDamage = isPatternDamage;
         }
 
         public CombatEventKind Kind { get; }
@@ -80,6 +82,7 @@ namespace DungeonTycoon.Core
         public bool ToHero { get; }
         public int Target { get; }
         public int Amount { get; }
+        public bool IsPatternDamage { get; }
     }
 
     public sealed class HeroState

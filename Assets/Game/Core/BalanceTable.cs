@@ -59,7 +59,7 @@ namespace DungeonTycoon.Core
         };
         public MonsterBalance ghost = new MonsterBalance
         {
-            cost = 2, experience = 5, moveTicks = 2, attackTicks = 15,
+            cost = 2, experience = 8, moveTicks = 2, attackTicks = 15, range = 5,
             hp = 90, attack = 22, armor = 1
         };
         public MonsterBalance zombie = new MonsterBalance
@@ -69,7 +69,7 @@ namespace DungeonTycoon.Core
         };
         public MonsterBalance archer = new MonsterBalance
         {
-            cost = 2, experience = 5, moveTicks = 3, attackTicks = 18, range = 4,
+            cost = 2, experience = 8, moveTicks = 3, attackTicks = 18, range = 4,
             hp = 85, attack = 24, armor = 2
         };
 

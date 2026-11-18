@@ -59,10 +59,10 @@ namespace DungeonTycoon.Core
                 new MonsterState(id, kind, false, name, hp, attack, armor, n.experience, n.moveTicks, n.attackTicks, tile, patterns) { Range = n.range };
             switch (kind)
             {
-                case MonsterKind.Zombie: return Make("좀비", MonsterPattern.Slam);
-                case MonsterKind.Ghost: return Make("유령", MonsterPattern.SoulBolt);
-                case MonsterKind.Archer: return Make("해골 궁수");
-                default: return Make("해골");
+                case MonsterKind.Zombie: return Make("좀비", MonsterPattern.Shove);
+                case MonsterKind.Ghost: return Make("유령", MonsterPattern.Tombstones);
+                case MonsterKind.Archer: return Make("해골 궁수", MonsterPattern.Bomb);
+                default: return Make("해골", MonsterPattern.Cleave);
             }
         }
 
@@ -218,8 +218,21 @@ namespace DungeonTycoon.Core
                 case MonsterMood.Chasing:
                     // A monster telegraphing a pattern stands still; one mid-step neither attacks nor casts.
                     if (CastOf(monster) != null || Moving(monster)) return;
+                    if (monster.Kind == MonsterKind.Archer && monster.AttackReady > Ticks) return;
                     var target = MonsterTarget(monster);
                     if (target == null) return;
+                    if (monster.Kind == MonsterKind.Ghost || monster.Kind == MonsterKind.Archer)
+                    {
+                        var pattern = monster.Patterns[0];
+                        if (!InReach(monster.Tile, StandingTile(target.Role), monster.Range))
+                            MonsterStep(monster, heroTiles[(int)target.Role]);
+                        else if (Ticks >= monster.AttackReady)
+                        {
+                            Begin(monster, pattern, target, 0);
+                            monster.AttackReady = Ticks + Math.Max(monster.AttackTicks, MonsterPatterns.CooldownTicks(pattern));
+                        }
+                        return;
+                    }
                     if (TryCast(monster, target)) return;
                     var tile = heroTiles[(int)target.Role];
                     if (InReach(monster.Tile, tile, monster.Range))

@@ -24,6 +24,28 @@ namespace DungeonTycoon.Unity
         private sealed class Foe
         {
             public Transform Body, Bar, Fill;
+            public Animator Animator;
+            public int Hp = -1;
+            public int Animation;
+            public int AttackState;
+            public bool AttackAfterHit;
+            public Vector3 AttackTarget;
+            public bool PendingProps, ShowProps, Released;
+            public Transform ReleasePoint;
+            public AstrologerMeteor Meteor;
+            public PatternCast Cast;
+            public GrenadierHead BombHead;
+
+            public void Play(int state)
+            {
+                Animation = state;
+                Meteor?.Clear();
+                Meteor = null;
+                ShowProps = state == AttackState && PendingProps;
+                Released = false;
+                Animator.speed = 1;
+                Animator.Play(state, 0, 0);
+            }
             public Vector3 Goal;
             public bool Alive = true, Engaged;
             public float LungeAt = -1000;
@@ -59,7 +81,10 @@ namespace DungeonTycoon.Unity
         private readonly List<Flight> flights = new List<Flight>();
         private readonly Stack<Transform> arrows = new Stack<Transform>();
         private readonly Stack<Transform> orbs = new Stack<Transform>();
-        private readonly Stack<Transform> bolts = new Stack<Transform>();
+        private readonly List<GrenadierHead> heads = new List<GrenadierHead>();
+        private GameObject headPrefab;
+        private static readonly int MeteorState = Animator.StringToHash("Base Layer.Meteor");
+        internal float AttackSpeed { get; set; } = 1;
         private readonly List<Feature> chestProps = new List<Feature>();
         private readonly List<Feature> springProps = new List<Feature>();
         // Patrol routes are painted on the floor in one colour per squad: clear while the GM plans around them,
@@ -74,6 +99,11 @@ namespace DungeonTycoon.Unity
         private static readonly string[] HeroModels = { "Lion", "Rabbit", "Bear", "Crow" };
         private static readonly string[] HeroActions = { "Block", "Heal", "Slash", "Shoot" };
         private static readonly int IdleParameter = Animator.StringToHash("PreviewIdle");
+        private static readonly int IdleState = Animator.StringToHash("Base Layer.Idle");
+        private static readonly int WalkState = Animator.StringToHash("Base Layer.Walk");
+        private static readonly int HitState = Animator.StringToHash("Base Layer.Hit");
+        private static readonly int DeathState = Animator.StringToHash("Base Layer.Death");
+        private readonly int[] heroHp = new int[4];
         private readonly Vector3[] heroGoals = new Vector3[4];
         private readonly float[] heroLungeAt = { -1000, -1000, -1000, -1000 };
         private readonly Vector3[] heroLungeDirection = new Vector3[4];
@@ -82,10 +112,11 @@ namespace DungeonTycoon.Unity
         private Material[] fogPalette;
         private Mesh fogMesh;
         private Transform[] models;
+        private readonly int[] attackStates = new int[DungeonFigures.TierCount];
         private DungeonMap map;
         private int stage;
         private Transform scenery, entranceZone, fog, hoverAllowed, hoverBlocked;
-        private Transform barPrototype, arrowPrototype, boltPrototype, orbPrototype, die;
+        private Transform barPrototype, arrowPrototype, orbPrototype, die;
         private float tauntAt = -1000;
         private float adversityStarted = -1000;
         private bool blessing;
@@ -210,15 +241,33 @@ namespace DungeonTycoon.Unity
                     if (id < 0 || id >= foes.Count) return;
                     foes[id].PoseOffset = offset;
                     foes[id].PoseScale = scale;
-                });
+                }, PoseCast);
+            headPrefab = Resources.Load<GameObject>("EnemyEffects/GrenadierProjectileHead");
 
             var stock = new GameObject("원형");
             stock.transform.SetParent(transform,false);
             stock.SetActive(false);
             for (int tier = 1; tier < DungeonFigures.TierCount; tier++)
             {
-                var piece = Draw("Monster " + tier, DungeonFigures.Monster(tier), meshes);
-                piece.SetParent(stock.transform,false);
+                var (modelName, attack) = tier switch
+                {
+                    DungeonFigures.Skeleton => ("Swordsman", "Slash"),
+                    DungeonFigures.Zombie => ("Shieldbearer", "Shove"),
+                    DungeonFigures.Archer => ("Grenadier", "Throw"),
+                    DungeonFigures.GraveKnight => ("Pikeman", "Thrust"),
+                    DungeonFigures.Ghost or DungeonFigures.CryptPriest or DungeonFigures.Necromancer => ("Astrologer", "Meteor"),
+                    _ => throw new ArgumentOutOfRangeException(nameof(tier))
+                };
+                attackStates[tier] = Animator.StringToHash("Base Layer." + attack);
+                bool boss = DungeonFigures.IsBoss(tier);
+                var stand = new DungeonMesh();
+                DungeonFigures.Stand(stand, boss ? 1.22f : .9f, boss ? Finish.Gold : Finish.Crimson);
+                var piece = Draw("Monster " + tier, stand, meshes, stock.transform);
+                var model = Instantiate(Resources.Load<GameObject>("Enemies/Skeleton" + modelName), piece, false);
+                model.transform.localPosition = Vector3.up * .14f;
+                model.transform.localRotation = Quaternion.Euler(0, 180, 0);
+                model.transform.localScale *= tier == DungeonFigures.Necromancer ? 1.45f : boss ? 1.25f : .85f;
+                model.GetComponentInChildren<Animator>().applyRootMotion = false;
                 models[tier] = piece;
             }
             chestPrototype = Draw("보물 상자", DungeonFigures.Chest(false), meshes, stock.transform);
@@ -382,9 +431,21 @@ namespace DungeonTycoon.Unity
         /// Paints the tiles every telegraphed pattern will hit, exactly the ones the rules will check: orange while a
         /// beam still follows its target, red once fixed and deepening toward the moment it lands, then a brief pale flash.
         /// </summary>
-        public void SetCasts(IReadOnlyList<PatternCast> casts, int ticks)
+        public void SetCasts(IReadOnlyList<PatternCast> casts, float ticks)
         {
             effects?.Sync(map == null ? null : casts, ticks);
+            foreach (var foe in foes)
+            {
+                if (!foe.Alive || !foe.Ranged || foe.Cast?.Phase != CastPhase.Fired) continue;
+                float sinceImpact = ticks - foe.Cast.FireTick;
+                if (sinceImpact >= 20) { foe.Cast = null; foe.Released = false; continue; }
+                int state = sinceImpact < 5 ? Headless : Reattach;
+                foe.Animation = state;
+                foe.Animator.speed = 0;
+                foe.Animator.Play(state, 0, state == Headless ? 0 : Mathf.Clamp01((sinceImpact - 5) / 15));
+                foe.Animator.Update(0);
+                foe.Released = sinceImpact < 15;
+            }
             int used = 0;
             if (map != null && casts != null && warnRoot)
             {
@@ -453,8 +514,11 @@ namespace DungeonTycoon.Unity
 
         private void ClearFoes()
         {
+            foreach (var head in heads) Destroy(head.Animator.gameObject);
+            heads.Clear();
             foreach (var foe in foes)
             {
+                foe.Meteor?.Clear();
                 if (foe.Body) Destroy(foe.Body.gameObject);
                 if (foe.Bar) Destroy(foe.Bar.gameObject);
             }
@@ -478,7 +542,12 @@ namespace DungeonTycoon.Unity
             }
             var bar = Instantiate(barPrototype,transform,false);
             bar.gameObject.SetActive(false);
-            foes.Add(new Foe { Body = body, Bar = bar, Fill = bar.GetChild(0), Ranged = tier == DungeonFigures.Archer });
+            var animator = body.GetComponentInChildren<Animator>();
+            animator.Play(IdleState, 0, 0);
+            var release = tier == DungeonFigures.Archer ? Array.Find(animator.GetComponentsInChildren<Transform>(),
+                bone => bone.name == "Attachment_SM_Grenadier_ProjectileHead") : null;
+            foes.Add(new Foe { Body = body, Bar = bar, Fill = bar.GetChild(0), Animator = animator, ReleasePoint = release,
+                Animation = IdleState, AttackState = attackStates[tier], Ranged = tier == DungeonFigures.Archer });
         }
 
         /// <summary>Spreads figures that share a tile; stacked monsters are drawn smaller.</summary>
@@ -515,8 +584,17 @@ namespace DungeonTycoon.Unity
                 if (foe.Alive != monster.Alive)
                 {
                     foe.Alive = monster.Alive;
-                    foe.Body.gameObject.SetActive(monster.Alive);
+                    foe.Body.gameObject.SetActive(true);
+                    foe.AttackAfterHit = false;
+                    bool missingHead = foe.Ranged && foe.Released;
+                    RemoveHead(foe);
+                    foe.Play(monster.Alive ? IdleState : missingHead ? HeadlessDeath : DeathState);
                 }
+                else if (monster.Alive && monster.Hp < foe.Hp && (foe.Cast == null || (foe.Cast.Phase == CastPhase.Fired && !foe.Ranged)))
+                {
+                    foe.Play(HitState);
+                }
+                foe.Hp = monster.Hp;
                 foe.Engaged = monster.Alive && monster.Mood == MonsterMood.Chasing;
                 bool showBar = monster.Alive && (foe.Engaged || monster.Hp < monster.MaxHp);
                 if (foe.Bar.gameObject.activeSelf != showBar) foe.Bar.gameObject.SetActive(showBar);
@@ -773,12 +851,16 @@ namespace DungeonTycoon.Unity
         // ── Party and combat cues ────────────────────────────────────────
 
         /// <summary>Sends each hero toward its tile; they walk there at <see cref="WalkSpeed"/>.</summary>
-        public void SetParty(IReadOnlyList<TilePoint> tiles, bool[] alive)
+        public void SetParty(IReadOnlyList<TilePoint> tiles, IReadOnlyList<HeroState> party)
         {
             if (map == null) return;
             for (int i = 0; i < heroes.Length; i++)
             {
-                living[i] = alive == null || i >= alive.Length || alive[i];
+                int hp = party[i].Hp;
+                living[i] = hp > 0;
+                heroAnimators[i].SetBool("IsDead", !living[i]);
+                if (living[i] && hp < heroHp[i] && !planningView) heroAnimators[i].SetTrigger("Hit");
+                heroHp[i] = hp;
                 if (tiles != null && i < tiles.Count && living[i]) heroGoals[i] = TileCenter(tiles[i]);
             }
         }
@@ -797,7 +879,7 @@ namespace DungeonTycoon.Unity
                 }
                 if (e.FromHero && (e.Source < 0 || e.Source >= heroes.Length)) continue;
                 if (!e.FromHero && (e.Source < 0 || e.Source >= foes.Count)) continue;
-                if (e.FromHero && (e.Kind == CombatEventKind.Attack || e.Kind == CombatEventKind.Heal ||
+                if (e.FromHero && living[e.Source] && (e.Kind == CombatEventKind.Attack || e.Kind == CombatEventKind.Heal ||
                                    e.Kind == CombatEventKind.Taunt))
                     heroAnimators[e.Source].SetTrigger(HeroActions[e.Source]);
                 Vector3 to = e.ToHero
@@ -818,12 +900,18 @@ namespace DungeonTycoon.Unity
                         if (!e.FromHero)
                         {
                             var foe = foes[e.Source];
-                            // An archer's plain blow is a shot: a bone arrow flies to its target instead of a lunge.
-                            if (foe.Ranged && e.Kind == CombatEventKind.Attack)
+                            // A pattern starts one animation at wind-up, even if its area later hits several heroes.
+                            bool meteorCast = e.Kind == CombatEventKind.Pattern && ((MonsterPattern)e.Amount == MonsterPattern.Meteor || (MonsterPattern)e.Amount >= MonsterPattern.Cleave);
+                            if (foe.Alive && !e.IsPatternDamage && !meteorCast &&
+                                (e.Kind == CombatEventKind.Attack || e.Kind == CombatEventKind.Pattern))
                             {
-                                Launch(foe.Body.localPosition, to, boltPrototype, bolts, false);
-                                break;
+                                foe.PendingProps = e.Kind == CombatEventKind.Attack;
+                                foe.AttackTarget = to;
+                                foe.AttackTarget.y = 0;
+                                if (foe.Animation == HitState) foe.AttackAfterHit = true;
+                                else foe.Play(foe.AttackState);
                             }
+                            if (foe.Ranged && e.Kind == CombatEventKind.Attack) break;
                             // A pattern that hits from afar has its own effect; only blows within reach lunge.
                             if (Flat(to-foe.Body.localPosition).magnitude > Tile*1.7f) break;
                             foe.LungeAt = Time.time;
@@ -897,11 +985,6 @@ namespace DungeonTycoon.Unity
             var orb = new DungeonMesh();
             DungeonFigures.Jewel(orb,0,0,0,.2f,.3f,Finish.Mint);
             orbPrototype = Draw("치유 빛",orb,meshes,stock);
-            var bolt = new DungeonMesh();
-            bolt.Rod(Vector3.left*.22f, Vector3.right*.14f,.04f,Finish.Ash);
-            bolt.Rod(Vector3.right*.08f,Vector3.right*.27f,.10f,Finish.Ember,0);
-            bolt.Box(-.19f,0,0,.09f,.10f,.02f,Finish.Crimson);
-            boltPrototype = Draw("해골 화살",bolt,meshes,stock);
             die = Draw("역경 d20",Die(),meshes);
             die.gameObject.SetActive(false);
         }
@@ -941,6 +1024,105 @@ namespace DungeonTycoon.Unity
             return t >= 0 && t < 1 ? Mathf.Sin(t*Mathf.PI) : 0;
         }
 
+        private static bool FinishedAction(Foe foe)
+        {
+            var state = foe.Animator.GetCurrentAnimatorStateInfo(0);
+            return state.fullPathHash == foe.Animation && state.normalizedTime >= 1;
+        }
+
+        private static readonly int Headless = Animator.StringToHash("Base Layer.HeadlessIdle");
+        private static readonly int Reattach = Animator.StringToHash("Base Layer.Reattach");
+        private static readonly int HeadlessDeath = Animator.StringToHash("Base Layer.HeadlessDeath");
+
+        private void PoseCast(PatternCast cast, float progress)
+        {
+            var foe = foes[cast.Caster.Id];
+            if (!foe.Alive) return;
+            if (foe.Cast != cast)
+            {
+                foe.Cast = cast;
+                foe.PendingProps = false;
+                foe.AttackAfterHit = false;
+                foe.Play(foe.AttackState);
+            }
+            var towards = TileCenter(cast.Aim) - TileCenter(cast.Caster.Tile);
+            if (Flat(towards) != Vector3.zero)
+                foe.Body.localRotation = Quaternion.LookRotation(-Flat(towards));
+            float contact = cast.Pattern switch
+            {
+                MonsterPattern.Bomb => 28f / 37,
+                MonsterPattern.Cleave => 13f / 26,
+                MonsterPattern.Shove => 18f / 35,
+                _ => AstrologerMeteor.Impact / AstrologerMeteor.Duration
+            };
+            foe.Animator.speed = cast.Phase == CastPhase.Fired ? AttackSpeed : 0;
+            foe.Animator.Play(foe.AttackState, 0, progress * contact);
+            foe.Animator.Update(0);
+            if (cast.Pattern != MonsterPattern.Bomb) return;
+            if (progress >= 22f / 28 && !foe.Released)
+            {
+                foe.AttackTarget = TileCenter(cast.Aim);
+                ReleaseHead(foe, 0);
+                foe.Released = true;
+            }
+            if (foe.BombHead != null)
+            {
+                foe.BombHead.Age = Mathf.Max(0, (progress * 28 - 22) / 24);
+                if (cast.Phase == CastPhase.Fired) RemoveHead(foe);
+            }
+        }
+
+        private void RemoveHead(Foe foe)
+        {
+            if (foe.BombHead == null) return;
+            Destroy(foe.BombHead.Animator.gameObject);
+            heads.Remove(foe.BombHead);
+            foe.BombHead = null;
+        }
+        private sealed class GrenadierHead
+        {
+            public Animator Animator;
+            public Vector3 Start, Correction;
+            public float Age;
+        }
+
+        private void ReleaseHead(Foe foe, float age)
+        {
+            var start = transform.InverseTransformPoint(foe.ReleasePoint.position);
+            var obj = Instantiate(headPrefab, transform, false);
+            var direction = Flat(foe.AttackTarget - start);
+            obj.transform.localRotation = direction == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(direction);
+            obj.transform.localScale = foe.Animator.transform.localScale;
+            // HeadRoll reaches the floor on frame 7 at this offset from the release attachment.
+            var contact = obj.transform.localRotation * Vector3.Scale(new Vector3(.07f, -.32f, .58f), obj.transform.localScale);
+            var animator = obj.GetComponent<Animator>();
+            animator.applyRootMotion = false;
+            animator.speed = 0;
+            foe.BombHead = new GrenadierHead { Animator = animator, Start = start, Age = age,
+                Correction = foe.AttackTarget + Vector3.up * .11f - start - contact };
+            heads.Add(foe.BombHead);
+        }
+
+        private void LateUpdate()
+        {
+            foreach (var foe in foes)
+            {
+                if (!foe.ShowProps || foe.AttackState != MeteorState) continue;
+                var state = foe.Animator.GetCurrentAnimatorStateInfo(0);
+                if (state.fullPathHash != foe.AttackState) continue;
+                float seconds = state.normalizedTime * AstrologerMeteor.Duration;
+                foe.Meteor ??= new AstrologerMeteor(transform, foe.AttackTarget);
+                foe.Meteor.Sample(seconds);
+            }
+            foreach (var head in heads)
+            {
+                head.Animator.transform.localPosition = head.Start + head.Correction * Mathf.Clamp01(head.Age / .25f);
+                head.Animator.Play("Base Layer.HeadRoll", 0, Mathf.Clamp01(head.Age * 24f / 23f));
+                head.Animator.Play("Jaw.HeadTick", 1, Mathf.Repeat(head.Age * 3, 1));
+                head.Animator.Update(0);
+            }
+        }
+
         private void Update()
         {
             if (!boardCamera || map == null) return;
@@ -952,18 +1134,12 @@ namespace DungeonTycoon.Unity
             {
                 Transform hero = heroes[i];
                 if (!living[i])
-                {
-                    heroAnimators[i].speed = 0;
-                    var fallen = Quaternion.Euler(0,hero.localEulerAngles.y,0)*Quaternion.Euler(4,0,77);
-                    hero.localRotation = Quaternion.RotateTowards(hero.localRotation,fallen,Time.deltaTime*220);
                     continue;
-                }
                 if (leaderIndex < 0) leaderIndex = i;
                 var goal = heroGoals[i];
                 Vector3 toward = goal-hero.localPosition;
                 toward.y = 0;
                 float travel = toward.magnitude;
-                heroAnimators[i].speed = 1;
                 heroAnimators[i].SetBool(IdleParameter, travel <= .05f);
                 float beat = Mathf.Sin(Time.time*12f + i*1.47f);
                 float lunge = Pulse(heroLungeAt[i], LungeSeconds);
@@ -989,11 +1165,31 @@ namespace DungeonTycoon.Unity
             }
             foreach (var foe in foes)
             {
-                if (!foe.Alive) continue;
+                if (!foe.Alive)
+                {
+                    if (foe.Body.gameObject.activeSelf)
+                    {
+                        var death = foe.Animator.GetCurrentAnimatorStateInfo(0);
+                        if (death.fullPathHash == foe.Animation && death.normalizedTime >= 1)
+                            foe.Body.gameObject.SetActive(false);
+                    }
+                    continue;
+                }
                 var body = foe.Body;
+                if (foe.Animation == foe.AttackState && (foe.Cast == null || foe.Cast.Phase == CastPhase.Fired))
+                    foe.Animator.speed = AttackSpeed;
                 float lunge = Pulse(foe.LungeAt, LungeSeconds);
                 Vector3 toward = foe.Goal-body.localPosition;
                 toward.y = 0;
+                if ((foe.Cast == null || foe.Cast.Phase == CastPhase.Fired) &&
+                    !(foe.Ranged && foe.Cast != null) &&
+                    (foe.Animation == IdleState || foe.Animation == WalkState || FinishedAction(foe) || foe.Animation == Reattach))
+                {
+                    int state = foe.AttackAfterHit ? foe.AttackState :
+                        toward.sqrMagnitude > .0025f ? WalkState : IdleState;
+                    foe.AttackAfterHit = false;
+                    if (foe.Animation != state) foe.Play(state);
+                }
                 var target = foe.Goal + foe.LungeDirection*lunge*.42f + Vector3.up*lunge*.12f + foe.PoseOffset;
                 body.localPosition = Vector3.MoveTowards(body.localPosition,target,Time.deltaTime*WalkSpeed*1.4f);
                 bool posed = foe.PoseScale != 1 || foe.PoseOffset != Vector3.zero;

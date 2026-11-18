@@ -16,7 +16,7 @@ namespace DungeonTycoon.Core
         /// <summary>A three-tile-wide line that follows the top-aggro hero, then locks.</summary>
         TrackingBeam,
         /// <summary>The 3×3 tiles around where the target stood when cast.</summary>
-        Meteor
+        Meteor, Cleave, Shove, Tombstones, Bomb
     }
 
     /// <summary>How a hero meets a pattern. Lure only means something for the tracking beam's own target before it locks.</summary>
@@ -27,6 +27,8 @@ namespace DungeonTycoon.Core
 
     public static class MonsterPatterns
     {
+        public static bool IsGround(MonsterPattern pattern) => pattern != MonsterPattern.SoulBolt && pattern != MonsterPattern.TrackingBeam;
+
         public static string Name(MonsterPattern pattern)
         {
             switch (pattern)
@@ -35,6 +37,10 @@ namespace DungeonTycoon.Core
                 case MonsterPattern.SoulBolt: return "영혼 화살";
                 case MonsterPattern.TrackingBeam: return "추적 레이저";
                 case MonsterPattern.Meteor: return "메테오";
+                case MonsterPattern.Cleave: return "크게 베기";
+                case MonsterPattern.Shove: return "방패 밀치기";
+                case MonsterPattern.Tombstones: return "쌍묘비";
+                case MonsterPattern.Bomb: return "해골 폭탄";
                 default: throw new ArgumentOutOfRangeException(nameof(pattern));
             }
         }
@@ -62,6 +68,10 @@ namespace DungeonTycoon.Core
                 case MonsterPattern.SoulBolt: return 10;
                 case MonsterPattern.TrackingBeam: return 20;
                 case MonsterPattern.Meteor: return 20;
+                case MonsterPattern.Cleave: return 6;
+                case MonsterPattern.Shove: return 8;
+                case MonsterPattern.Tombstones: return 14;
+                case MonsterPattern.Bomb: return 12;
                 default: throw new ArgumentOutOfRangeException(nameof(pattern));
             }
         }
@@ -75,6 +85,10 @@ namespace DungeonTycoon.Core
                 case MonsterPattern.SoulBolt: return 50;
                 case MonsterPattern.TrackingBeam: return 100;
                 case MonsterPattern.Meteor: return 120;
+                case MonsterPattern.Cleave: return 60;
+                case MonsterPattern.Shove: return 55;
+                case MonsterPattern.Tombstones: return 15;
+                case MonsterPattern.Bomb: return 32;
                 default: throw new ArgumentOutOfRangeException(nameof(pattern));
             }
         }
@@ -88,6 +102,10 @@ namespace DungeonTycoon.Core
                 case MonsterPattern.SoulBolt: return 150;
                 case MonsterPattern.TrackingBeam: return 180;
                 case MonsterPattern.Meteor: return 200;
+                case MonsterPattern.Cleave: return 115;
+                case MonsterPattern.Shove: return 110;
+                case MonsterPattern.Tombstones: return 75;
+                case MonsterPattern.Bomb: return 100;
                 default: throw new ArgumentOutOfRangeException(nameof(pattern));
             }
         }
@@ -101,6 +119,10 @@ namespace DungeonTycoon.Core
                 case MonsterPattern.SoulBolt: return 5;
                 case MonsterPattern.TrackingBeam: return 10;
                 case MonsterPattern.Meteor: return 10;
+                case MonsterPattern.Cleave: return 1;
+                case MonsterPattern.Shove: return 1;
+                case MonsterPattern.Tombstones: return 5;
+                case MonsterPattern.Bomb: return 4;
                 default: throw new ArgumentOutOfRangeException(nameof(pattern));
             }
         }
@@ -161,6 +183,7 @@ namespace DungeonTycoon.Core
         /// <summary>Heroes who have already said how they meet this cast, so each speaks once.</summary>
         internal readonly HashSet<int> answered = new HashSet<int>();
         /// <summary>The tile the area is aimed through: the target's tile for lines and the meteor, the caster's own for the slam.</summary>
+        public TilePoint? SecondAim { get; internal set; }
         public TilePoint Aim { get; internal set; }
     }
 }

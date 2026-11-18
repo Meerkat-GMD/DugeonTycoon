@@ -117,8 +117,8 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ASlamHitsWhoeverStaysInItsSquare_TheTankHoldsAndTheMeleeHeroStepsOut()
         {
-            var run = Arena(MonsterKind.Zombie);
-            var zombie = Foe(run);
+            var run = Arena();
+            var zombie = run.Boss;
             var tank = Hero(run, HeroRole.Tank);
             var melee = Hero(run, HeroRole.MeleeDamage);
             Put(zombie, 35, 4);
@@ -152,8 +152,8 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AHeroThatCannotGetOutInTimeKeepsFightingAndIsHit()
         {
-            var run = Arena(MonsterKind.Zombie);
-            var zombie = Foe(run);
+            var run = Arena();
+            var zombie = run.Boss;
             var melee = Hero(run, HeroRole.MeleeDamage);
             Put(zombie, 35, 4);
             Put(run, HeroRole.MeleeDamage, 36, 4);
@@ -173,8 +173,8 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AHeroStillMidStepIsHitWhereItStarted()
         {
-            var run = Arena(MonsterKind.Zombie);
-            var zombie = Foe(run);
+            var run = Arena();
+            var zombie = run.Boss;
             var melee = Hero(run, HeroRole.MeleeDamage);
             Put(zombie, 35, 4);
             Put(run, HeroRole.MeleeDamage, 36, 4);
@@ -282,8 +282,8 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void UnderASlamTheProtectorStepsOutAndTheDamageMadKeepsHitting()
         {
-            var run = TraitArena(MonsterKind.Zombie);
-            var zombie = Foe(run);
+            var run = TraitArena();
+            var zombie = run.Boss;
             var tank = Hero(run, HeroRole.Tank);
             var melee = Hero(run, HeroRole.MeleeDamage);
             Assert.That(tank.CombatTrait, Is.EqualTo(CombatTrait.Protector));
@@ -374,8 +374,8 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = Arena(MonsterKind.Skeleton, MonsterKind.Ghost);
             var placed = run.Monsters.Where(m => !m.IsBoss).ToList();
-            Assert.That(placed.Single(m => m.Kind == MonsterKind.Skeleton).Patterns, Is.Empty);
-            Assert.That(placed.Single(m => m.Kind == MonsterKind.Ghost).Patterns, Is.EqualTo(new[] { MonsterPattern.SoulBolt }));
+            Assert.That(placed.Single(m => m.Kind == MonsterKind.Skeleton).Patterns, Is.EqualTo(new[] { MonsterPattern.Cleave }));
+            Assert.That(placed.Single(m => m.Kind == MonsterKind.Ghost).Patterns, Is.EqualTo(new[] { MonsterPattern.Tombstones }));
             Assert.That(run.Boss.Name, Is.EqualTo("무덤 기사"));
             Assert.That(run.Boss.Patterns, Is.EqualTo(new[] { MonsterPattern.Slam, MonsterPattern.TrackingBeam }));
             Assert.That(DungeonRun.Cost(MonsterKind.Ghost), Is.InRange(DungeonRun.Cost(MonsterKind.Skeleton), DungeonRun.Cost(MonsterKind.Zombie)));
@@ -409,17 +409,64 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void ASoulBoltFliesStraightAndAHeroBesideTheLineIsSafe()
+        public void TombstonesMarkTwoHeroesAndOnlyHitTheOriginalTiles()
         {
             var run = Arena(MonsterKind.Ghost);
             var ghost = Foe(run);
             Put(ghost, 33, 4);
             Put(run, HeroRole.RangedDamage, 36, 4);
-            var cast = run.ForceCast(ghost, MonsterPattern.SoulBolt, HeroRole.RangedDamage);
-            Assert.That(cast.Phase, Is.EqualTo(CastPhase.Locked), "fixed when cast");
-            Assert.That(cast.Area, Does.Contain(new TilePoint(36, 4)).And.Contain(new TilePoint(38, 4)));
-            Assert.That(cast.Area, Does.Not.Contain(new TilePoint(36, 5)));
-            Assert.That(cast.Area.Count, Is.EqualTo(5));
+            Put(run, HeroRole.Tank, 34, 4);
+            var cast = run.ForceCast(ghost, MonsterPattern.Tombstones, HeroRole.RangedDamage);
+            Assert.That(cast.Area, Is.EquivalentTo(new[] { new TilePoint(36,4), new TilePoint(34,4) }));
+            Put(run, HeroRole.Tank, 34, 5);
+            TickUntilFired(run, cast);
+            Assert.That(cast.Hits, Is.EquivalentTo(new[] { (int)HeroRole.RangedDamage }));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ShoveOnlyPushesIntoAnEmptyTile(bool blocked)
+        {
+            var run = Arena(MonsterKind.Zombie);
+            Put(Foe(run), 33, 4);
+            Put(run, HeroRole.Tank, 34, 4);
+            if (blocked) Put(run, HeroRole.Healer, 35, 4);
+            TickUntilFired(run, run.ForceCast(Foe(run), MonsterPattern.Shove, HeroRole.Tank));
+            Assert.That(run.HeroTile(HeroRole.Tank), Is.EqualTo(new TilePoint(blocked ? 34 : 35, 4)));
+        }
+        [Test]
+        public void BombHitsEveryHeroStillInItsThreeByThreeAreaOnce()
+        {
+            var run = Arena(MonsterKind.Archer);
+            var archer = Foe(run);
+            Put(archer, 33, 4);
+            Put(run, HeroRole.Tank, 36, 4);
+            Put(run, HeroRole.MeleeDamage, 37, 5);
+            Put(run, HeroRole.Healer, 36, 3);
+            var cast = run.ForceCast(archer, MonsterPattern.Bomb, HeroRole.Tank);
+            Assert.That(cast.Area.Count, Is.EqualTo(9));
+            Put(run, HeroRole.Healer, 38, 3);
+            TickUntilFired(run, cast);
+            Assert.That(cast.Hits, Is.EquivalentTo(new[] { (int)HeroRole.Tank, (int)HeroRole.MeleeDamage }));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void TombstonesAllowOneTargetAndDoNotStackOnASharedTile(bool stacked)
+        {
+            var run = Arena(MonsterKind.Ghost);
+            var ghost = Foe(run);
+            Put(ghost, 33, 4);
+            foreach (var hero in run.Party)
+            {
+                hero.Hp = hero.Role == HeroRole.Tank || (stacked && hero.Role == HeroRole.Healer) ? hero.MaxHp : 0;
+                Put(run, hero.Role, 35, 4);
+            }
+            var cast = run.ForceCast(ghost, MonsterPattern.Tombstones, HeroRole.Tank);
+            Assert.That(cast.Area.Count, Is.EqualTo(1));
+            Assert.That(cast.SecondAim.HasValue, Is.EqualTo(stacked));
+            TickUntilFired(run, cast);
+            Assert.That(cast.Hits.Count, Is.EqualTo(stacked ? 2 : 1));
         }
     }
 }

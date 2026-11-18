@@ -130,8 +130,8 @@ namespace DungeonTycoon.Core.Tests
                             tauntCount++;
                         }
                         // Telegraphed patterns hit everyone in their area; the taunt rule is about plain blows, so only
-                        // monsters without patterns are checked.
-                        if (e.Kind == CombatEventKind.Attack && !e.FromHero && run.Monsters[e.Source].Patterns.Count == 0 &&
+                        // direct hits are checked.
+                        if (e.Kind == CombatEventKind.Attack && !e.FromHero && !e.IsPatternDamage &&
                             taunts.TryGetValue(e.Source, out int until) &&
                             run.Ticks < until && run.Party[(int)HeroRole.Tank].Hp > 0)
                         {

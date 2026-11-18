@@ -275,7 +275,11 @@ namespace DungeonTycoon.Core.Tests
                 // One skeleton goes for the tank, the other for the melee hero next to it.
                 Put(Skeleton(run, 0), 34, 4);
                 Put(Skeleton(run, 1), 37, 4);
-                foreach (var skeleton in run.Monsters.Where(m => !m.IsBoss)) skeleton.AttackReady = 0;
+                foreach (var skeleton in run.Monsters.Where(m => !m.IsBoss))
+                {
+                    skeleton.AttackReady = 0;
+                    skeleton.PatternReady[0] = Never;
+                }
                 Hero(run, HeroRole.Tank).SkillReady[1] = 0;
                 run.Tick();
                 var events = run.TakeEvents();

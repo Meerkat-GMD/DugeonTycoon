@@ -131,7 +131,9 @@ namespace DungeonTycoon.Core.Tests
         public void ARescueLeaderRaisesTheFallenInsteadOfDodging(CombatTrait trait, bool raises)
         {
             var run = Arena(r => With(r, HeroRole.Healer, trait), new[] { MonsterKind.Zombie }, level: 3);
-            var zombie = Foes(run).Single();
+            var zombie = run.Boss;
+            zombie.Mood = MonsterMood.Chasing;
+            Foes(run).First(m => !m.IsBoss).Mood = MonsterMood.Defeated;
             Put(zombie, 37, 4);
             Put(run, HeroRole.Healer, 36, 4);
             Put(run, HeroRole.RangedDamage, 34, 4);
@@ -339,7 +341,9 @@ namespace DungeonTycoon.Core.Tests
         public void ANaggerPointsOutWhatTheAllyCaughtByASlamMissed()
         {
             var run = Arena(r => With(r, HeroRole.RangedDamage, PersonalityTrait.Grumbler), MonsterKind.Zombie);
-            var zombie = Foes(run).Single();
+            var zombie = run.Boss;
+            zombie.Mood = MonsterMood.Chasing;
+            Foes(run).First(m => !m.IsBoss).Mood = MonsterMood.Defeated;
             Put(zombie, 36, 4);
             Put(run, HeroRole.Tank, 36, 5);
             var cast = run.ForceCast(zombie, MonsterPattern.Slam);

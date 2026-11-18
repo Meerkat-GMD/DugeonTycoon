@@ -12,7 +12,6 @@ namespace DungeonTycoon.Unity
         private const float TickSeconds = (float)DungeonRun.TickSeconds;
         private const int MaxTicksPerFrame = 5;
         private const float SpotlightSeconds = 7f;
-        private readonly bool[] living = new bool[4];
         private readonly TilePoint[] heroTiles = new TilePoint[4];
         private PartyDirector director;
         private DialogueStage stage;
@@ -92,6 +91,7 @@ namespace DungeonTycoon.Unity
         public void SetSpeed(int speed)
         {
             Speed = Mathf.Clamp(speed, 0, 2);
+            Board.AttackSpeed = Mathf.Max(1, Speed);
             if (Speed > 0) resumeSpeed = Speed;
             // Figures walk faster at 2x so they keep up with the ticks; while paused they only finish their last step.
             Board.WalkSpeed = DungeonBoard.Tile/(TickSeconds*DungeonRun.HeroMoveTicks)*Mathf.Max(1, Speed);
@@ -165,7 +165,7 @@ namespace DungeonTycoon.Unity
             if (Presenting) return;
             RefreshParty();
             Board.SetMonsters(run.Monsters);
-            Board.SetCasts(run.Casts, run.Ticks);
+            Board.SetCasts(run.Casts, run.Ticks + Mathf.Clamp01(accumulator / TickSeconds));
             var events = run.TakeEvents();
             Board.PlayEvents(events);
             Board.SetFeatures(run.Chests, run.Springs);
@@ -423,12 +423,9 @@ namespace DungeonTycoon.Unity
 
         private void RefreshParty()
         {
-            for (int i = 0; i < living.Length; i++)
-            {
-                living[i] = Run.Party[i].Hp > 0;
+            for (int i = 0; i < heroTiles.Length; i++)
                 heroTiles[i] = Run.HeroTile((HeroRole)i);
-            }
-            Board.SetParty(heroTiles, living);
+            Board.SetParty(heroTiles, Run.Party);
             if (Run.Phase != RunPhase.Planning && fogVersion != Run.SeenVersion)
             {
                 fogVersion = Run.SeenVersion;

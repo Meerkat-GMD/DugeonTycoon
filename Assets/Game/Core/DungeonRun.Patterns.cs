@@ -147,6 +147,18 @@ namespace DungeonTycoon.Core
             var cast = new PatternCast(monster, pattern, aimed == null ? -1 : (int)aimed.Role, Ticks);
             cast.Aim = aimed == null ? monster.Tile : StandingTile(aimed.Role);
             cast.area = AreaOf(monster, pattern, cast.Aim);
+            if (pattern == MonsterPattern.Tombstones)
+            {
+                var second = party.Where(h => h != aimed && h.Hp > 0 &&
+                    InReach(monster.Tile, StandingTile(h.Role), monster.Range))
+                    .OrderBy(h => StandingTile(h.Role) == cast.Aim)
+                    .ThenBy(h => Chebyshev(monster.Tile, StandingTile(h.Role))).FirstOrDefault();
+                if (second != null)
+                {
+                    cast.SecondAim = StandingTile(second.Role);
+                    cast.area.Add(cast.SecondAim.Value);
+                }
+            }
             monster.PatternReady[index] = Ticks + MonsterPatterns.CooldownTicks(pattern);
             casts.Add(cast);
             seenPatterns.Add(PatternKey(monster, pattern));
@@ -197,8 +209,11 @@ namespace DungeonTycoon.Core
                 int damage = Shielded(hero, Mitigate(caster.Attack * MonsterPatterns.DamagePercent(cast.Pattern) / 100, hero.Armor));
                 cast.hits.Add((int)role);
                 struck.Add($"{hero.Name} {damage}");
-                events.Add(new CombatEvent(CombatEventKind.Attack, false, caster.Id, true, (int)role, damage));
+                events.Add(new CombatEvent(CombatEventKind.Attack, false, caster.Id, true, (int)role, damage,
+                    isPatternDamage: true));
                 Hurt(hero, damage, caster.Name, false, caster);
+                if (cast.Pattern == MonsterPattern.Shove && hero.Hp > 0)
+                    PushHero(hero, caster.Tile, cast.Aim);
                 if (!InDungeon) break;
             }
             string name = MonsterPatterns.Name(cast.Pattern);
@@ -215,6 +230,17 @@ namespace DungeonTycoon.Core
             switch (pattern)
             {
                 case MonsterPattern.Slam: return Square(caster.Tile);
+                case MonsterPattern.Tombstones:
+                case MonsterPattern.Shove: return new HashSet<TilePoint> { aim };
+                case MonsterPattern.Cleave:
+                    int dx = Math.Sign(aim.X - caster.Tile.X), dy = Math.Sign(aim.Y - caster.Tile.Y);
+                    var fan = Square(caster.Tile);
+                    fan.RemoveWhere(p => {
+                        int x = p.X - caster.Tile.X, y = p.Y - caster.Tile.Y;
+                        return x * dx + y * dy < Math.Max(1, Math.Abs(x * dy - y * dx));
+                    });
+                    return fan;
+                case MonsterPattern.Bomb:
                 case MonsterPattern.Meteor: return Square(aim);
                 case MonsterPattern.SoulBolt: return Line(caster.Tile, aim, MonsterPatterns.Reach(pattern), BoltHalfWidth);
                 case MonsterPattern.TrackingBeam:
@@ -223,6 +249,18 @@ namespace DungeonTycoon.Core
                     return beam;
                 default: throw new ArgumentOutOfRangeException(nameof(pattern));
             }
+        }
+
+        private void PushHero(HeroState hero, TilePoint from, TilePoint aim)
+        {
+            var here = StandingTile(hero.Role);
+            var dest = new TilePoint(here.X + Math.Sign(aim.X - from.X), here.Y + Math.Sign(aim.Y - from.Y));
+            if (!Map.IsFloor(dest) || !Map.HasLineOfSight(here, dest) ||
+                party.Any(h => h != hero && h.Hp > 0 && (StandingTile(h.Role) == dest || HeroTile(h.Role) == dest)) ||
+                monsters.Any(m => m.Alive && m.Tile == dest)) return;
+            heroTiles[(int)hero.Role] = dest;
+            hero.StepFrom = dest;
+            hero.StepUntil = Ticks;
         }
 
         private HashSet<TilePoint> Square(TilePoint centre)
@@ -296,7 +334,7 @@ namespace DungeonTycoon.Core
         /// </summary>
         private PatternResponse? TraitResponse(HeroState hero, MonsterPattern pattern, bool beamTarget)
         {
-            bool ground = pattern == MonsterPattern.Slam || pattern == MonsterPattern.Meteor;
+            bool ground = MonsterPatterns.IsGround(pattern);
             switch (hero.CombatTrait)
             {
                 case CombatTrait.DamageMad:

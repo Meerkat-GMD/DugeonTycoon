@@ -11,15 +11,13 @@ namespace DungeonTycoon.Unity
     /// The visual side of telegraphed monster attacks, on top of the warning tiles the board paints: a charge ring
     /// under the caster while it winds up, then one effect per pattern. Slam: the caster rears up, then a shockwave
     /// and flying debris. Soul bolt: a ghost orb gathers, then streaks down the line. Tracking beam: a thin aiming
-    /// line that turns red when it locks, then a thick blast that fades. Meteor: a burning rock falls onto its shadow,
+    /// line that turns red when it locks, then a thick blast that fades. Meteor: a tombstone falls onto its mark,
     /// then a flash, a wide shockwave and debris. The rules never read any of this.
     /// </summary>
     internal sealed class PatternEffects
     {
         private const float SlamSeconds = .5f, BoltFlightSeconds = .22f, BoltSeconds = .5f;
         private const float BeamSeconds = .5f, MeteorSeconds = .65f;
-        /// <summary>The meteor shows in the sky once this share of its warning has passed.</summary>
-        private const float MeteorAppears = .3f;
 
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly Color SlamColor = new Color(1f, .58f, .24f);
@@ -35,7 +33,8 @@ namespace DungeonTycoon.Unity
             public float Progress, FiredAt = -1;
             public Vector3 Origin, End, Target;
             public readonly List<Transform> Parts = new List<Transform>();
-            public Transform Charge, Line, Orb, Trail, Rock, Shadow, Wave, Flash;
+            public Transform Charge, Line, Orb, Trail, Wave, Flash;
+            public AstrologerMeteor Meteor, SecondMeteor;
             public Vector3[] Debris;
         }
 
@@ -47,14 +46,15 @@ namespace DungeonTycoon.Unity
         private readonly Material glass;
         private readonly Material[] palette;
         private readonly Mesh cube, ring, disk;
-        private readonly Transform orbStock, rockStock;
+        private readonly Transform orbStock;
+        private readonly Action<PatternCast, float> poseCast;
         private readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
         private readonly Dictionary<PatternCast, Fx> live = new Dictionary<PatternCast, Fx>();
         private readonly List<Fx> landed = new List<Fx>();
         private readonly List<Mesh> owned = new List<Mesh>();
 
         internal PatternEffects(Transform parent, float tile, Material[] palette, Func<TilePoint, Vector3> centre,
-            Func<int, Transform> foeBody, Action<int, Vector3, float> poseFoe)
+            Func<int, Transform> foeBody, Action<int, Vector3, float> poseFoe, Action<PatternCast, float> poseCast)
         {
             root = new GameObject("예고 공격 효과").transform;
             root.SetParent(parent, false);
@@ -63,6 +63,7 @@ namespace DungeonTycoon.Unity
             this.centre = centre;
             this.foeBody = foeBody;
             this.poseFoe = poseFoe;
+            this.poseCast = poseCast;
             glass = MakeGlass();
             cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
             ring = Owned(Annulus(.78f, 1f, 48));
@@ -74,18 +75,12 @@ namespace DungeonTycoon.Unity
             var orb = new DungeonMesh();
             DungeonFigures.Jewel(orb, 0, 0, 0, .5f, 1f, Finish.Mint);
             orbStock = Attach("영혼 구슬", orb, stock);
-            var rock = new DungeonMesh();
-            rock.Ring(0, 0, 0, .55f, .35f, .5f, Finish.Basalt, 7);
-            rock.Ring(0, -.32f, 0, .2f, .55f, .26f, Finish.Basalt, 7);
-            rock.Ring(.05f, .3f, 0, .38f, .12f, .24f, Finish.Flame, 7);
-            rock.Box(.3f, .05f, .2f, .22f, .18f, .2f, Finish.Ember, 20, 35, 10);
-            rockStock = Attach("메테오 바위", rock, stock);
         }
 
         // ── Following the rules ──────────────────────────────────────────
 
         /// <summary>Starts effects for new casts, follows their progress, sets off the landing ones and drops cancelled ones.</summary>
-        internal void Sync(IReadOnlyList<PatternCast> casts, int ticks)
+        internal void Sync(IReadOnlyList<PatternCast> casts, float ticks)
         {
             var current = new HashSet<PatternCast>();
             if (casts != null)
@@ -101,6 +96,8 @@ namespace DungeonTycoon.Unity
                     }
                     fx.Progress = Mathf.Clamp01((float)(ticks - cast.StartTick) / Mathf.Max(1, cast.FireTick - cast.StartTick));
                     Aim(fx);
+                    if (cast.Pattern == MonsterPattern.Meteor || cast.Pattern >= MonsterPattern.Cleave)
+                        poseCast(cast, fx.Progress);
                     if (cast.Phase == CastPhase.Fired && fx.FiredAt < 0) Land(fx);
                 }
             }
@@ -154,10 +151,11 @@ namespace DungeonTycoon.Unity
                     fx.Line = Part(fx, "조준선", cube, glass);
                     fx.Orb = Clone(fx, orbStock);
                     break;
+                case MonsterPattern.Tombstones:
                 case MonsterPattern.Meteor:
-                    fx.Rock = Clone(fx, rockStock);
-                    fx.Trail = Part(fx, "불꼬리", cube, glass);
-                    fx.Shadow = Part(fx, "그림자", disk, glass);
+                    fx.Meteor = new AstrologerMeteor(root, centre(cast.Aim));
+                    if (cast.SecondAim.HasValue && cast.SecondAim.Value != cast.Aim)
+                        fx.SecondMeteor = new AstrologerMeteor(root, centre(cast.SecondAim.Value));
                     break;
             }
             return fx;
@@ -218,24 +216,11 @@ namespace DungeonTycoon.Unity
                     poseFoe(cast.Caster.Id, Vector3.up * (.1f * p), 1 + .06f * p);
                     break;
                 }
+                case MonsterPattern.Tombstones:
                 case MonsterPattern.Meteor:
                 {
-                    float s = Mathf.Clamp01((p - MeteorAppears) / (1 - MeteorAppears));
-                    bool shown = s > 0;
-                    fx.Rock.gameObject.SetActive(shown);
-                    fx.Trail.gameObject.SetActive(shown);
-                    Place(fx.Shadow, fx.Target + Vector3.up * .05f, tile * (.35f + 1.05f * s));
-                    Tint(fx.Shadow, Color.black, .5f * s);
-                    poseFoe(cast.Caster.Id, Vector3.up * (.22f * p), 1 + .05f * p);
-                    if (!shown) break;
-                    // It falls steeply from the upper left, faster as it nears the ground.
-                    float fall = 1 - s * s;
-                    var slant = new Vector3(-.45f, 0, .3f);
-                    var rock = fx.Target + slant * (fall * 4.5f) + Vector3.up * (.35f + fall * 9f);
-                    var behind = rock + (slant + Vector3.up * 2f).normalized * (1.1f + 1.4f * fall);
-                    Place(fx.Rock, rock, .9f, Quaternion.Euler(now * 210, now * 140, 0));
-                    Stretch(fx.Trail, rock, behind, .5f, .5f);
-                    Tint(fx.Trail, FireColor, .65f);
+                    fx.Meteor.Sample(p * AstrologerMeteor.Impact);
+                    fx.SecondMeteor?.Sample(p * AstrologerMeteor.Impact);
                     break;
                 }
             }
@@ -248,7 +233,7 @@ namespace DungeonTycoon.Unity
             fx.FiredAt = Time.time;
             Hide(fx.Charge);
             Hide(fx.Line);
-            Hide(fx.Shadow);
+
             var cast = fx.Cast;
             switch (cast.Pattern)
             {
@@ -267,8 +252,12 @@ namespace DungeonTycoon.Unity
                     fx.Trail = Part(fx, "레이저 불빛", cube, glass);
                     fx.Flash = Part(fx, "발사 섬광", disk, glass);
                     break;
+                case MonsterPattern.Tombstones:
                 case MonsterPattern.Meteor:
-                    Hide(fx.Rock);
+                case MonsterPattern.Bomb:
+                    fx.Meteor?.Sample(AstrologerMeteor.Impact);
+                    fx.SecondMeteor?.Sample(AstrologerMeteor.Impact);
+                    if (cast.Pattern == MonsterPattern.Tombstones) break;
                     Hide(fx.Trail);
                     fx.Wave = Part(fx, "충격파", ring, glass);
                     fx.Flash = Part(fx, "폭발 섬광", disk, glass);
@@ -339,8 +328,13 @@ namespace DungeonTycoon.Unity
                     poseFoe(cast.Caster.Id, -direction * (.18f * (1 - t)), 1);
                     return true;
                 }
+                case MonsterPattern.Tombstones:
                 case MonsterPattern.Meteor:
+                case MonsterPattern.Bomb:
                 {
+                    fx.Meteor?.Sample(AstrologerMeteor.Impact + age);
+                    fx.SecondMeteor?.Sample(AstrologerMeteor.Impact + age);
+                    if (cast.Pattern == MonsterPattern.Tombstones) return age < .5f;
                     float t = age / MeteorSeconds;
                     if (t >= 1) return false;
                     Place(fx.Wave, fx.Target + Vector3.up * .08f, tile * (.5f + 2.1f * EaseOut(t)));
@@ -416,6 +410,8 @@ namespace DungeonTycoon.Unity
 
         private static void Clear(Fx fx)
         {
+            fx.Meteor?.Clear();
+            fx.SecondMeteor?.Clear();
             foreach (var part in fx.Parts) if (part) Object.Destroy(part.gameObject);
             fx.Parts.Clear();
         }
