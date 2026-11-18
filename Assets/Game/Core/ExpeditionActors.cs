@@ -83,6 +83,7 @@ namespace DungeonTycoon.Core
         public int Target { get; }
         public int Amount { get; }
         public bool IsPatternDamage { get; }
+        public bool PushedHero { get; internal set; }
     }
 
     public sealed class HeroState

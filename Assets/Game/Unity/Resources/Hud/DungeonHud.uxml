@@ -38,6 +38,7 @@
             <ui:Button name="follow" class="chip follow" text="따라가기  켬" focusable="false" />
             <ui:Button name="whole" class="chip" text="전체 보기" focusable="false" />
             <ui:Button name="history-open" class="chip" text="기록" focusable="false" />
+            <ui:Button name="audio-toggle" class="chip" text="음량" />
         </ui:VisualElement>
 
         <ui:VisualElement name="party" class="party" picking-mode="Ignore">
@@ -302,6 +303,11 @@
             <ui:Label name="name" class="tip-name" picking-mode="Ignore" />
             <ui:Label name="description" class="tip-description" picking-mode="Ignore" />
             <ui:Label name="fact" class="tip-fact" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="audio-panel" class="audio-panel">
+            <ui:VisualElement class="audio-row"><ui:Label class="audio-name" text="BGM" /><ui:SliderInt name="audio-bgm" low-value="0" high-value="200" /><ui:Label name="audio-bgm-value" class="audio-value" /></ui:VisualElement>
+            <ui:VisualElement class="audio-row"><ui:Label class="audio-name" text="효과음" /><ui:SliderInt name="audio-effects" low-value="0" high-value="200" /><ui:Label name="audio-effects-value" class="audio-value" /></ui:VisualElement>
+            <ui:VisualElement class="audio-row"><ui:Label class="audio-name" text="환경음" /><ui:SliderInt name="audio-ambience" low-value="0" high-value="200" /><ui:Label name="audio-ambience-value" class="audio-value" /></ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="history" class="history-backdrop">
             <ui:VisualElement class="history-box">

@@ -15,6 +15,11 @@ namespace DungeonTycoon.Unity
         private readonly TilePoint[] heroTiles = new TilePoint[4];
         private PartyDirector director;
         private DialogueStage stage;
+        private DungeonAudio dungeonAudio;
+        private int heardLevel = 1;
+        internal DungeonAudio Audio => dungeonAudio;
+        internal void PlayButtonSound() => dungeonAudio.PlayEffect(SoundKey.Click);
+        private DungeonHud hud;
         private PrayerScene prayerScene;
         private CancellationToken lifetime;
         private int heardPrayer;
@@ -60,7 +65,8 @@ namespace DungeonTycoon.Unity
             Board.Initialize();
             SetSpeed(1);
             RefreshLayout();
-            gameObject.AddComponent<DungeonHud>();
+            dungeonAudio = new DungeonAudio(gameObject);
+            hud = gameObject.AddComponent<DungeonHud>();
             // Mounts itself into the HUD document in Start, after the HUD has bound its own elements.
             stage = gameObject.AddComponent<DialogueStage>();
             prayerScene = gameObject.AddComponent<PrayerScene>();
@@ -111,6 +117,7 @@ namespace DungeonTycoon.Unity
             if (check != PlacementCheck.Allowed) return check;
             if (kind == MonsterKind.None) Run.Remove(tile);
             else Run.Place(tile, kind);
+            PlayButtonSound();
             RefreshLayout();
             return check;
         }
@@ -130,6 +137,25 @@ namespace DungeonTycoon.Unity
 
         private static bool InDungeon(DungeonRun run) => run.Phase == RunPhase.Travel || run.Phase == RunPhase.Combat;
 
+        private void LateUpdate()
+        {
+            SoundKey? music = Run.Phase switch
+            {
+                RunPhase.Planning when hud.DungeonVisible => SoundKey.Planning,
+                RunPhase.Combat when Run.FightingBoss =>
+                    Run.Stage == 3 ? SoundKey.NecromancerMarch : SoundKey.BossBattle,
+                RunPhase.Travel or RunPhase.Combat => SoundKey.Exploration,
+                _ => null
+            };
+            dungeonAudio.UpdateMusic(music, Run.Stage, prayerScene.IsOpen);
+            if (Run.Level > heardLevel)
+                dungeonAudio.PlayEffect(heardLevel < HeroSkills.UnlockLevel && Run.Level >= HeroSkills.UnlockLevel
+                    ? SoundKey.SkillAwaken : SoundKey.LevelRise);
+            heardLevel = Run.Level;
+            dungeonAudio.UpdateBeam(Run.Casts, Run.Ticks + Mathf.Clamp01(accumulator / TickSeconds),
+                Run.Phase == RunPhase.Combat && Speed > 0 && !Presenting && Run.PendingPrayer == null);
+        }
+
         /// <summary>
         /// Feeds fixed ticks to the run at the chosen speed. Pausing, an adversity, a fork debate or the dialogue
         /// stage stops the clock.
@@ -145,6 +171,11 @@ namespace DungeonTycoon.Unity
                 ShareLootAsync(run, loot, lifetime).Forget();
             }
             if (run == null || !InDungeon(run)) return;
+            var phaseBefore = run.Phase;
+            var leaderBefore = run.LeaderTile;
+            int standingBefore = 0;
+            foreach (var hero in run.Party)
+                if (hero.Hp > 0) standingBefore |= 1 << (int)hero.Role;
 
             if (run.PendingAdversity || run.PendingPrayer != null || Speed == 0 || Presenting) accumulator = 0;
             else
@@ -160,6 +191,16 @@ namespace DungeonTycoon.Unity
                 if (accumulator > TickSeconds*budget) accumulator = 0;
             }
             if (SelectedHero >= 0 && run.Party[SelectedHero].Hp == 0) SelectHero(-1);
+            if (run.LeaderTile != leaderBefore) dungeonAudio.PlayEffect(SoundKey.Step);
+            foreach (var hero in run.Party)
+                if (hero.Hp == 0 && (standingBefore & (1 << (int)hero.Role)) != 0)
+                    dungeonAudio.PlayEffect(SoundKey.Down);
+            if (phaseBefore != run.Phase)
+            {
+                if (run.Phase == RunPhase.Defeat) dungeonAudio.PlayEffect(SoundKey.Defeat);
+                if (run.Phase == RunPhase.StageCleared) dungeonAudio.PlayEffect(SoundKey.Clear);
+                if (run.Phase == RunPhase.Victory) dungeonAudio.PlayEffect(SoundKey.VictoryReprise);
+            }
 
             // The result is already applied in Core; the board catches up once the stage has shown it.
             if (Presenting) return;
@@ -168,6 +209,7 @@ namespace DungeonTycoon.Unity
             Board.SetCasts(run.Casts, run.Ticks + Mathf.Clamp01(accumulator / TickSeconds));
             var events = run.TakeEvents();
             Board.PlayEvents(events);
+            dungeonAudio.PlayEvents(events);
             Board.SetFeatures(run.Chests, run.Springs);
             EventsPlayed?.Invoke(events);
 
@@ -225,6 +267,7 @@ namespace DungeonTycoon.Unity
                         index => Board.ShowRoute(index >= 0 ? fork.Options[index].Route : null), token);
                 }
                 if (Run != expedition || !expedition.ResolveFork(fork.Token, null, oracle)) return;
+                if (oracle >= 0) dungeonAudio.PlayEffect(SoundKey.OracleSign);
                 await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
             }
             finally
@@ -277,7 +320,12 @@ namespace DungeonTycoon.Unity
             if (heard == null) return;
             if (!heard.Praying) return;
             await prayerScene.PlayAsync(expedition, heard,
-                answer => expedition.AnswerPrayer(heard.Token, answer) ? expedition.LastPrayer : null, token);
+                answer =>
+                {
+                    if (!expedition.AnswerPrayer(heard.Token, answer)) return null;
+                    if (expedition.LastPrayer.Answered) dungeonAudio.PlayEffect(SoundKey.PrayerAnswer);
+                    return expedition.LastPrayer;
+                }, token);
             if (Run == expedition) RefreshParty();
         }
 
@@ -304,7 +352,11 @@ namespace DungeonTycoon.Unity
         }
 
         /// <summary>The 3D die over the party spins while the stage rolls its dice.</summary>
-        private void PlayRoll(DialogueBeat roll) => Board.PlayAdversity(roll.Difficulty == 0 || roll.Success);
+        private void PlayRoll(DialogueBeat roll)
+        {
+            Board.PlayAdversity(roll.Difficulty == 0 || roll.Success);
+            if (!DialogueStage.FastForward) dungeonAudio.PlayEffect(SoundKey.LootDice);
+        }
 
         /// <summary>Asks for tactics for one situation; the fight keeps going on local rules meanwhile.</summary>
         private async UniTask PlanAsync(DungeonRun expedition, int situation, CancellationToken token)
@@ -371,6 +423,7 @@ namespace DungeonTycoon.Unity
         public void Bless()
         {
             if (SelectedHero < 0 || !Run.Bless((HeroRole)SelectedHero)) return;
+            dungeonAudio.PlayEffect(SoundKey.Heal);
             Spotlight("축복", Run.Log[Run.Log.Count - 1]);
             RefreshParty();
         }
@@ -379,6 +432,7 @@ namespace DungeonTycoon.Unity
         public void RelieveFatigue()
         {
             if (!Run.RelieveFatigue()) return;
+            dungeonAudio.PlayEffect(SoundKey.Spring);
             Spotlight("신의 휴식", Run.Log[Run.Log.Count - 1]);
         }
 

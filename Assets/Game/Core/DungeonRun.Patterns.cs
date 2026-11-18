@@ -209,11 +209,12 @@ namespace DungeonTycoon.Core
                 int damage = Shielded(hero, Mitigate(caster.Attack * MonsterPatterns.DamagePercent(cast.Pattern) / 100, hero.Armor));
                 cast.hits.Add((int)role);
                 struck.Add($"{hero.Name} {damage}");
-                events.Add(new CombatEvent(CombatEventKind.Attack, false, caster.Id, true, (int)role, damage,
-                    isPatternDamage: true));
+                var hit = new CombatEvent(CombatEventKind.Attack, false, caster.Id, true, (int)role, damage,
+                    isPatternDamage: true);
+                events.Add(hit);
                 Hurt(hero, damage, caster.Name, false, caster);
                 if (cast.Pattern == MonsterPattern.Shove && hero.Hp > 0)
-                    PushHero(hero, caster.Tile, cast.Aim);
+                    hit.PushedHero = PushHero(hero, caster.Tile, cast.Aim);
                 if (!InDungeon) break;
             }
             string name = MonsterPatterns.Name(cast.Pattern);
@@ -251,16 +252,17 @@ namespace DungeonTycoon.Core
             }
         }
 
-        private void PushHero(HeroState hero, TilePoint from, TilePoint aim)
+        private bool PushHero(HeroState hero, TilePoint from, TilePoint aim)
         {
             var here = StandingTile(hero.Role);
             var dest = new TilePoint(here.X + Math.Sign(aim.X - from.X), here.Y + Math.Sign(aim.Y - from.Y));
             if (!Map.IsFloor(dest) || !Map.HasLineOfSight(here, dest) ||
                 party.Any(h => h != hero && h.Hp > 0 && (StandingTile(h.Role) == dest || HeroTile(h.Role) == dest)) ||
-                monsters.Any(m => m.Alive && m.Tile == dest)) return;
+                monsters.Any(m => m.Alive && m.Tile == dest)) return false;
             heroTiles[(int)hero.Role] = dest;
             hero.StepFrom = dest;
             hero.StepUntil = Ticks;
+            return dest != here;
         }
 
         private HashSet<TilePoint> Square(TilePoint centre)

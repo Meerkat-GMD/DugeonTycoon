@@ -26,6 +26,7 @@ namespace DungeonTycoon.Unity
         private UIDocument document;
         private PanelSettings panel;
         private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
+        internal bool DungeonVisible => hud != null && titleScreen == null;
         private VisualElement interventionPage, resultPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
@@ -35,6 +36,8 @@ namespace DungeonTycoon.Unity
         private Button follow, primary, collapse, removeCard, trialCard, blessCard;
         private Label summaryNote;
         private VisualElement planningTip;
+        private VisualElement audioPanel;
+        private Button audioToggle;
         private Label tipKind, tipName, tipDescription, tipFact;
         private DungeonBoard.PlanningTarget shownTarget;
         // One placement card per monster kind; only the kinds on the stage's roster are shown.
@@ -101,6 +104,12 @@ namespace DungeonTycoon.Unity
             document.panelSettings = panel;
             document.visualTreeAsset = Resources.Load<VisualTreeAsset>("Hud/DungeonHud");
             Bind(document.rootVisualElement);
+            document.rootVisualElement.RegisterCallback<ClickEvent>(e =>
+            {
+                var target = e.target as VisualElement;
+                var button = target as Button ?? target?.GetFirstAncestorOfType<Button>();
+                if (button != null && button.enabledInHierarchy) game.PlayButtonSound();
+            }, TrickleDown.TrickleDown);
             game.EventsPlayed += OnCombatEvents;
         }
 
@@ -217,6 +226,12 @@ namespace DungeonTycoon.Unity
             follow.clicked += () => game.Board.SetFollowParty(!game.Board.FollowParty);
             root.Q<Button>("whole").clicked += () => game.Board.ShowWholeDungeon();
             root.Q<Button>("history-open").clicked += OpenHistory;
+            audioPanel = root.Q("audio-panel");
+            audioToggle = root.Q<Button>("audio-toggle");
+            audioToggle.clicked += () => ShowAudio(!audioPanel.ClassListContains("open"));
+            BindVolume("audio-bgm", AudioGroup.Bgm);
+            BindVolume("audio-effects", AudioGroup.Effects);
+            BindVolume("audio-ambience", AudioGroup.Ambience);
             root.Q<Button>("history-close").clicked += () => history.RemoveFromClassList("open");
             collapse.clicked += () => bottom.ToggleInClassList("collapsed");
             primary.clicked += game.RequestDeparture;
@@ -354,9 +369,33 @@ namespace DungeonTycoon.Unity
 
         private bool HistoryOpen => history.ClassListContains("open");
 
-        /// <summary>Space pauses or resumes, 1 and 2 pick the speed, Escape closes the record.</summary>
+        private void BindVolume(string name, AudioGroup group)
+        {
+            var slider = audioPanel.Q<SliderInt>(name);
+            var value = audioPanel.Q<Label>(name + "-value");
+            slider.SetValueWithoutNotify(game.Audio.GetVolume(group));
+            value.text = slider.value + "%";
+            slider.RegisterValueChangedCallback(e =>
+            {
+                game.Audio.SetVolume(group, e.newValue);
+                value.text = e.newValue + "%";
+            });
+        }
+
+        private void ShowAudio(bool open)
+        {
+            audioPanel.EnableInClassList("open", open);
+            audioToggle.EnableInClassList("on", open);
+            if (!open) PlayerPrefs.Save();
+        }
+
         private void Keys(DungeonRun run)
         {
+            if (audioPanel.ClassListContains("open") && Input.GetKeyDown(KeyCode.Escape))
+            {
+                ShowAudio(false);
+                return;
+            }
             if (HistoryOpen)
             {
                 if (Input.GetKeyDown(KeyCode.Escape)) history.RemoveFromClassList("open");

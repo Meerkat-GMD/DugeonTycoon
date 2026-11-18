@@ -221,6 +221,23 @@
     min-width: 94px;
 }
 
+.hud .audio-panel {
+    display: none;
+    position: absolute;
+    right: 10px;
+    top: 53px;
+    width: 275px;
+    padding: 7px 10px;
+    background-color: var(--panel);
+    border-top-width: 2px;
+    border-top-color: var(--gold);
+}
+.hud .audio-panel.open { display: flex; }
+.hud .audio-row { flex-direction: row; align-items: center; height: 31px; }
+.hud .audio-row SliderInt { flex-grow: 1; }
+.hud .audio-name { width: 49px; }
+.hud .audio-value { width: 44px; -unity-text-align: middle-right; }
+
 /* ── Party column ────────────────────────────────────────────────── */
 
 .hud .party {

@@ -433,6 +433,8 @@ namespace DungeonTycoon.Core.Tests
             if (blocked) Put(run, HeroRole.Healer, 35, 4);
             TickUntilFired(run, run.ForceCast(Foe(run), MonsterPattern.Shove, HeroRole.Tank));
             Assert.That(run.HeroTile(HeroRole.Tank), Is.EqualTo(new TilePoint(blocked ? 34 : 35, 4)));
+            Assert.That(run.TakeEvents().Single(e => e.IsPatternDamage && e.Target == (int)HeroRole.Tank).PushedHero,
+                Is.EqualTo(!blocked));
         }
         [Test]
         public void BombHitsEveryHeroStillInItsThreeByThreeAreaOnce()
