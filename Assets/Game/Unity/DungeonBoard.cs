@@ -20,11 +20,6 @@ namespace DungeonTycoon.Unity
         private const float FollowZoom = 5.2f;
         private const float LungeSeconds = .32f;
         private const float FlightSeconds = .3f;
-        // Small offsets keep figures who share a tile from standing inside each other.
-        private static readonly Vector2[] Huddle =
-        {
-            new Vector2(.12f,.13f), new Vector2(-.13f,-.12f), new Vector2(-.13f,.13f), new Vector2(.12f,-.13f)
-        };
 
         private sealed class Foe
         {
@@ -426,7 +421,7 @@ namespace DungeonTycoon.Unity
                 BuildScenery(placeable, patrols);
                 for (int i = 0; i < heroes.Length; i++)
                 {
-                    heroGoals[i] = HeroSpot(map.Entrance, i);
+                    heroGoals[i] = TileCenter(map.Entrance);
                     heroes[i].localPosition = heroGoals[i];
                     heroes[i].localRotation = Quaternion.identity;
                 }
@@ -453,7 +448,7 @@ namespace DungeonTycoon.Unity
                     }
             AddFoe(DungeonFigures.BossTier(stage));
             tiles.Add(map.BossTile);
-            PlaceFoes(tiles, null, true);
+            PlaceFoePreviews(tiles);
         }
 
         private void ClearFoes()
@@ -487,15 +482,14 @@ namespace DungeonTycoon.Unity
         }
 
         /// <summary>Spreads figures that share a tile; stacked monsters are drawn smaller.</summary>
-        private void PlaceFoes(IReadOnlyList<TilePoint> tiles, IReadOnlyList<bool> alive, bool snap)
+        private void PlaceFoePreviews(IReadOnlyList<TilePoint> tiles)
         {
             var perTile = new Dictionary<TilePoint,int>();
             for (int i = 0; i < tiles.Count; i++)
-                if (alive == null || alive[i]) perTile[tiles[i]] = perTile.TryGetValue(tiles[i], out int n) ? n+1 : 1;
+                perTile[tiles[i]] = perTile.TryGetValue(tiles[i], out int n) ? n+1 : 1;
             var seen = new Dictionary<TilePoint,int>();
             for (int i = 0; i < tiles.Count; i++)
             {
-                if (alive != null && !alive[i]) continue;
                 seen[tiles[i]] = seen.TryGetValue(tiles[i], out int k) ? k+1 : 0;
                 int count = perTile[tiles[i]];
                 float angle = seen[tiles[i]]*Mathf.PI*2/count + .6f;
@@ -503,7 +497,6 @@ namespace DungeonTycoon.Unity
                 var foe = foes[i];
                 foe.Goal = TileCenter(tiles[i])+offset;
                 foe.Scale = count == 1 || i == foes.Count-1 ? 1f : .72f;
-                if (!snap) continue;
                 foe.Body.localPosition = foe.Goal;
                 foe.Body.localScale = Vector3.one*foe.Scale;
             }
@@ -513,14 +506,12 @@ namespace DungeonTycoon.Unity
         public void SetMonsters(IReadOnlyList<MonsterState> monsters)
         {
             if (map == null || monsters == null || monsters.Count != foes.Count) return;
-            var tiles = new TilePoint[monsters.Count];
-            var alive = new bool[monsters.Count];
             for (int i = 0; i < monsters.Count; i++)
             {
                 var monster = monsters[i];
                 var foe = foes[i];
-                tiles[i] = monster.Tile;
-                alive[i] = monster.Alive;
+                foe.Goal = TileCenter(monster.Tile);
+                foe.Scale = 1f;
                 if (foe.Alive != monster.Alive)
                 {
                     foe.Alive = monster.Alive;
@@ -533,7 +524,6 @@ namespace DungeonTycoon.Unity
                 foe.Fill.localScale = new Vector3(fraction,1,1);
                 foe.Fill.localPosition = new Vector3((fraction-1)*.465f,0,-.03f);
             }
-            PlaceFoes(tiles, alive, false);
         }
 
         private void BuildScenery(Func<TilePoint,bool> placeable, IReadOnlyList<PatrolSquad> patrols)
@@ -782,9 +772,6 @@ namespace DungeonTycoon.Unity
 
         // ── Party and combat cues ────────────────────────────────────────
 
-        private Vector3 HeroSpot(TilePoint tile, int hero) =>
-            TileCenter(tile) + new Vector3(Huddle[hero].x,0,Huddle[hero].y)*Tile;
-
         /// <summary>Sends each hero toward its tile; they walk there at <see cref="WalkSpeed"/>.</summary>
         public void SetParty(IReadOnlyList<TilePoint> tiles, bool[] alive)
         {
@@ -792,7 +779,7 @@ namespace DungeonTycoon.Unity
             for (int i = 0; i < heroes.Length; i++)
             {
                 living[i] = alive == null || i >= alive.Length || alive[i];
-                if (tiles != null && i < tiles.Count && living[i]) heroGoals[i] = HeroSpot(tiles[i], i);
+                if (tiles != null && i < tiles.Count && living[i]) heroGoals[i] = TileCenter(tiles[i]);
             }
         }
 
