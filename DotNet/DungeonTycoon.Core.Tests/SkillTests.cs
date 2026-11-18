@@ -16,7 +16,7 @@ namespace DungeonTycoon.Core.Tests
         /// </summary>
         private static DungeonRun Arena(int skeletons, int level = 1)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             for (int i = 0; i < skeletons; i++) Assert.That(run.Place(run.Map.BossTile, MonsterKind.Skeleton), Is.True);
             run.Start();
             DungeonRunTests.Drive(run, () => run.Phase == RunPhase.Combat);
@@ -86,7 +86,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void TheSecondSkillOpensAtTheUnlockLevel()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             foreach (HeroRole role in Enum.GetValues(typeof(HeroRole)))
             {
                 Assert.That(run.SkillUnlocked(role, 0), Is.True);

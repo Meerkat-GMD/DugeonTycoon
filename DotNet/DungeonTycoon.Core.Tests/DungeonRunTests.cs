@@ -50,7 +50,7 @@ namespace DungeonTycoon.Core.Tests
         /// <summary>A skeleton on the boss tile is always met near the boss, whatever way the party takes.</summary>
         internal static DungeonRun RunInCombat(MonsterKind kind = MonsterKind.Skeleton)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Place(run.Map.BossTile, kind);
             run.Start();
             Drive(run, () => run.Phase == RunPhase.Combat);
@@ -61,7 +61,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void PlacementSpendsBudgetStacksRefundsOneAtATimeAndLocksOnDeparture()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var tiles = PlaceableTiles(run);
             Assert.That(run.Place(tiles[0], MonsterKind.Zombie), Is.True);
             Assert.That(run.Place(tiles[0], MonsterKind.Ghost), Is.True);
@@ -92,7 +92,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void MonstersStayOffWallsAndAwayFromTheEntrance()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var map = run.Map;
             Assert.That(run.CheckPlace(new TilePoint(0, 0), MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.NotFloor));
             Assert.That(run.CheckPlace(new TilePoint(-1, 3), MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.NotFloor));
@@ -114,7 +114,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ClearingTheFirstStageLoadsTheSecondMapWithAnEmptyPlan()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var firstMap = run.Map;
             run.Start();
             Drive(run, () => run.Stage == 2 || run.Phase == RunPhase.Defeat);
@@ -127,7 +127,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.LeaderTile, Is.EqualTo(run.Map.Entrance));
             Assert.That(run.IsSeen(run.Map.BossTile), Is.False);
             Assert.That(run.ReachedBoss, Is.False);
-            Assert.That(run.Budget, Is.EqualTo(7));
+            Assert.That(run.Budget, Is.EqualTo(DungeonRun.BudgetFor(2)));
             Assert.That(run.Party.All(h => h.Hp == h.MaxHp), Is.True);
         }
 
@@ -139,7 +139,7 @@ namespace DungeonTycoon.Core.Tests
             if (inCombat) run = RunInCombat();
             else
             {
-                run = new DungeonRun();
+                run = DungeonRun.Sandbox();
                 Assert.That(run.BeginAdversity(), Is.Zero);
                 run.Start();
             }
@@ -184,7 +184,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void TheGmChoosesWhoIsBlessedButNotTheFallenOrTheUnhurt()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             Assert.That(run.CanBlessHero(HeroRole.Tank), Is.False, "no blessing before departure");
             run.Start();
             run.ResolveAdversity(run.BeginAdversity(), HeroRole.Tank, 1);
@@ -207,7 +207,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AFallenHeroCannotBeBlessed()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             var fallen = run.Party[(int)HeroRole.MeleeDamage];
             fallen.Hp = 0;
@@ -222,7 +222,7 @@ namespace DungeonTycoon.Core.Tests
             // The same interventions at the same ticks give the same expedition whether frames carry 1, 2 or 3 ticks.
             List<string> Play(int ticksPerFrame)
             {
-                var run = new DungeonRun(seed: 5);
+                var run = DungeonRun.Sandbox(seed: 5);
                 foreach (var tile in TrainingGrounds[0]) run.Place(tile, MonsterKind.Skeleton);
                 run.Start();
                 bool trialDone = false, blessDone = false;
@@ -259,7 +259,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void BossPreviewMatchesTheBossTheStageFightsAndExperienceSplitsIntoLevels()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             Assert.That(run.Boss, Is.Null);
             string previewName = run.BossName;
             int previewHp = run.BossMaxHp;
@@ -274,64 +274,29 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.ExperienceIntoLevel, Is.EqualTo(run.Experience % DungeonRun.ExperiencePerLevel));
         }
 
+        /// <summary>
+        /// The first-play balance check: with every adversity won and all faith spent on blessings, an empty dungeon
+        /// (only the fixed patrols) still loses to the final boss, while monsters placed along the main roads grow the
+        /// party enough to win. Both use the real maps with patrols, chests and springs.
+        /// </summary>
         [TestCase(true, RunPhase.Victory)]
-        [TestCase(false, RunPhase.Defeat, IgnoreReason =
-            "Pending enemy rescale: heroes moved to the trait-build stats (hero-traits-design.md) and the monsters " +
-            "are rebalanced once the undead roster from enemy-patterns lands.")]
-        public void PlannedExpeditionCanWinButEmptyExpeditionLosesEvenWithPerfectTrials(
-            bool placeMonsters, RunPhase expected)
+        [TestCase(false, RunPhase.Defeat)]
+        public void PlannedExpeditionCanWinButEmptyExpeditionLosesEvenWithPerfectTrials(bool placeMonsters, RunPhase expected)
         {
-            var run = new DungeonRun();
-            int trials = 0;
-            int stageOneLevel = 0;
-            int blessings = 0;
-            for (int step = 0; step < 40000; step++)
-            {
-                if (run.Phase == RunPhase.Victory || run.Phase == RunPhase.Defeat) break;
-                if (run.PendingLoot != null)
-                {
-                    run.ResolveLoot(run.PendingLoot.Token);
-                    continue;
-                }
-                if (run.Phase == RunPhase.Planning)
-                {
-                    if (run.Stage == 2)
-                    {
-                        stageOneLevel = run.Level;
-                        Assert.That(run.Party.All(hero => hero.Hp == hero.MaxHp), Is.True);
-                    }
-                    if (placeMonsters)
-                        foreach (var tile in TrainingGrounds[run.Stage - 1])
-                            Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True, tile.ToString());
-                    run.Start();
-                }
-                // Spend one trial while exploring and save one for the stage boss.
-                if (run.TrialsLeft == 2 || (run.TrialsLeft == 1 && run.FightingBoss))
-                {
-                    int ticket = run.BeginAdversity();
-                    Assert.That(run.ResolveAdversity(ticket, HeroRole.Tank, 20), Is.True);
-                    trials++;
-                }
-                if (run.Bless()) blessings++;
-                if (run.PendingFork != null) run.ResolveFork(run.PendingFork.Token);
-                else run.Tick();
-            }
-            TestContext.Out.WriteLine($"level {run.Level}, stage-one level {stageOneLevel}, faith {run.Faith}, blessings {blessings}");
-            foreach (var line in run.Log.Where(l => l.Contains("격파") || l.Contains("레벨") || l.Contains("전투 종료") || l.Contains("전멸") || l.Contains("쓰러짐")))
-                TestContext.Out.WriteLine("  " + line);
-            Assert.That(run.Stage, Is.EqualTo(2));
-            Assert.That(trials, Is.EqualTo(4));
-            Assert.That(run.Phase, Is.EqualTo(expected));
+            var (phase, stages, run) = BalanceProbe.Play(20261118, placeMonsters);
+            foreach (var s in stages)
+                TestContext.Out.WriteLine($"stage {s.Stage}: level at boss {s.LevelAtBoss}, boss fight {s.BossTicks / 10.0:0.#}s, chests {s.Chests}");
+            Assert.That(run.Stage, Is.EqualTo(DungeonRun.FinalStage));
+            Assert.That(stages.Count, Is.EqualTo(DungeonRun.FinalStage));
+            Assert.That(run.TrialsLeft, Is.Zero, "every stage's adversities were spent");
+            Assert.That(phase, Is.EqualTo(expected));
             if (placeMonsters)
             {
-                Assert.That(run.Level, Is.GreaterThan(stageOneLevel));
+                for (int i = 1; i < stages.Count; i++)
+                    Assert.That(stages[i].LevelAtBoss, Is.GreaterThan(stages[i - 1].LevelAtBoss), "the party grows every stage");
                 Assert.That(run.Party.Any(hero => hero.Hp > 0), Is.True);
             }
-            else
-            {
-                Assert.That(run.Faith, Is.Zero);
-                Assert.That(blessings, Is.EqualTo(5));
-            }
+            else Assert.That(run.Faith, Is.Zero, "the empty run spent all its faith and still lost");
         }
 
         [Test]
@@ -339,7 +304,7 @@ namespace DungeonTycoon.Core.Tests
         {
             List<string> Play()
             {
-                var run = new DungeonRun(seed: 7);
+                var run = DungeonRun.Sandbox(seed: 7);
                 var tiles = PlaceableTiles(run);
                 run.Place(tiles[tiles.Count / 3], MonsterKind.Skeleton);
                 run.Place(tiles[tiles.Count / 2], MonsterKind.Zombie);

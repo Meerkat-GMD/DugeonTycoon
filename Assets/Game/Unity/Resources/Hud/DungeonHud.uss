@@ -357,6 +357,11 @@
     color: var(--growth);
 }
 
+/* A spring the party drank from: the fatigue it took away. */
+.hud .pop.spring {
+    color: var(--teal);
+}
+
 .hud .pop.item {
     padding: 1px 7px;
     border-width: 2px;
@@ -771,6 +776,7 @@
 .hud .brush-skeleton-art { background-image: url("SkeletonPortrait.png"); }
 .hud .brush-ghost-art { background-image: url("GhostPortrait.png"); }
 .hud .brush-zombie-art { background-image: url("ZombiePortrait.png"); }
+.hud .brush-archer-art { background-image: url("ArcherPortrait.png"); }
 .hud .brush-remove-art { background-image: url("ErasePlacement.png"); }
 
 .hud .summary {
@@ -793,6 +799,7 @@
     margin-top: 6px;
     font-size: 12px;
     color: var(--muted);
+    -unity-text-align: upper-right;
 }
 
 .hud .info-text {

@@ -22,7 +22,7 @@ namespace DungeonTycoon.Core.Tests
         /// </summary>
         private static DungeonRun Arena(Action<DungeonRun> builds, MonsterKind[] kinds, int level = 1)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             foreach (HeroRole role in Enum.GetValues(typeof(HeroRole)))
                 Assert.That(run.SetBuild(role, new HeroBuild(Plain, PersonalityTrait.Curious)), Is.True);
             builds?.Invoke(run);
@@ -355,7 +355,7 @@ namespace DungeonTycoon.Core.Tests
         /// <summary>One skeleton by the entrance drops <paramref name="drop"/>; the fight ends with the armour pending.</summary>
         private static DungeonRun Shared(Action<DungeonRun> builds, string drop)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             builds(run);
             var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
             Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
@@ -422,7 +422,7 @@ namespace DungeonTycoon.Core.Tests
 
         private static DungeonRun Marching(Action<DungeonRun> builds)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             builds(run);
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
@@ -468,7 +468,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ANavigatorHeadsForTheRememberedBossMarker()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             With(run, HeroRole.Tank, PersonalityTrait.Navigator);
             run.Start();
             var path = new[] { new TilePoint(0, 0), new TilePoint(1, 0) };

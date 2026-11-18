@@ -22,7 +22,7 @@ namespace DungeonTycoon.Core.Tests
                 Is.EqualTo(new[] { maxHp, attack, armor, speed }));
             Assert.That(HeroBuild.Default(role).Left, Is.Zero, "the default build spends every point");
 
-            var hero = Hero(new DungeonRun(), role);
+            var hero = Hero(DungeonRun.Sandbox(), role);
             Assert.That(hero.Build, Is.EqualTo(HeroBuild.Default(role)));
             Assert.That(new[] { hero.MaxHp, hero.Hp, hero.Attack, hero.Armor, hero.SpeedHundredths },
                 Is.EqualTo(new[] { maxHp, maxHp, attack, armor, speed }));
@@ -91,7 +91,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void TheFormationIsSetBeforeTheFirstDepartureAndLockedAfter()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var build = new HeroBuild(CombatTrait.Stoic, PersonalityTrait.Greedy, armor: 10);
             Assert.That(run.CanEditFormation, Is.True);
             Assert.That(run.SetBuild(HeroRole.Tank, build), Is.True);
@@ -107,7 +107,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ARematchKeepsTheFormationAndPlanAndTheSameSeedReplaysTheSameRun()
         {
-            var first = new DungeonRun(4242);
+            var first = DungeonRun.Sandbox(4242);
             var tiles = DungeonRunTests.PlaceableTiles(first).Take(3).ToList();
             foreach (var tile in tiles) Assert.That(first.Place(tile, MonsterKind.Skeleton), Is.True);
             first.SetBuild(HeroRole.MeleeDamage, new HeroBuild(CombatTrait.Avenger, PersonalityTrait.Generous, attack: 10));
@@ -123,7 +123,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(again.CanEditFormation, Is.True, "the copy can still be changed before it sets off");
             Assert.That(again.Party.All(h => h.Hp == h.MaxHp && h.Weapon == null && h.BodyArmor == null), Is.True);
 
-            var control = new DungeonRun(4242);
+            var control = DungeonRun.Sandbox(4242);
             foreach (var tile in tiles) control.Place(tile, MonsterKind.Skeleton);
             control.SetBuild(HeroRole.MeleeDamage, first.BuildOf(HeroRole.MeleeDamage));
             again.Start();
@@ -139,7 +139,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void ARematchAfterTheFirstStageLaysOutTheSecondStagePlanWhenItOpens()
         {
-            var first = new DungeonRun(7);
+            var first = DungeonRun.Sandbox(7);
             first.Start();
             DungeonRunTests.Drive(first, () => first.Stage == 2 || !DungeonRunTests.InDungeon(first), 60000);
             Assume.That(first.Stage, Is.EqualTo(2));
@@ -167,7 +167,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void FasterHeroesStepSoonerInAFightAndTheRemainderCarries()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var tank = Hero(run, HeroRole.Tank);          // 85.5%
             var ranged = Hero(run, HeroRole.RangedDamage); // 139.65%
             int[] Steps(HeroState hero) => Enumerable.Range(0, 20).Select(_ => CombatMove(hero)).ToArray();
@@ -205,7 +205,7 @@ namespace DungeonTycoon.Core.Tests
         /// <summary>One skeleton that drops <paramref name="armour"/>; the fight runs to the loot debate.</summary>
         private static DungeonRun ArmourAfterAFight(string armour, Action<DungeonRun> formation)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             formation(run);
             var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
             Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);

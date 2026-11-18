@@ -7,15 +7,19 @@ namespace DungeonTycoon.Core.Tests
 {
     public class FatigueTests
     {
-        /// <summary>A fresh run in the planning phase of the given stage; stage 1 is cleared with local decisions.</summary>
+        /// <summary>
+        /// A fresh run in the planning phase of the given stage, earlier stages cleared with local decisions. The maps
+        /// keep their chests and springs; patrols stay out so only the walking is measured.
+        /// </summary>
         private static DungeonRun AtStage(int stage)
         {
-            var run = new DungeonRun();
-            if (stage == 2)
+            var run = DungeonRun.Sandbox(features: true);
+            while (run.Stage < stage)
             {
+                int next = run.Stage + 1;
                 run.Start();
-                DungeonRunTests.Drive(run, () => run.Stage == 2);
-                Assert.That(run.Stage, Is.EqualTo(2));
+                DungeonRunTests.Drive(run, () => (run.Stage == next && run.PendingLoot == null) || run.Phase == RunPhase.Defeat);
+                Assert.That(run.Stage, Is.EqualTo(next));
                 Assert.That(run.Phase, Is.EqualTo(RunPhase.Planning));
             }
             return run;
@@ -52,7 +56,8 @@ namespace DungeonTycoon.Core.Tests
         private static int DeadEnds(DungeonRun run, int fromLog) => run.Log.Skip(fromLog).Count(l => l.StartsWith("막다른 길"));
 
         [TestCase(1, 52, 114, 156)]
-        [TestCase(2, 29, 64, 87)]
+        [TestCase(2, 67, 147, 201)]
+        [TestCase(3, 50, 110, 150)]
         public void ThresholdsComeFromTheShortestWalkToTheBossAndResetEachStage(int stage, int shortest, int first, int second)
         {
             var run = AtStage(stage);
@@ -266,6 +271,7 @@ namespace DungeonTycoon.Core.Tests
 
         [TestCase(1)]
         [TestCase(2)]
+        [TestCase(3)]
         public void APartyThatHeadsForTheBossStaysRestedButOneThatWandersTires(int stage)
         {
             var direct = AtStage(stage);
@@ -285,7 +291,7 @@ namespace DungeonTycoon.Core.Tests
             DriveWith(lost, Farthest(lost), () => lost.FightingBoss || !DungeonRunTests.InDungeon(lost));
             TestContext.Out.WriteLine($"stage {stage} lost: {lost.FatigueSteps} steps, {DeadEnds(lost, from)} dead ends");
             Assert.That(lost.FightingBoss, Is.True);
-            // Stage 2 has a single dead end (the side vault); the rest of the wandering is its long loops.
+            // Stage 1 has two dead ends; the crypt and the castle mostly make a lost party walk their long loops.
             Assert.That(DeadEnds(lost, from), Is.GreaterThanOrEqualTo(stage == 1 ? 2 : 1));
             Assert.That(lost.Fatigue, Is.Not.EqualTo(FatigueStage.Rested));
         }

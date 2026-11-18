@@ -26,7 +26,8 @@ namespace DungeonTycoon.Core
 
     /// <summary>
     /// A fixed dungeon layout. Text maps use '#' for wall, '.' for floor,
-    /// 'E' for the single entrance floor tile and 'B' for boss room floor.
+    /// 'E' for the single entrance floor tile, 'B' for boss room floor, 'C' for a floor tile holding a treasure
+    /// chest and 'S' for a floor tile holding a spring.
     /// </summary>
     public sealed class DungeonMap
     {
@@ -50,6 +51,12 @@ namespace DungeonTycoon.Core
         public TilePoint Entrance { get; private set; }
         /// <summary>Where the stage boss stands: the boss room tile nearest the room's centre.</summary>
         public TilePoint BossTile { get; private set; }
+        /// <summary>Treasure chest tiles, top row first, then left to right.</summary>
+        public IReadOnlyList<TilePoint> Chests => chests;
+        /// <summary>Spring tiles, top row first, then left to right.</summary>
+        public IReadOnlyList<TilePoint> Springs => springs;
+        private readonly List<TilePoint> chests = new List<TilePoint>();
+        private readonly List<TilePoint> springs = new List<TilePoint>();
 
         public static DungeonMap ForStage(int stage) => Parse(DungeonLayouts.ForStage(stage));
 
@@ -75,6 +82,14 @@ namespace DungeonTycoon.Core
                     {
                         case '#': break;
                         case '.': map.floor[x, y] = true; break;
+                        case 'C':
+                            map.floor[x, y] = true;
+                            map.chests.Add(new TilePoint(x, y));
+                            break;
+                        case 'S':
+                            map.floor[x, y] = true;
+                            map.springs.Add(new TilePoint(x, y));
+                            break;
                         case 'E':
                             if (hasEntrance) throw new FormatException("Map has more than one entrance.");
                             hasEntrance = true;

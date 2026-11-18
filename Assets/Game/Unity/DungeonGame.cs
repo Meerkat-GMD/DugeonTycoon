@@ -166,6 +166,7 @@ namespace DungeonTycoon.Unity
             Board.SetCasts(run.Casts, run.Ticks);
             var events = run.TakeEvents();
             Board.PlayEvents(events);
+            Board.SetFeatures(run.Chests, run.Springs);
             EventsPlayed?.Invoke(events);
 
             var fork = run.PendingFork;
@@ -406,7 +407,8 @@ namespace DungeonTycoon.Unity
         private void RefreshLayout()
         {
             bool planning = Run.Phase == RunPhase.Planning;
-            Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.CanHoldMonster);
+            Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.Patrols, Run.CanHoldMonster);
+            Board.SetFeatures(Run.Chests, Run.Springs);
             if (!planning) Board.SetMonsters(Run.Monsters);
             Board.SetCasts(planning ? null : Run.Casts, Run.Ticks);
             fogVersion = -1;

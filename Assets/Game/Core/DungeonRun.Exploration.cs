@@ -26,6 +26,8 @@ namespace DungeonTycoon.Core
         private bool[,] seen;
         private bool[,] visible;
         private bool routeToBoss;
+        /// <summary>The route ends at a chest or spring rather than at the edge of what the party has seen.</summary>
+        private bool routeToFeature;
         private TilePoint routeTarget;
         private int nextForkToken;
 
@@ -55,6 +57,7 @@ namespace DungeonTycoon.Core
             trail.Add(Map.Entrance);
             route.Clear();
             routeToBoss = false;
+            routeToFeature = false;
             skipped.Clear();
             heading.Clear();
             PendingFork = null;
@@ -89,9 +92,15 @@ namespace DungeonTycoon.Core
             TireFromStep();
             bool bossWasSeen = IsSeen(Map.BossTile);
             Reveal();
+            VisitFeatures(next);
+            if (PendingLoot != null) return;
 
-            // Re-plan once the edge we were heading for has been seen, or as soon as the boss room shows up.
-            if (!routeToBoss && (!IsFrontier(routeTarget) || (!bossWasSeen && IsSeen(Map.BossTile))))
+            // Re-plan once the edge we were heading for has been seen, as soon as the boss room shows up, or when a
+            // chest or spring comes into view.
+            bool sawFeature = freshFeature;
+            freshFeature = false;
+            if (routeToFeature) return;
+            if (sawFeature || (!routeToBoss && (!IsFrontier(routeTarget) || (!bossWasSeen && IsSeen(Map.BossTile)))))
                 route.Clear();
         }
 
@@ -146,6 +155,7 @@ namespace DungeonTycoon.Core
             if (fresh.Count > 0)
             {
                 SeenVersion++;
+                NoticeFeatures(fresh);
                 GrowSkipped(fresh);
             }
             foreach (var monster in monsters)
@@ -157,13 +167,27 @@ namespace DungeonTycoon.Core
         {
             route.Clear();
             routeToBoss = false;
+            routeToFeature = false;
             var leader = LeaderTile;
+            // A chest, or a spring when tired, a few steps away is simply visited, not argued over.
+            var near = FeatureWays(true).Where(way => way.Path.Count - 1 <= FeatureDetour).OrderBy(way => way.Path.Count).ToList();
+            if (near.Count > 0)
+            {
+                FollowFeature(near[0].Path);
+                return true;
+            }
+            var far = FeatureWays(false);
             if (IsSeen(Map.BossTile))
             {
                 var toBoss = Map.FindPath(leader, Map.BossTile, Known);
                 if (toBoss.Count >= 2)
                 {
-                    FollowPath(toBoss, true);
+                    if (far.Count == 0) FollowPath(toBoss, true);
+                    else
+                    {
+                        OpenFork(new List<Frontier>(), false, far, toBoss);
+                        return false;
+                    }
                     return true;
                 }
             }
@@ -177,15 +201,25 @@ namespace DungeonTycoon.Core
 
             // A corner a couple of steps away is simply looked around, not argued over.
             var peek = ahead.Where(way => way.Path.Count - 1 <= PeekDistance).OrderBy(way => way.Path.Count).FirstOrDefault();
-            if (ahead.Count == 1 || peek != null)
+            if ((ahead.Count == 1 && far.Count == 0) || peek != null)
             {
                 FollowPath((peek ?? ahead[0]).Path, false);
                 return true;
             }
-            if (ahead.Count >= 2)
+            if (ahead.Count > 0)
             {
-                OpenFork(ahead, false);
+                OpenFork(ahead, false, far);
                 return false;
+            }
+            if (behind.Count + far.Count >= 2)
+            {
+                OpenFork(behind, true, far);
+                return false;
+            }
+            if (far.Count == 1)
+            {
+                FollowFeature(far[0].Path);
+                return true;
             }
             if (behind.Count == 1)
             {
@@ -194,11 +228,6 @@ namespace DungeonTycoon.Core
                 Head(behind[0].Tiles);
                 FollowPath(behind[0].Path, false);
                 return true;
-            }
-            if (behind.Count >= 2)
-            {
-                OpenFork(behind, true);
-                return false;
             }
 
             // Every reachable edge is explored but the boss room is still unseen. Valid maps cannot get here;
@@ -218,6 +247,14 @@ namespace DungeonTycoon.Core
             for (int i = 1; i < end; i++) route.Enqueue(path[i]);
             routeTarget = path[path.Count - 1];
             routeToBoss = toBoss;
+            routeToFeature = false;
+        }
+
+        /// <summary>Walks onto a chest or spring; the route holds until the party stands on it.</summary>
+        private void FollowFeature(IReadOnlyList<TilePoint> path)
+        {
+            FollowPath(path, false);
+            routeToFeature = true;
         }
 
         private sealed class Frontier
@@ -337,23 +374,35 @@ namespace DungeonTycoon.Core
 
         private void ForgetSkipped(HashSet<TilePoint> tiles) => skipped.RemoveAll(set => Touches(set, tiles));
 
-        private void OpenFork(List<Frontier> ways, bool backtracking)
+        /// <summary>
+        /// Opens a discussion over unexplored ways, then the boss room when <paramref name="toBoss"/> is given, then the
+        /// remembered chests and springs in <paramref name="features"/>.
+        /// </summary>
+        private void OpenFork(List<Frontier> ways, bool backtracking,
+            List<(ForkFeature Feature, int Index, IReadOnlyList<TilePoint> Path)> features = null, IReadOnlyList<TilePoint> toBoss = null)
         {
             var leader = LeaderTile;
             var fromEntrance = Map.Distances(Map.Entrance, Known);
-            var labels = ways.Select(way => Describe(leader, way.Path)).ToList();
             var marker = BossMarker;
+            var all = ways.Select(way => (Feature: ForkFeature.Way, Index: -1, way.Path, way.Tiles)).ToList();
+            if (toBoss != null) all.Add((ForkFeature.Boss, -1, toBoss, new HashSet<TilePoint> { Map.BossTile }));
+            foreach (var feature in features ?? new List<(ForkFeature, int, IReadOnlyList<TilePoint>)>())
+                all.Add((feature.Feature, feature.Index, feature.Path, new HashSet<TilePoint> { feature.Path[feature.Path.Count - 1] }));
+            string Noun(ForkFeature feature) =>
+                feature == ForkFeature.Chest ? "상자 " : feature == ForkFeature.Spring ? "샘물 " : feature == ForkFeature.Boss ? "보스방 " : "";
+            var labels = all.Select(way => Direction(leader, way.Path[way.Path.Count - 1]) + "쪽 " + Noun(way.Feature) + "길").ToList();
             var options = new List<ForkOption>();
-            for (int i = 0; i < ways.Count; i++)
+            for (int i = 0; i < all.Count; i++)
             {
                 string label = labels.Count(other => other == labels[i]) > 1
                     ? labels[i].Replace(" 길", $" {labels.Take(i + 1).Count(other => other == labels[i])}번 길")
                     : labels[i];
-                int seenMonsters = VisibleMonstersAlong(ways[i]);
-                fromEntrance.TryGetValue(ways[i].Path[ways[i].Path.Count - 1], out int depth);
-                var end = ways[i].Path[ways[i].Path.Count - 1];
+                int seenMonsters = VisibleMonstersAlong(new Frontier { Path = all[i].Path, Tiles = all[i].Tiles });
+                var end = all[i].Path[all[i].Path.Count - 1];
+                fromEntrance.TryGetValue(end, out int depth);
                 int markerDistance = marker.HasValue ? Math.Max(Math.Abs(end.X - marker.Value.X), Math.Abs(end.Y - marker.Value.Y)) : -1;
-                options.Add(new ForkOption(i, label, ways[i].Path, ways[i].Tiles, seenMonsters, depth, markerDistance));
+                options.Add(new ForkOption(i, label, all[i].Path, all[i].Tiles, seenMonsters, depth, markerDistance,
+                    all[i].Feature, all[i].Index));
             }
             log.Add((backtracking ? "막다른 길 • 어디로 되돌아갈지 논의합니다: " : "갈림길 • 용사들이 길을 논의합니다: ") +
                     string.Join(" / ", options.Select(option => option.Label)));
@@ -454,8 +503,9 @@ namespace DungeonTycoon.Core
                 {
                     case Voice.Bold: score += 3 * option.VisibleMonsters + .25 * option.Depth; break;
                     case Voice.Careful: score -= (hurt ? 6 : 3) * option.VisibleMonsters + .2 * option.Distance; break;
-                    case Voice.Curious: score += .4 * option.Openness + .1 * option.Depth; break;
+                    case Voice.Curious: score += (option.Feature == ForkFeature.Way ? .4 * option.Openness : 0) + .1 * option.Depth; break;
                 }
+                score += FeatureAppeal(hero, option, hurt);
                 // The navigator heads for the marker they remember; with none seen they argue like anyone else.
                 if (hero.Personality == PersonalityTrait.Navigator && option.MarkerDistance >= 0) score -= 2 * option.MarkerDistance;
                 if (score <= bestScore) continue;
@@ -467,6 +517,7 @@ namespace DungeonTycoon.Core
             var fatigue = Fatigue;
             bool exhausted = fatigue == FatigueStage.Exhausted;
             if (grumbling) return new ForkOpinion(hero.Role, best, DialogueLines.GrumbleOpinion(hero.Voice, choice.Label, exhausted));
+            if (choice.Feature != ForkFeature.Way) return new ForkOpinion(hero.Role, best, FeatureLine(hero, choice, hurt));
             if (hero.Personality == PersonalityTrait.Navigator && choice.MarkerDistance >= 0)
                 return new ForkOpinion(hero.Role, best, fatigue == FatigueStage.Rested
                     ? $"아까 본 보스방 표식, {choice.Label}로 이어져."
@@ -500,6 +551,56 @@ namespace DungeonTycoon.Core
                     break;
             }
             return new ForkOpinion(hero.Role, best, line);
+        }
+
+        /// <summary>
+        /// How much a hero leans toward a chest, spring or the boss room over plain exploring. Everyone likes a chest a
+        /// little; the greedy and collectors much more; a careful hero turns it down when the party is hurt. A spring
+        /// draws the party only when it is tired, the careful most. Once the boss room is in sight most want to finish.
+        /// </summary>
+        private double FeatureAppeal(HeroState hero, ForkOption option, bool hurt)
+        {
+            switch (option.Feature)
+            {
+                case ForkFeature.Chest:
+                {
+                    double appeal = 3;
+                    if (hero.Personality == PersonalityTrait.Greedy) appeal += 6;
+                    if (hero.Personality == PersonalityTrait.Collector) appeal += 4;
+                    if (hero.Voice == Voice.Curious) appeal += 1.5;
+                    if (hero.Voice == Voice.Careful && hurt) appeal -= 5;
+                    return appeal;
+                }
+                case ForkFeature.Spring:
+                {
+                    double appeal = Fatigue == FatigueStage.Exhausted ? 7 : Fatigue == FatigueStage.Tired ? 3.5 : 0;
+                    if (hero.Voice == Voice.Careful) appeal += 3;
+                    return appeal;
+                }
+                case ForkFeature.Boss:
+                {
+                    double appeal = 4;
+                    if (hero.Voice == Voice.Bold) appeal += 2;
+                    if (hero.Personality == PersonalityTrait.Navigator) appeal += 2;
+                    return appeal;
+                }
+                default: return 0;
+            }
+        }
+
+        private string FeatureLine(HeroState hero, ForkOption choice, bool hurt)
+        {
+            switch (choice.Feature)
+            {
+                case ForkFeature.Chest:
+                    if (hero.Personality == PersonalityTrait.Greedy) return $"저 상자, 그냥 두고 갈 순 없지. {choice.Label}로!";
+                    if (hero.Personality == PersonalityTrait.Collector) return $"희귀한 게 들었을지도 몰라. {choice.Label}부터 가 보자.";
+                    return hero.Voice == Voice.Careful ? $"상자 정도는 챙겨 가요. {choice.Label}로 조심히요." : $"{choice.Label} 끝에 상자가 있었어. 열어 보자.";
+                case ForkFeature.Spring:
+                    return Fatigue == FatigueStage.Exhausted ? $"더는 못 걸어… {choice.Label}에서 물 좀 마시자." : $"{choice.Label}에 샘물이 있었어요. 잠깐 쉬어 가요.";
+                default:
+                    return hurt ? $"다쳤어도 끝이 보여. {choice.Label}로 가자." : $"보스방이 저기야. {choice.Label}로 끝내자!";
+            }
         }
     }
 }

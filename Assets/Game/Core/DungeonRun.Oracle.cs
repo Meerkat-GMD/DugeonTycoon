@@ -204,14 +204,31 @@ namespace DungeonTycoon.Core
             PendingFork = null;
             ReleasePrayerHolds(combatEnded: false);
 
-            // Ways not taken are remembered so the party comes back to them only from a dead end.
+            // Ways not taken are remembered so the party comes back to them only from a dead end; chests and springs
+            // not taken are not raised again from afar.
+            var taken = fork.Options[chosen];
             for (int i = 0; i < fork.Options.Count; i++)
-                if (i != chosen && !MatchesSkipped(fork.Options[i].Frontier)) skipped.Add(new HashSet<TilePoint>(fork.Options[i].Frontier));
-            ForgetSkipped(fork.Options[chosen].Frontier);
-            Head(new HashSet<TilePoint>(fork.Options[chosen].Frontier));
+            {
+                if (i == chosen) continue;
+                var option = fork.Options[i];
+                if (option.Feature == ForkFeature.Way)
+                {
+                    if (!MatchesSkipped(option.Frontier)) skipped.Add(new HashSet<TilePoint>(option.Frontier));
+                }
+                else PassFeature(option);
+            }
+            if (taken.Feature == ForkFeature.Way)
+            {
+                ForgetSkipped(taken.Frontier);
+                Head(new HashSet<TilePoint>(taken.Frontier));
+            }
             route.Clear();
-            var path = Map.FindPath(LeaderTile, fork.Options[chosen].Target, Known);
-            if (path.Count >= 2) FollowPath(path, false);
+            var path = Map.FindPath(LeaderTile, taken.Target, Known);
+            if (path.Count >= 2)
+            {
+                if (taken.Feature == ForkFeature.Chest || taken.Feature == ForkFeature.Spring) FollowFeature(path);
+                else FollowPath(path, taken.Feature == ForkFeature.Boss);
+            }
             return true;
         }
     }

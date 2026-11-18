@@ -13,7 +13,7 @@ namespace DungeonTycoon.Core.Tests
         /// <summary>Departs, wears the party down to the given stage and walks to the first fork with the grumblers pinned.</summary>
         private static DungeonRun AtFirstFork(FatigueStage stage, Func<HeroRole, bool> grumbles)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             Tire(run, stage);
             run.GrumbleOverride = grumbles;
@@ -31,7 +31,7 @@ namespace DungeonTycoon.Core.Tests
         [TestCase(FatigueStage.Exhausted, DungeonRun.ExhaustedGrumblePercent)]
         public void TheChanceToGrumbleRisesWithFatigue(FatigueStage stage, int percent)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             Tire(run, stage);
             Assert.That(run.GrumbleChance, Is.EqualTo(percent));
@@ -54,7 +54,7 @@ namespace DungeonTycoon.Core.Tests
                 int grumblers = 0, heroes = 0;
                 for (int seed = 1; seed <= 60; seed++)
                 {
-                    var run = new DungeonRun(seed);
+                    var run = DungeonRun.Sandbox(seed);
                     run.Start();
                     Tire(run, stage);
                     Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
@@ -70,7 +70,7 @@ namespace DungeonTycoon.Core.Tests
 
             ForkDiscussion Fork()
             {
-                var run = new DungeonRun(7);
+                var run = DungeonRun.Sandbox(7);
                 run.Start();
                 Tire(run, FatigueStage.Exhausted);
                 Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
@@ -135,7 +135,7 @@ namespace DungeonTycoon.Core.Tests
 
         private static DungeonRun AfterArmourFight(FatigueStage stage, Func<HeroRole, bool> grumbles, params string[] drops)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
             Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
             var queue = new Queue<string>(drops);
@@ -172,7 +172,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AGreedyGrumblerStillPasses()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.SetBuild(HeroRole.Tank, run.BuildOf(HeroRole.Tank).With(PersonalityTrait.Greedy));
             var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
             Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
@@ -190,7 +190,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void AGrumblingDesperateHeroRefusesToPrayWhateverTheAiSays()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
             Assert.That(run.ResolveFork(run.PendingFork.Token), Is.True);

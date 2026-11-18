@@ -12,7 +12,7 @@ namespace DungeonTycoon.Core.Tests
 
         private static DungeonRun AtFirstFork(int seed = 20261118)
         {
-            var run = new DungeonRun(seed);
+            var run = DungeonRun.Sandbox(seed);
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
             return run;
@@ -137,7 +137,7 @@ namespace DungeonTycoon.Core.Tests
         {
             int Face(int seed)
             {
-                var run = new DungeonRun(seed);
+                var run = DungeonRun.Sandbox(seed);
                 run.Start();
                 for (int i = 0; i < 25; i++) run.Tick();
                 int ticket = run.BeginAdversity();

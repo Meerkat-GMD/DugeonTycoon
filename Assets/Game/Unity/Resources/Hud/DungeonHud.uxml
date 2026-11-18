@@ -8,7 +8,7 @@
     <ui:VisualElement name="hud" class="hud" picking-mode="Ignore">
 
         <ui:VisualElement name="stage-title" class="stage-title" picking-mode="Ignore">
-            <ui:Label name="stage-number" class="stage-number shadowed" text="스테이지 1 / 2" picking-mode="Ignore" />
+            <ui:Label name="stage-number" class="stage-number shadowed" text="스테이지 1 / 3" picking-mode="Ignore" />
             <ui:Label name="stage-name" class="stage-name shadowed" text="성문으로 가는 길" picking-mode="Ignore" />
         </ui:VisualElement>
 
@@ -203,6 +203,12 @@
                         <ui:Label class="placement-description" text="높은 체력 · 내려찍기" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
+                    <ui:Button name="brush-archer" class="skill-button placement-button" focusable="false">
+                        <ui:VisualElement class="skill-art brush-archer-art" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="해골 궁수" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="원거리 사격 · 낮은 체력" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
+                    </ui:Button>
                     <ui:Button name="brush-remove" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-remove-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="배치 지우기" picking-mode="Ignore" />
@@ -212,6 +218,8 @@
                     <ui:VisualElement class="summary">
                         <ui:Label name="summary-title" class="summary-title" text="배치한 몬스터 없음" />
                         <ui:Label name="summary-detail" class="summary-detail" text="" />
+                        <!-- The stage's fixed features: patrols (their routes are drawn on the floor), chests and springs. -->
+                        <ui:Label name="summary-note" class="summary-note" text="" />
                     </ui:VisualElement>
                 </ui:VisualElement>
 

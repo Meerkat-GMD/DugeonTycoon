@@ -32,6 +32,11 @@ namespace DungeonTycoon.Unity
         private const string ForkPrompt =
             "던전 TRPG 용사들이 갈림길에서 어느 길로 갈지 논의한다. 각 용사는 자기 성격 성향과 능력치, 파티의 체력, " +
             "입력에 적힌 보이는 정보만 근거로 길 하나를 고른다. 입력에 없는 것은 용사들도 모른다. " +
+            "상자 길 끝에는 아직 열지 않은 보물 상자가 있어 장비를 얻을 수 있다. 탐욕광과 희귀품 수집가는 상자 길을, " +
+            "호기심쟁이는 상자가 있는 트인 길을 좋아하고, 신중한 길잡이는 파티가 다쳤으면 상자보다 안전한 길을 고른다. " +
+            "샘물 길 끝의 샘물을 마시면 피로가 줄어든다(체력은 회복하지 않는다). 파티가 지쳤으면 샘물 길을 원하고 " +
+            "신중한 길잡이가 가장 강하게 주장한다. 지치지 않았으면 샘물은 근거가 되지 않는다. " +
+            "보스방 길은 이미 본 보스방으로 곧장 이어져 보스전이 시작된다. " +
             "opinions 배열에 살아 있는 용사마다 role(입력의 영문 역할 ID), option(입력의 길 번호 숫자 문자열), " +
             "line(30자 이내의 한국어 1인칭 주장)을 넣어 JSON으로 답하라. line에서는 길 번호를 말하지 말고 " +
             "'북쪽 길'처럼 입력에 적힌 길 이름으로 부르며, 용사마다 말투가 겹치지 않게 하라. 최종 결정은 게임이 판정한다.";
@@ -196,6 +201,7 @@ namespace DungeonTycoon.Unity
                 var known = monster.Patterns.Where(p => run.PartyKnows(monster, p)).Select(MonsterPatterns.Name).ToList();
                 text.AppendLine($"적 {monster.Id}: {monster.Name}{(monster.IsBoss ? "(보스)" : "")} HP {monster.Hp}/{monster.MaxHp}, " +
                                 $"방어 {monster.Armor}, 공격 {monster.Attack}" +
+                                (monster.Range > 1 ? $", 사거리 {monster.Range}칸에서 쏜다" : "") +
                                 (known.Count > 0 ? $", 본 적 있는 예고 공격 {string.Join(", ", known)}" : ""));
             }
             foreach (var hero in run.Party)
@@ -303,20 +309,34 @@ namespace DungeonTycoon.Unity
             return opinions;
         }
 
+        /// <summary>What lies at the end of a way, in the words the heroes would use.</summary>
+        private static string ForkFeatureText(ForkFeature feature, bool backtracking)
+        {
+            switch (feature)
+            {
+                case ForkFeature.Chest: return "봐 둔 보물 상자로 가는 길(아직 열지 않음)";
+                case ForkFeature.Spring: return "봐 둔 샘물로 가는 길(마시면 피로가 줄어듦)";
+                case ForkFeature.Boss: return "이미 본 보스방으로 가는 길";
+                default: return backtracking ? "되돌아가 마저 탐색할 길" : "아직 가 보지 않은 길";
+            }
+        }
+
         private static string DescribeFork(DungeonRun run, ForkDiscussion fork)
         {
             var text = new StringBuilder();
             text.AppendLine(fork.Backtracking
                 ? "막다른 길에 이르렀다. 지나쳐 온 길 중 어디로 되돌아갈지 정한다."
                 : "갈림길에 섰다. 아직 가 보지 않은 길이 여러 개다.");
-            text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}. 보스방은 아직 보이지 않는다.");
+            bool bossKnown = fork.Options.Any(option => option.Feature == ForkFeature.Boss);
+            text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}. " +
+                            (bossKnown ? "보스방이 어디 있는지 안다." : "보스방은 아직 보이지 않는다."));
             // Wandering tires the party; the heroes feel it and should argue more decisively when worn out.
             text.AppendLine(run.Fatigue == FatigueStage.Rested
                 ? "파티는 아직 지치지 않았다."
                 : $"파티의 피로: {DungeonRun.FatigueName(run.Fatigue)} — 길을 헤맨 탓에 지쳐 있다. 공격력이 떨어졌고" +
                   (run.Fatigue == FatigueStage.Exhausted ? " 걸을 때마다 체력이 깎인다." : " 더 헤매면 체력도 깎이기 시작한다."));
             foreach (var option in fork.Options)
-                text.AppendLine($"길 {option.Index}: {option.Label} — {option.Distance}걸음, 지금 보이는 적 {option.VisibleMonsters}, " +
+                text.AppendLine($"길 {option.Index}: {option.Label} — {ForkFeatureText(option.Feature, fork.Backtracking)}, {option.Distance}걸음, 지금 보이는 적 {option.VisibleMonsters}, " +
                                 $"입구에서 깊이 {option.Depth}, 트인 정도 {option.Openness}" +
                                 (option.MarkerDistance >= 0 ? $", 기억하는 보스방 표식까지 {option.MarkerDistance}칸" : ""));
             foreach (var hero in run.Party)

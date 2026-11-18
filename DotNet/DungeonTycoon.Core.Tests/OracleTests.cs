@@ -12,7 +12,7 @@ namespace DungeonTycoon.Core.Tests
 
         private static DungeonRun AtFirstFork(int faith = 3)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
             run.SetFaith(faith);

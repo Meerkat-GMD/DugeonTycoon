@@ -21,7 +21,7 @@ namespace DungeonTycoon.Core.Tests
 
         private static DungeonRun FightOneSkeleton(Action<DungeonRun> midFight, params string[] drops)
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             var tile = DungeonRunTests.PlaceableTiles(run).OrderBy(t => run.Map.WalkDistance(t)).First();
             for (int i = 0; i < Math.Max(1, drops.Length); i++) Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
             var queue = new Queue<string>(drops);
@@ -182,7 +182,7 @@ namespace DungeonTycoon.Core.Tests
         {
             List<string> Play()
             {
-                var run = new DungeonRun(seed: 11);
+                var run = DungeonRun.Sandbox(seed: 11);
                 foreach (var tile in DungeonRunTests.PlaceableTiles(run).Where((_, i) => i % 9 == 0).Take(5))
                     run.Place(tile, MonsterKind.Zombie);
                 run.Start();
@@ -197,7 +197,7 @@ namespace DungeonTycoon.Core.Tests
         [Test]
         public void TheFirstBossAlwaysDropsARareItemAndItIsSettledBeforeTheNextStage()
         {
-            var run = new DungeonRun();
+            var run = DungeonRun.Sandbox();
             run.Start();
             DungeonRunTests.Drive(run, () => run.Stage == 2 && run.PendingLoot == null || run.Phase == RunPhase.Defeat);
             Assert.That(run.Stage, Is.EqualTo(2), "the bare party still beats the first boss");
