@@ -44,6 +44,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Prototype/serve.ps1
 
 Unity Package Manager의 직접 의존성은 [manifest.json](Packages/manifest.json), 실제로 해석된 버전은 [packages-lock.json](Packages/packages-lock.json)에서 확인한다. 이 프로젝트는 렌더링에 URP, Unity 비동기 처리에 UniTask를 사용한다. UniTask는 Git URL로 고정되어 있으므로 처음 받으려면 Git과 원격 저장소에 대한 네트워크 연결이 필요하다.
 
+## GitHub에 올리거나 받을 때
+
+원격 저장소는 비공개 저장소 [Meerkat-GMD/DugeonTycoon](https://github.com/Meerkat-GMD/DugeonTycoon)이고 `origin`으로 연결되어 있다. 평소에는 `git push`와 `git pull`만 쓴다. 저장소 생성, PR, 이슈 같은 GitHub 작업에는 GitHub CLI(`gh`)를 쓴다. 없으면 아래 명령으로 설치한다. 설치 직후 열려 있던 셸은 PATH가 갱신되지 않으므로 다시 열거나 `C:\Program Files\GitHub CLI\gh.exe`를 직접 실행한다.
+
+```powershell
+winget install --id GitHub.cli --exact
+```
+
+처음 한 번은 `gh auth login --web`으로 로그인한다. 토큰은 OS 키링에 저장되며 git의 HTTPS 인증도 함께 처리한다. 로그인 상태는 `gh auth status`로 확인한다.
+
 ## Meshy로 3D 모델을 만들 때
 
 프로젝트 루트의 [.mcp.json](.mcp.json)에 Meshy 공식 MCP 서버(`@meshy-ai/meshy-mcp-server`)가 버전 고정으로 등록되어 있다. Claude Code가 이 폴더에서 열리면 서버 사용 승인을 한 번 묻는다. 서버는 `npx`로 실행되므로 Node.js가 필요하다. 없으면 아래 명령으로 설치하고 셸을 다시 연다.
