@@ -46,10 +46,30 @@ namespace DungeonTycoon.Unity
         private DungeonRun knownRun;
         private int bossMaxHp;
 
+        // Settlement banner and board pop-ups. Balance values for how long they stay.
+        private const float SpoilsSeconds = 4.5f, PopSeconds = 1.3f, LevelPopSeconds = 1.9f;
+        private const float ItemFlySeconds = .55f, ItemHoldSeconds = .6f, PopRise = 26;
+        private VisualElement spoilsBanner, spoilsLines, pops;
+        private int shownSpoils;
+        private float spoilsUntil;
+        private readonly List<Pop> livePops = new List<Pop>();
+        private readonly HashSet<int> deadFoes = new HashSet<int>();
+        private int seenExperience, seenLevel;
+
+        private sealed class Pop
+        {
+            public Label Label;
+            public Vector2 From;
+            public float Born, Life;
+            public bool FliesToParty;
+        }
+
         private sealed class HeroCard
         {
             public VisualElement Root, Bubble, Health, Growth;
-            public Label Portrait, Name, Hp, Level, Line;
+            public Label Portrait, Name, Hp, Level, Line, Weapon, Armor;
+            public readonly Label[] Skills = new Label[2];
+            public readonly VisualElement[] Cooldowns = new VisualElement[2];
             public string Heard = "";
             public float HeardAt = -1000;
         }
@@ -63,10 +83,12 @@ namespace DungeonTycoon.Unity
             document.panelSettings = panel;
             document.visualTreeAsset = Resources.Load<VisualTreeAsset>("Hud/DungeonHud");
             Bind(document.rootVisualElement);
+            game.EventsPlayed += OnCombatEvents;
         }
 
         private void OnDestroy()
         {
+            if (game) game.EventsPlayed -= OnCombatEvents;
             if (panel) Destroy(panel);
         }
 
@@ -116,6 +138,9 @@ namespace DungeonTycoon.Unity
             resultText = root.Q<Label>("result-text");
             history = root.Q("history");
             historyList = root.Q<ScrollView>("history-list");
+            spoilsBanner = root.Q("spoils");
+            spoilsLines = root.Q("spoils-lines");
+            pops = root.Q("pops");
 
             for (int i = 0; i < heroes.Length; i++)
             {
@@ -123,8 +148,14 @@ namespace DungeonTycoon.Unity
                 heroes[i] = new HeroCard {
                     Root = card, Bubble = card.Q("bubble"), Health = card.Q("health"), Growth = card.Q("growth"),
                     Portrait = card.Q<Label>("portrait"), Name = card.Q<Label>("name"), Hp = card.Q<Label>("hp"),
-                    Level = card.Q<Label>("level"), Line = card.Q<Label>("line")
+                    Level = card.Q<Label>("level"), Line = card.Q<Label>("line"),
+                    Weapon = card.Q<Label>("weapon"), Armor = card.Q<Label>("armor")
                 };
+                for (int s = 0; s < 2; s++)
+                {
+                    heroes[i].Skills[s] = card.Q<Label>("skill-"+s);
+                    heroes[i].Cooldowns[s] = heroes[i].Skills[s].Q("cooldown");
+                }
                 int index = i;
                 // Picking a hero chooses who the GM's help goes to; clicking again clears the choice.
                 card.RegisterCallback<ClickEvent>(_ => PickHero(index));
@@ -174,6 +205,8 @@ namespace DungeonTycoon.Unity
 
             Keys(run);
             Refresh(run);
+            RefreshSpoils(run);
+            RefreshPops(run);
             UpdateClearArea(run);
             BoardInput(run);
         }
@@ -184,7 +217,16 @@ namespace DungeonTycoon.Unity
             {
                 historyList.Clear();
                 loggedRows = 0;
+                // A new expedition: forget the previous one's banner and pop-up bookkeeping.
+                shownSpoils = run.LastSpoils?.Number ?? 0;
+                seenExperience = run.Experience;
+                seenLevel = run.Level;
+                spoilsUntil = 0;
             }
+            // Monster ids restart with every stage.
+            deadFoes.Clear();
+            foreach (var pop in livePops) pop.Label.RemoveFromHierarchy();
+            livePops.Clear();
             brush = MonsterKind.Goblin;
             panning = false;
             notice = "";
@@ -308,6 +350,168 @@ namespace DungeonTycoon.Unity
             bool speaking = !down && !string.IsNullOrWhiteSpace(line) && Time.unscaledTime-card.HeardAt <= LineSeconds;
             Show(card.Bubble,speaking);
             if (speaking) card.Line.text = line;
+            RefreshKit(run,hero,card);
+        }
+
+        /// <summary>Weapon and armour names, and the two skills: the second greyed until the party level opens it.</summary>
+        private void RefreshKit(DungeonRun run,HeroState hero,HeroCard card)
+        {
+            Gear(card.Weapon,hero.Weapon,"무기 없음");
+            Gear(card.Armor,hero.BodyArmor,"방어구 없음");
+            for (int s = 0; s < 2; s++)
+            {
+                var skill = HeroSkills.Of(hero.Role,s);
+                bool open = s == 0 || run.Level >= HeroSkills.UnlockLevel;
+                card.Skills[s].text = open ? HeroSkills.Name(skill) : "Lv"+HeroSkills.UnlockLevel;
+                card.Skills[s].EnableInClassList("locked",!open);
+                card.Cooldowns[s].style.height = Length.Percent(open ? 100f*SkillCooling(run,hero.Role,s) : 0);
+            }
+        }
+
+        /// <summary>How much of a skill's cooldown is left, from 1 just used to 0 ready.</summary>
+        private static float SkillCooling(DungeonRun run,HeroRole role,int index) => 0;
+
+        private static void Gear(Label slot,Equipment item,string none)
+        {
+            slot.text = item?.Name ?? none;
+            slot.EnableInClassList("empty",item == null);
+            slot.EnableInClassList("rare",item != null && item.Grade == EquipmentGrade.Rare);
+        }
+
+        // ── Settlement banner and board pop-ups ──────────────────────────
+
+        /// <summary>Shows each settled fight once, after the stage (if any) has closed, then fades it out.</summary>
+        private void RefreshSpoils(DungeonRun run)
+        {
+            var spoils = run.LastSpoils;
+            if (spoils != null && spoils.Number != shownSpoils && !game.Presenting && run.PendingLoot == null)
+            {
+                shownSpoils = spoils.Number;
+                FillSpoils(run,spoils);
+                spoilsUntil = Time.unscaledTime+SpoilsSeconds;
+                spoilsBanner.style.display = DisplayStyle.Flex;
+                spoilsBanner.schedule.Execute(() => spoilsBanner.AddToClassList("show"));
+            }
+            if (spoilsUntil > 0 && Time.unscaledTime >= spoilsUntil)
+            {
+                spoilsUntil = 0;
+                spoilsBanner.RemoveFromClassList("show");
+                spoilsBanner.schedule.Execute(() =>
+                {
+                    if (spoilsUntil == 0) spoilsBanner.style.display = DisplayStyle.None;
+                }).ExecuteLater(350);
+            }
+        }
+
+        private void FillSpoils(DungeonRun run,CombatSpoils spoils)
+        {
+            spoilsLines.Clear();
+            string head = "경험치 +"+spoils.Experience;
+            bool levelled = spoils.LevelAfter > spoils.LevelBefore;
+            SpoilsLine(levelled ? head+"  ·  파티 레벨 "+spoils.LevelAfter : head,levelled ? "level" : null);
+            foreach (var result in spoils.Items)
+            {
+                var item = result.Item;
+                if (result.Wearer is HeroRole wearer)
+                    SpoilsLine($"{run.Party[(int)wearer].Name} ▸ {item.Name} 장착 ({item.Stats})",
+                        item.Grade == EquipmentGrade.Rare ? "rare" : null);
+                else SpoilsLine($"{item.Name} ▸ 버림 ({result.Reason})","discarded");
+            }
+        }
+
+        private void SpoilsLine(string text,string style)
+        {
+            var label = new Label(text) { pickingMode = PickingMode.Ignore };
+            label.AddToClassList("spoils-line");
+            if (style != null) label.AddToClassList(style);
+            spoilsLines.Add(label);
+        }
+
+        /// <summary>A dropped item pops over the monster, then flies to the party.</summary>
+        private void OnCombatEvents(IReadOnlyList<CombatEvent> events)
+        {
+            var run = game.Run;
+            foreach (var e in events)
+            {
+                if (e.Kind != CombatEventKind.Drop || e.Amount < 0 || e.Amount >= run.Drops.Count) continue;
+                if (!game.Board.TryFoeScreenPoint(e.Source,out var at)) continue;
+                var item = run.Drops[e.Amount];
+                var pop = AddPop(item.Name,item.Grade == EquipmentGrade.Rare ? "item rare" : "item",at,ItemHoldSeconds+ItemFlySeconds);
+                pop.From += new Vector2(0,-18);
+                pop.FliesToParty = true;
+            }
+        }
+
+        /// <summary>Experience rises from each monster as it falls; a level-up rises from the party, bigger.</summary>
+        private void RefreshPops(DungeonRun run)
+        {
+            int gained = run.Experience-seenExperience;
+            int fallen = 0;
+            foreach (var monster in run.Monsters)
+            {
+                if (monster.Alive || !deadFoes.Add(monster.Id)) continue;
+                fallen++;
+                if (gained > 0 && game.Board.TryFoeScreenPoint(monster.Id,out var at))
+                    AddPop("+"+gained+" 경험치","xp",at,PopSeconds);
+            }
+            // Experience from an adversity or a boss that cleared the stage has no monster to rise from.
+            if (gained > 0 && fallen == 0 && game.Board.TryPartyScreenPoint(out var party0))
+                AddPop("+"+gained+" 경험치","xp",party0,PopSeconds);
+            seenExperience = run.Experience;
+            if (run.Level > seenLevel && game.Board.TryPartyScreenPoint(out var party1))
+                AddPop("레벨 업!  Lv "+run.Level,"level",party1+new Vector2(0,30),LevelPopSeconds);
+            seenLevel = run.Level;
+
+            for (int i = livePops.Count-1; i >= 0; i--)
+            {
+                var pop = livePops[i];
+                float age = Time.unscaledTime-pop.Born;
+                if (age >= pop.Life)
+                {
+                    pop.Label.RemoveFromHierarchy();
+                    livePops.RemoveAt(i);
+                    continue;
+                }
+                Vector2 at = pop.From;
+                float fade = 1;
+                if (pop.FliesToParty)
+                {
+                    float t = Mathf.Clamp01((age-ItemHoldSeconds)/ItemFlySeconds);
+                    if (t > 0 && game.Board.TryPartyScreenPoint(out var target))
+                        at = Vector2.Lerp(pop.From,target,t*t);
+                    fade = 1-t*t;
+                    pop.Label.style.scale = new Scale(Vector3.one*(1-.5f*t));
+                }
+                else
+                {
+                    float t = age/pop.Life;
+                    at.y += PopRise*t;
+                    fade = t < .75f ? 1 : 1-(t-.75f)/.25f;
+                }
+                Place(pop.Label,at);
+                pop.Label.style.opacity = fade;
+            }
+        }
+
+        private Pop AddPop(string text,string classes,Vector2 screenPoint,float life)
+        {
+            var label = new Label(text) { pickingMode = PickingMode.Ignore };
+            label.AddToClassList("pop");
+            foreach (var name in classes.Split(' ')) label.AddToClassList(name);
+            pops.Add(label);
+            var pop = new Pop { Label = label, From = screenPoint, Born = Time.unscaledTime, Life = life };
+            livePops.Add(pop);
+            Place(label,screenPoint);
+            return pop;
+        }
+
+        /// <summary>Screen point (origin bottom-left) to the HUD panel's coordinates.</summary>
+        private void Place(VisualElement element,Vector2 screenPoint)
+        {
+            if (hud.panel == null) return;
+            var point = RuntimePanelUtils.ScreenToPanel(hud.panel,new Vector2(screenPoint.x,Screen.height-screenPoint.y));
+            element.style.left = point.x;
+            element.style.top = point.y;
         }
 
         /// <summary>

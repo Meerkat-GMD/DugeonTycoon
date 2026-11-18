@@ -103,6 +103,35 @@ namespace DungeonTycoon.Unity
             }
             return hero >= 0;
         }
+        /// <summary>Screen point (origin bottom-left) just above a monster figure; false when it is not drawn.</summary>
+        public bool TryFoeScreenPoint(int id, out Vector2 point)
+        {
+            point = default;
+            if (!boardCamera || id < 0 || id >= foes.Count || !foes[id].Body) return false;
+            var body = boardCamera.WorldToScreenPoint(transform.TransformPoint(foes[id].Body.localPosition+Vector3.up*.9f));
+            point = new Vector2(body.x, body.y);
+            return body.z > 0;
+        }
+
+        /// <summary>Screen point (origin bottom-left) above the middle of the standing heroes.</summary>
+        public bool TryPartyScreenPoint(out Vector2 point)
+        {
+            point = default;
+            if (!boardCamera) return false;
+            Vector3 sum = Vector3.zero;
+            int count = 0;
+            for (int i = 0; i < heroes.Length; i++)
+            {
+                if (!living[i] || !heroes[i]) continue;
+                sum += heroes[i].localPosition;
+                count++;
+            }
+            if (count == 0) return false;
+            var body = boardCamera.WorldToScreenPoint(transform.TransformPoint(sum/count+Vector3.up*1.1f));
+            point = new Vector2(body.x, body.y);
+            return body.z > 0;
+        }
+
         public bool FollowParty { get; private set; }
 
         /// <summary>Follow mode is only useful up close, so turning it on also zooms in when the view is wider.</summary>

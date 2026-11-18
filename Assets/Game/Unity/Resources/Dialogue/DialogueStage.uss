@@ -203,6 +203,85 @@
     color: var(--ember);
 }
 
+/* "원함", "패스" or "손해" pinned above a portrait during the loot debate; same spot as the status. */
+.hud .stage-mark {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    translate: -50% 0;
+    padding: 1px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+    display: none;
+}
+
+.hud .stage-mark.want {
+    background-color: var(--gold);
+    color: var(--ink);
+}
+
+.hud .stage-mark.pass {
+    background-color: #3A464B;
+    color: var(--paper);
+}
+
+.hud .stage-mark.worse {
+    background-color: var(--ember);
+    color: var(--ink);
+}
+
+/* ── The armour on the table, beside the slots ───────────────────── */
+
+.hud .stage-item {
+    position: absolute;
+    right: -128px;
+    bottom: 112px;
+    width: 116px;
+    padding: 6px 6px 7px 6px;
+    align-items: center;
+    background-color: rgba(18, 23, 26, 0.95);
+    border-width: 2px;
+    border-color: var(--muted);
+    border-radius: 8px;
+    display: none;
+}
+
+.hud .stage-item.rare {
+    border-color: #9B7BE0;
+}
+
+.hud .stage-item-grade {
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.hud .stage-item.rare .stage-item-grade {
+    color: #D9C8FF;
+}
+
+.hud .stage-item-name {
+    margin: 2px 0;
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.hud .stage-item-stats {
+    font-size: 11px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.hud .stage-item-power {
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--muted);
+}
+
 /* ── Dice ────────────────────────────────────────────────────────── */
 
 .hud .stage-over {

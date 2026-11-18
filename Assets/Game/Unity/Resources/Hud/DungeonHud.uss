@@ -209,16 +209,171 @@
     position: absolute;
     left: 10px;
     top: 60px;
-    width: 170px;
+    width: 216px;
 }
 
 .hud .hero-card {
     flex-direction: row;
-    width: 170px;
-    height: 50px;
-    margin-bottom: 10px;
-    padding: 2px;
+    width: 216px;
+    height: 68px;
+    margin-bottom: 8px;
+    padding: 2px 2px 18px 2px;
     background-color: rgba(21, 27, 32, 0.78);
+}
+
+/* Weapon, armour and the two skills along the bottom of the card. */
+.hud .hero-kit {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    bottom: 3px;
+    height: 14px;
+    flex-direction: row;
+}
+
+.hud .kit-slot {
+    height: 14px;
+    margin-right: 2px;
+    padding: 0 3px;
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 3px;
+    background-color: rgba(11, 15, 17, 0.9);
+    font-size: 9px;
+    -unity-text-align: middle-center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.hud .kit-slot.gear {
+    width: 54px;
+    color: var(--paper);
+}
+
+.hud .kit-slot.gear.empty {
+    color: var(--muted);
+    opacity: 0.6;
+}
+
+.hud .kit-slot.gear.rare {
+    border-color: #9B7BE0;
+    color: #D9C8FF;
+}
+
+.hud .kit-slot.skill {
+    flex-grow: 1;
+    flex-basis: 0;
+    color: var(--teal);
+}
+
+.hud .kit-slot.skill.locked {
+    color: var(--muted);
+    opacity: 0.55;
+}
+
+/* Fills from the bottom while a skill is cooling down. */
+.hud .kit-cooldown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* ── Board pop-ups and the settlement banner ─────────────────────── */
+
+.hud .pops {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.hud .pop {
+    position: absolute;
+    translate: -50% -100%;
+    font-size: 13px;
+    -unity-font-style: bold;
+    white-space: nowrap;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.9);
+}
+
+.hud .pop.xp {
+    color: var(--growth);
+}
+
+.hud .pop.item {
+    padding: 1px 7px;
+    border-width: 2px;
+    border-color: var(--muted);
+    border-radius: 7px;
+    background-color: rgba(18, 23, 26, 0.94);
+    font-size: 11px;
+    color: var(--paper);
+}
+
+.hud .pop.item.rare {
+    border-color: #9B7BE0;
+    color: #D9C8FF;
+}
+
+.hud .pop.level {
+    font-size: 24px;
+    color: var(--growth);
+    letter-spacing: 2px;
+}
+
+.hud .spoils {
+    position: absolute;
+    top: 92px;
+    left: 50%;
+    width: 380px;
+    translate: -50% 0;
+    padding: 12px 18px;
+    align-items: center;
+    background-color: rgba(18, 23, 26, 0.9);
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-color: var(--gold);
+    opacity: 0;
+    scale: 0.9 0.9;
+    transition-property: opacity, scale;
+    transition-duration: 0.3s;
+    display: none;
+}
+
+.hud .spoils.show {
+    opacity: 1;
+    scale: 1 1;
+}
+
+.hud .spoils-title {
+    margin-bottom: 4px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    color: var(--gold);
+}
+
+.hud .spoils-line {
+    font-size: 13px;
+    -unity-text-align: middle-center;
+}
+
+.hud .spoils-line.level {
+    color: var(--growth);
+    -unity-font-style: bold;
+}
+
+.hud .spoils-line.rare {
+    color: #D9C8FF;
+}
+
+.hud .spoils-line.discarded {
+    color: var(--muted);
 }
 
 .hud .hero-card.pickable:hover {
@@ -310,7 +465,7 @@
 
 .hud .bubble {
     position: absolute;
-    left: 178px;
+    left: 224px;
     top: 50%;
     max-width: 240px;
     translate: 0 -50%;

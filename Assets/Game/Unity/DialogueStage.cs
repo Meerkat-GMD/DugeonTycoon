@@ -27,8 +27,8 @@ namespace DungeonTycoon.Unity
         private static readonly Color[] RoleColors = { Hex(0x74C5C4), Hex(0xE2C77D), Hex(0xDB9AA8), Hex(0xA2CD88) };
         private static readonly int[] DotSteps = { 1, 2, 3, 2 };
 
-        private VisualElement root, box, dcPanel;
-        private Label speaker, text, next, dcValue, stamp;
+        private VisualElement root, box, dcPanel, itemCard;
+        private Label speaker, text, next, dcValue, stamp, itemGrade, itemName, itemStats, itemPower;
         private Button autoToggle;
         private readonly Slot[] slots = new Slot[4];
         private readonly string[] names = new string[4];
@@ -38,7 +38,7 @@ namespace DungeonTycoon.Unity
         private sealed class Slot
         {
             public VisualElement Root, Over;
-            public Label Status, Name;
+            public Label Status, Name, Mark;
             public bool Down, Thinking;
         }
 
@@ -84,12 +84,17 @@ namespace DungeonTycoon.Unity
             dcPanel = root.Q("stage-dc");
             dcValue = root.Q<Label>("dc-value");
             stamp = root.Q<Label>("dc-stamp");
+            itemCard = root.Q("stage-item");
+            itemGrade = root.Q<Label>("item-grade");
+            itemName = root.Q<Label>("item-name");
+            itemStats = root.Q<Label>("item-stats");
+            itemPower = root.Q<Label>("item-power");
             for (int i = 0; i < slots.Length; i++)
             {
                 var slot = root.Q("slot-"+i);
                 slots[i] = new Slot {
                     Root = slot, Over = slot.Q("over"), Status = slot.Q<Label>("status"),
-                    Name = slot.Q<Label>("name")
+                    Name = slot.Q<Label>("name"), Mark = slot.Q<Label>("mark")
                 };
             }
             autoToggle.clicked += ToggleAutoAdvance;
@@ -116,6 +121,8 @@ namespace DungeonTycoon.Unity
                 slot.Root.RemoveFromClassList("rolling");
                 SetStatus(slot, slot.Down ? "쓰러짐" : "");
             }
+            ClearMarks();
+            ShowItem(null);
             ShowNarrator("");
             Show(next, false);
             pressed = false;
@@ -138,6 +145,8 @@ namespace DungeonTycoon.Unity
             }
             text.text = "";
             Show(next, false);
+            ClearMarks();
+            ShowItem(null);
             root.style.display = DisplayStyle.None;
         }
 
@@ -186,6 +195,13 @@ namespace DungeonTycoon.Unity
             foreach (var beat in beats)
             {
                 ct.ThrowIfCancellationRequested();
+                // A new item on the table starts a fresh round of wishes.
+                if (beat.Item != null)
+                {
+                    ClearMarks();
+                    ShowItem(beat.Item);
+                }
+                if (beat.MarkRole is HeroRole marked) SetMark(marked, beat.Mark);
                 switch (beat.Kind)
                 {
                     case BeatKind.Narration: await SayAsync(null, beat.Text, ct); break;
@@ -246,10 +262,12 @@ namespace DungeonTycoon.Unity
                 slot.Thinking = false;
                 RefreshThinking(slot);
                 slot.Root.AddToClassList("rolling");
+                // Loot dice have no ability behind them: show the face alone.
+                bool plain = string.IsNullOrEmpty(roll.Ability) && roll.Modifier == 0;
                 var view = new RollView {
                     Roll = roll, Slot = slot, Die = new Die(),
-                    Calc = new Label($"{roll.Face} {Signed(roll.Modifier)} = {roll.Total}"),
-                    Crown = new Label("설득 성공")
+                    Calc = new Label(plain ? roll.Face.ToString() : $"{roll.Face} {Signed(roll.Modifier)} = {roll.Total}"),
+                    Crown = new Label(plain ? "획득" : "설득 성공")
                 };
                 view.Calc.AddToClassList("stage-calc");
                 view.Crown.AddToClassList("stage-crown");
@@ -305,6 +323,19 @@ namespace DungeonTycoon.Unity
             if (playing) await HoldAsync(VerdictDelay, null, ct);
 
             if (check) stamp.AddToClassList("show");
+            else if (beat.Winner == null)
+            {
+                // A tied round: the heroes sharing the top face are marked to roll again.
+                int top = 0;
+                foreach (var view in views) top = Mathf.Max(top, view.Roll.Total);
+                foreach (var view in views)
+                {
+                    bool tied = view.Roll.Total == top;
+                    view.Crown.text = "동점";
+                    view.Crown.EnableInClassList("show", tied);
+                    view.Die.EnableInClassList("dim", !tied);
+                }
+            }
             else
                 foreach (var view in views)
                 {
@@ -396,6 +427,34 @@ namespace DungeonTycoon.Unity
             box.AddToClassList("narration");
             Show(speaker, false);
             text.text = line;
+        }
+
+        private void SetMark(HeroRole role, string mark)
+        {
+            var label = slots[(int)role].Mark;
+            label.text = mark ?? "";
+            label.EnableInClassList("want", mark == DialogueLines.Wants);
+            label.EnableInClassList("pass", mark == DialogueLines.Passes);
+            label.EnableInClassList("worse", mark == DialogueLines.Worse);
+            Show(label, !string.IsNullOrEmpty(mark));
+        }
+
+        private void ClearMarks()
+        {
+            if (root == null) return;
+            foreach (var slot in slots) Show(slot.Mark, false);
+        }
+
+        private void ShowItem(Equipment item)
+        {
+            if (itemCard == null) return;
+            Show(itemCard, item != null);
+            if (item == null) return;
+            itemCard.EnableInClassList("rare", item.Grade == EquipmentGrade.Rare);
+            itemGrade.text = item.GradeName + (item.Slot == EquipmentSlot.Armor ? " 방어구" : " 무기");
+            itemName.text = item.Name;
+            itemStats.text = item.Stats;
+            itemPower.text = "위력 " + item.Power;
         }
 
         private static void RefreshThinking(Slot slot)

@@ -25,6 +25,8 @@ namespace DungeonTycoon.Unity
         private int thinkers;
 
         public DungeonRun Run { get; private set; }
+        /// <summary>Combat cues as the board plays them, for the HUD's pop-ups.</summary>
+        public event Action<System.Collections.Generic.IReadOnlyList<CombatEvent>> EventsPlayed;
         public DungeonBoard Board { get; private set; }
         public string AiMode => director.ModeLabel;
         public bool Thinking => thinkers > 0;
@@ -87,6 +89,8 @@ namespace DungeonTycoon.Unity
 
         public void Depart()
         {
+            // Cues left over from the last stage's final blow point at monsters that no longer exist.
+            Run.TakeEvents();
             if (!Run.Start()) return;
             accumulator = 0;
             SetSpeed(1);
@@ -139,7 +143,9 @@ namespace DungeonTycoon.Unity
             if (Presenting) return;
             RefreshParty();
             Board.SetMonsters(run.Monsters);
-            Board.PlayEvents(run.TakeEvents());
+            var events = run.TakeEvents();
+            Board.PlayEvents(events);
+            EventsPlayed?.Invoke(events);
 
             var fork = run.PendingFork;
             if (fork != null && fork.Token != discussedFork)
@@ -179,16 +185,21 @@ namespace DungeonTycoon.Unity
         }
 
         /// <summary>
-        /// Plays the armour sharing on the stage: Core settles it from each hero's local wish (the AI request comes
-        /// later) and the stage shows who wants it, the loot dice and who wears it. The dungeon is frozen throughout.
+        /// Plays the armour sharing on the stage: the narrator opens while the standing heroes think, Core settles it
+        /// from their wishes (local ones if the AI is offline or wrong) and the stage shows who wants it, the loot
+        /// dice and who wears it. The dungeon is frozen throughout.
         /// </summary>
         private async UniTask ShareLootAsync(DungeonRun expedition, LootDistribution loot, CancellationToken token)
         {
             stage.Open(expedition);
             try
             {
+                stage.SetThinking(System.Linq.Enumerable.ToArray(loot.Heroes));
+                var answer = Think(director.ShareLootAsync(expedition, loot, token));
                 await stage.SayAsync(null, DialogueLines.LootOpening, token);
-                if (Run != expedition || !expedition.ResolveLoot(loot.Token)) return;
+                var wishes = await answer;
+                stage.SetThinking(Array.Empty<HeroRole>());
+                if (Run != expedition || !expedition.ResolveLoot(loot.Token, wishes)) return;
                 await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
             }
             finally

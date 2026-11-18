@@ -25,6 +25,15 @@
 
         <ui:Label name="pause-banner" class="pause-banner" text="일시정지  ·  스페이스로 다시 진행" picking-mode="Ignore" />
 
+        <!-- Experience and item names float up from the board here; DungeonHud.cs adds and removes the labels. -->
+        <ui:VisualElement name="pops" class="pops" picking-mode="Ignore" />
+
+        <!-- The settlement after each fight: experience, level-ups and what happened to every item. -->
+        <ui:VisualElement name="spoils" class="spoils" picking-mode="Ignore">
+            <ui:Label class="spoils-title" text="— 전투 정산 —" picking-mode="Ignore" />
+            <ui:VisualElement name="spoils-lines" class="spoils-lines" picking-mode="Ignore" />
+        </ui:VisualElement>
+
         <ui:VisualElement name="view-buttons" class="view-buttons" picking-mode="Ignore">
             <ui:Button name="follow" class="chip follow" text="따라가기  켬" focusable="false" />
             <ui:Button name="whole" class="chip" text="전체 보기" focusable="false" />
@@ -49,6 +58,16 @@
                         <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
                     </ui:VisualElement>
                 </ui:VisualElement>
+                <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
+                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
+                    <ui:Label name="skill-1" class="kit-slot skill" text="방패 벽" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
+                </ui:VisualElement>
                 <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
                     <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />
                     <ui:Label name="line" class="bubble-text" text="내 뒤로 물러서!" picking-mode="Ignore" />
@@ -70,6 +89,16 @@
                     <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
                         <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
                     </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
+                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
+                    <ui:Label name="skill-1" class="kit-slot skill" text="방패 벽" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
                 </ui:VisualElement>
                 <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
                     <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />
@@ -93,6 +122,16 @@
                         <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
                     </ui:VisualElement>
                 </ui:VisualElement>
+                <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
+                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
+                    <ui:Label name="skill-1" class="kit-slot skill" text="방패 벽" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
+                </ui:VisualElement>
                 <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
                     <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />
                     <ui:Label name="line" class="bubble-text" picking-mode="Ignore" />
@@ -114,6 +153,16 @@
                     <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
                         <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
                     </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
+                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
+                    <ui:Label name="skill-1" class="kit-slot skill" text="방패 벽" picking-mode="Ignore">
+                        <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
+                    </ui:Label>
                 </ui:VisualElement>
                 <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
                     <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />

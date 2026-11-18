@@ -31,6 +31,13 @@ namespace DungeonTycoon.Unity
             "line(30자 이내의 한국어 1인칭 주장)을 넣어 JSON으로 답하라. line에서는 길 번호를 말하지 말고 " +
             "'북쪽 길'처럼 입력에 적힌 길 이름으로 부르며, 용사마다 말투가 겹치지 않게 하라. 최종 결정은 게임이 판정한다.";
 
+        private const string LootPrompt =
+            "던전 TRPG 용사들이 전투가 끝나고 얻은 방어구를 누가 입을지 의논한다. 각 용사는 자기 성격 태그, 역할, 체력, " +
+            "지금 입은 방어구와 비교해 원하는지 말한다. 지금보다 못한 방어구를 원해도 게임이 후보에서 뺀다. " +
+            "wishes 배열에 방어구마다, 입력에 적힌 용사마다 하나씩 role(입력의 영문 역할 ID), item(입력의 방어구 번호 숫자 문자열), " +
+            "wants(\"yes\" 또는 \"no\"), line(30자 이내의 한국어 1인칭 말)을 넣어 JSON으로 답하라. 원하는 사람이 여럿이면 " +
+            "게임이 주사위로 정하니 양보하거나 욕심내는 것은 성격대로 하고, 용사마다 말투가 겹치지 않게 하라.";
+
         private readonly string apiKey;
         private readonly string model = "gpt-5.4-mini";
         private DateTime retryAfter;
@@ -172,6 +179,52 @@ namespace DungeonTycoon.Unity
             return text.ToString();
         }
 
+        /// <summary>
+        /// Asks whether each standing hero wants each piece of armour. Returns null offline or on failure; the run
+        /// then uses local wishes. Invalid entries are dropped here and per hero again by <see cref="DungeonRun.ResolveLoot"/>.
+        /// </summary>
+        public async UniTask<IReadOnlyList<LootWish>> ShareLootAsync(DungeonRun run, LootDistribution loot, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            if (!Online || loot == null) return null;
+            var plan = await RequestAsync<LootPlan>(run, LootPrompt, token, DescribeLoot(run, loot));
+            if (plan?.wishes == null) return null;
+            var wishes = new List<LootWish>();
+            var answered = new HashSet<(HeroRole, int)>();
+            foreach (var entry in plan.wishes)
+            {
+                if (entry == null || !TryRole(entry.role, out var role) || !loot.Heroes.Contains(role) ||
+                    !int.TryParse(entry.item, out int item) || item < 0 || item >= loot.Items.Count ||
+                    !answered.Add((role, item)) || string.IsNullOrWhiteSpace(entry.line)) continue;
+                bool? wants = entry.wants == "yes" ? true : entry.wants == "no" ? false : (bool?)null;
+                if (wants == null) continue;
+                wishes.Add(new LootWish(role, item, wants.Value, CleanLine(entry.line)));
+            }
+            return wishes;
+        }
+
+        private static string DescribeLoot(DungeonRun run, LootDistribution loot)
+        {
+            var text = new StringBuilder();
+            text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}. 전투가 끝났다.");
+            for (int i = 0; i < loot.Items.Count; i++)
+            {
+                var item = loot.Items[i];
+                text.AppendLine($"방어구 {i}: {item.Name} ({item.GradeName}) — {item.Stats}, 위력 {item.Power}");
+            }
+            foreach (var role in loot.Heroes)
+            {
+                var hero = run.Party[(int)role];
+                var tags = new List<string>();
+                foreach (var tag in hero.Tags) tags.Add(HeroTraits.Name(tag));
+                var worn = hero.BodyArmor;
+                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 방어 {hero.Armor}, 성격 {string.Join("·", tags)}, " +
+                                $"지금 방어구 {(worn == null ? "없음 (위력 0)" : $"{worn.Name} — {worn.Stats}, 위력 {worn.Power}")}");
+            }
+            text.Append("방어구마다 각 용사가 원하는지 JSON으로 작성해.");
+            return text.ToString();
+        }
+
         private async UniTask<T> RequestAsync<T>(DungeonRun run, string instructions, CancellationToken token, string input = null)
             where T : class
         {
@@ -285,6 +338,9 @@ namespace DungeonTycoon.Unity
         [Serializable] private sealed class ForkPlan { public Vote[] opinions; }
         // option stays a string so a missing field is not silently read as path 0.
         [Serializable] private sealed class Vote { public string role, option, line; }
+        [Serializable] private sealed class LootPlan { public Wish[] wishes; }
+        // item and wants stay strings so a missing field is not silently read as armour 0 or "no".
+        [Serializable] private sealed class Wish { public string role, item, wants, line; }
 #pragma warning restore CS0649
     }
 }

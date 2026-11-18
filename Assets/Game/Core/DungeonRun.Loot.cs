@@ -95,6 +95,9 @@ namespace DungeonTycoon.Core
         public CombatSpoils LastSpoils { get; private set; }
         /// <summary>Items dropped so far in the fight going on now, in the order they fell.</summary>
         public IReadOnlyList<Equipment> Spoils => spoils;
+        /// <summary>Every item dropped this expedition, in the order it fell. Drop events index into it.</summary>
+        public IReadOnlyList<Equipment> Drops => drops;
+        private readonly List<Equipment> drops = new List<Equipment>();
 
         /// <summary>Tests pin what a fallen monster drops. Null uses the drop tables.</summary>
         internal Func<MonsterState, Equipment> DropOverride { get; set; }
@@ -113,7 +116,8 @@ namespace DungeonTycoon.Core
             var item = DropOverride != null ? DropOverride(monster) : EquipmentCatalog.Roll(monster, lootDice);
             if (item == null) return;
             spoils.Add(item);
-            events.Add(new CombatEvent(CombatEventKind.Drop, false, monster.Id, false, monster.Id, spoils.Count - 1));
+            drops.Add(item);
+            events.Add(new CombatEvent(CombatEventKind.Drop, false, monster.Id, false, monster.Id, drops.Count - 1));
             log.Add($"전리품 • {HeroTraits.Subject(monster.Name)} {HeroTraits.Particle(item.Name, "을", "를")} 떨어뜨렸다 ({item.GradeName} · {item.Stats})");
         }
 

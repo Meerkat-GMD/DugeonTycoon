@@ -9,7 +9,7 @@ namespace DungeonTycoon.Core
     public enum MonsterMood { Wandering, Chasing, Defeated }
     /// <summary>
     /// Attack, Heal and Taunt go from a source to a target. Drop: monster <see cref="CombatEvent.Source"/> left
-    /// <see cref="DungeonRun.Spoils"/>[<see cref="CombatEvent.Amount"/>]. Skill: hero <see cref="CombatEvent.Source"/>
+    /// <see cref="DungeonRun.Drops"/>[<see cref="CombatEvent.Amount"/>]. Skill: hero <see cref="CombatEvent.Source"/>
     /// used the <see cref="HeroSkill"/> in <see cref="CombatEvent.Amount"/>; Target is the main target if any.
     /// </summary>
     public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill }
