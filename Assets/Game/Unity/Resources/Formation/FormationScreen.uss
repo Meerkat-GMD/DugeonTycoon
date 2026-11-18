@@ -455,11 +455,11 @@
     font-size: 11px;
 }
 
-/* Portraits: the same art as the prayer scene's answered hero. */
-.hud .role-0 .card-art, .hud .role-0 .editor-art { background-image: url("/Assets/Art/Prayer/tank_radiant.png"); }
-.hud .role-1 .card-art, .hud .role-1 .editor-art { background-image: url("/Assets/Art/Prayer/healer_radiant.png"); }
-.hud .role-2 .card-art, .hud .role-2 .editor-art { background-image: url("/Assets/Art/Prayer/melee_radiant.png"); }
-.hud .role-3 .card-art, .hud .role-3 .editor-art { background-image: url("/Assets/Art/Prayer/ranged_radiant.png"); }
+/* Expedition portraits for the formation cards and hero editor. */
+.hud .role-0 .card-art, .hud .role-0 .editor-art { background-image: url("/Assets/Art/Heroes/formation_tank.png"); }
+.hud .role-1 .card-art, .hud .role-1 .editor-art { background-image: url("/Assets/Art/Heroes/formation_healer.png"); }
+.hud .role-2 .card-art, .hud .role-2 .editor-art { background-image: url("/Assets/Art/Heroes/formation_melee.png"); }
+.hud .role-3 .card-art, .hud .role-3 .editor-art { background-image: url("/Assets/Art/Heroes/formation_ranged.png"); }
 
 .hud .formation-button.small.first {
     margin-left: 0;

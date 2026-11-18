@@ -47,7 +47,15 @@ dotnet test DotNet/DungeonTycoon.Core.Tests/DungeonTycoon.Core.Tests.csproj --fi
 
 ## 씬·프리팹·Unity 연동을 확인할 때
 
-1. 프로젝트 루트에서 `unity pipeline editors`로 경로가 일치하는 실행 중인 에디터를 확인한다. 공식 Unity CLI가 필요하면 Windows에서 `winget install --id Unity.CLI --exact`로 설치한다. 프로젝트에 Pipeline이 없으면 `unity pipeline install`로 연결 패키지를 준비한다. [Unity 공식 연결 안내](https://docs.unity.com/en-us/unity-cli/reference/editor-project-commands)
+이 PC에서 확인한 공식 Unity CLI 경로는 `C:\Users\USER\AppData\Local\Microsoft\WindowsApps\unity.exe`다. Codex 샌드박스에서는 사용자 계정의 WindowsApps 접근이 제한되어 `unity`를 찾지 못할 수 있다. 이때는 재설치 전에 `exec_command`의 `sandbox_permissions`를 `require_escalated`로 지정해 아래 조회를 사용자 계정에서 실행한다. 이후 Unity CLI 명령도 같은 계정에서 실행한다.
+
+```powershell
+# 프로젝트 루트에서 실행한다.
+Get-Command unity | Select-Object -ExpandProperty Source
+& 'C:\Users\USER\AppData\Local\Microsoft\WindowsApps\unity.exe' pipeline editors
+```
+
+1. `pipeline editors` 결과에서 `projectPath`가 현재 프로젝트 루트와 일치하고 `isRunning`과 `serverReachable`이 모두 `true`인 행을 찾는다. 그 행의 `pid`를 다음 명령의 `<PID>`에 넣는다. 에디터를 다시 열면 PID도 다시 조회한다. 사용자 계정에도 CLI가 없으면 `winget install --id Unity.CLI --exact`로 설치한다. 프로젝트에 Pipeline이 없으면 `unity pipeline install`로 연결 패키지를 준비한다. [Unity 공식 연결 안내](https://docs.unity.com/en-us/unity-cli/reference/editor-project-commands)
 2. `unity command`로 해당 에디터에서 제공하는 명령을 확인한다. [시작 씬](Assets/Scenes/SampleScene.unity)의 임포트와 컴파일이 끝나면 `unity command editor.playmode start`로 실행하고 CLI로 변경한 동작을 재현한다. 같은 경로로 여러 인스턴스가 잡히면 `unity command --pid <PID> editor.playmode start`처럼 대상을 지정한다.
 3. 대화 무대(갈림길 논의, 역경, 전리품 분배)를 기다리지 않으려면 Play를 시작한 뒤 `unity command script eval --file <파일>`로 `DungeonTycoon.Unity.DialogueStage.FastForward = true;`를 실행한다. 대사가 한 번에 나오고 줄 사이 대기와 주사위 연출을 건너뛰며, 신탁은 `DialogueStage.FastOraclePick`(기본 -1, 넘어간다)에 정한 번호를 바로 고른다. 기도 장면도 같은 설정으로 바로 넘어가고, 응답은 `PrayerScene.FastAnswer`(0 치유의 기적, 1 안식의 기적, 기본 2 외면한다)를 고른다. 신앙이 모자라 고를 수 없는 기적이면 외면한다. 결과는 Core가 먼저 정하므로 판정은 같고, 값은 저장되지 않으며 Play를 다시 시작하면 꺼진다. AI 응답 대기는 그대로다. 스크립트에 `"`가 들어가면 PowerShell이 `--code` 인자를 망가뜨리므로 파일로 넘긴다.
 4. CLI에서 씬 이름, Play 상태, 게임 상태 변화와 콘솔 오류를 확인한다. 완료 보고에 수행한 조작과 결과를 적고, 연결이나 컴파일에서 막혔다면 첫 관련 오류를 기록한다.
