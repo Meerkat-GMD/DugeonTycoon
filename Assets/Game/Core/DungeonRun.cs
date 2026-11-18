@@ -262,6 +262,8 @@ namespace DungeonTycoon.Core
             return hero.Hp > 0 && hero.Hp < hero.MaxHp;
         }
 
+        public int BlessRecovery(HeroState target) => Math.Min(target.MaxHp - target.Hp, 12 + Level);
+
         /// <summary>Blesses the most hurt hero. A convenience for simulations; the GM picks a hero with <see cref="Bless(HeroRole)"/>.</summary>
         public bool Bless()
         {
@@ -274,7 +276,7 @@ namespace DungeonTycoon.Core
         {
             if (!CanBlessHero(role)) return false;
             var target = party[(int)role];
-            int restored = Math.Min(target.MaxHp - target.Hp, 12 + Level);
+            int restored = BlessRecovery(target);
             Faith -= BlessCost;
             target.Hp += restored;
             if (target.Hp * 10 >= target.MaxHp * 3) target.Critical = false;
@@ -339,9 +341,9 @@ namespace DungeonTycoon.Core
                 DialogueBeat.Line(actor.Role, actor.LastLine),
                 DialogueBeat.Check(DialogueLines.TrialTitle(ability), new DiceRoll(actor.Role, roll, modifier, ability),
                     TrialDifficulty, success),
-                DialogueBeat.Narration(success ? "성공 — 경험치 +1, 신앙 +1" :
-                    actor.Hp == 0 ? $"실패 — {HeroTraits.Subject(actor.Name)} 피해 {TrialDamage}을 입고 쓰러졌다." :
-                    $"실패 — {HeroTraits.Subject(actor.Name)} 피해 {TrialDamage}을 입었다.")
+                DialogueBeat.Narration(success ? "경험치 +1, 신앙 +1" :
+                    actor.Hp == 0 ? $"{HeroTraits.Subject(actor.Name)} 피해 {TrialDamage}을 입고 쓰러졌다." :
+                    $"{HeroTraits.Subject(actor.Name)} 피해 {TrialDamage}을 입었다.")
             };
             if (actor.Hp > 0)
             {

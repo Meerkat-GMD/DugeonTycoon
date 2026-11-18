@@ -144,13 +144,7 @@
     align-items: center;
 }
 
-.hud .formation-note {
-    flex-grow: 1;
-    margin: 0 14px;
-    font-size: 12px;
-    color: var(--gold);
-    -unity-text-align: middle-right;
-}
+.hud .formation-foot { justify-content: space-between; }
 
 .hud .formation-button {
     margin: 0;

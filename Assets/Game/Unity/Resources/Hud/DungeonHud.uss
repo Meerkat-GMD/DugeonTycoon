@@ -697,6 +697,8 @@
     background-color: var(--card);
 }
 
+.hud #planning .card, .hud #trial { justify-content: center; }
+
 .hud .card:hover {
     background-color: #3D464B;
 }

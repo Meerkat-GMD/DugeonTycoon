@@ -224,7 +224,7 @@ namespace DungeonTycoon.Core
             for (int i = 0; i < loot.Items.Count; i++)
             {
                 var item = loot.Items[i];
-                scene.Add(DialogueBeat.Narration($"{HeroTraits.Particle(item.Name, "을", "를")} 얻었다 — {item.Stats}", item));
+                scene.Add(DialogueBeat.Narration($"{HeroTraits.Particle(item.Name, "을", "를")} 얻었다.", item));
                 var wanting = new List<HeroRole>();
                 int index = i;
                 var decided = TraitWishes(item, i, loot.Heroes, role =>
@@ -253,7 +253,7 @@ namespace DungeonTycoon.Core
                         candidates.Add(role);
                         continue;
                     }
-                    string text = $"{hero.Name}에게는 지금 입은 {HeroTraits.Subject(hero.BodyArmor.Name)} 더 낫다. 후보에서 빠진다.";
+                    string text = $"{hero.Name}에게는 지금 입은 {HeroTraits.Subject(hero.BodyArmor.Name)} 더 낫다.";
                     scene.Add(DialogueBeat.Narration(text, role, DialogueLines.Worse));
                     log.Add(text);
                 }
@@ -272,9 +272,6 @@ namespace DungeonTycoon.Core
                     else
                     {
                         scene.Add(DialogueBeat.Tie(title, rolls));
-                        var names = best.Select(role => party[(int)role].Name).ToList();
-                        string pair = string.Join(", ", names.Take(names.Count - 1).Select(n => HeroTraits.Particle(n, "과", "와")));
-                        scene.Add(DialogueBeat.Narration($"같은 눈이다! {pair} {names[names.Count - 1]}만 다시 굴린다."));
                     }
                     candidates = best;
                 }
@@ -293,7 +290,7 @@ namespace DungeonTycoon.Core
                 else
                 {
                     Discard(item, "원하는 용사가 없다");
-                    scene.Add(DialogueBeat.Narration($"아무도 받지 않았다. {HeroTraits.Particle(item.Name, "은", "는")} 버려진다."));
+                    scene.Add(DialogueBeat.Narration($"{item.Name} ▸ 버림"));
                 }
             }
             LastScene = scene.AsReadOnly();

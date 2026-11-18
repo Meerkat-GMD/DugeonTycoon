@@ -113,9 +113,9 @@ namespace DungeonTycoon.Unity
                     buttons[i].Q<Label>("title").text = DialogueLines.PrayerAnswerName(choice);
                     buttons[i].Q<Label>("desc").text = choice switch
                     {
-                        PrayerAnswer.HealingMiracle => $"{praying.Name}의 체력을 모두 회복한다",
-                        PrayerAnswer.RestMiracle => "파티의 피로를 크게 줄인다",
-                        _ => "신앙을 아낀다. 믿음이 흔들린다"
+                        PrayerAnswer.HealingMiracle => $"{praying.Name} 체력 전부 회복 · 믿음 굳건",
+                        PrayerAnswer.RestMiracle => $"파티 피로 -{System.Math.Min(run.FatigueSteps, DungeonRun.RestMiracleRelief)} · 믿음 굳건",
+                        _ => "신앙 소모 없음 · 믿음 흔들림"
                     };
                     buttons[i].Q<Label>("cost").text = choice == PrayerAnswer.Ignore ? "" : $"신앙 {DungeonRun.MiracleCost}";
                     buttons[i].SetEnabled(run.CanAnswerPrayer(choice));

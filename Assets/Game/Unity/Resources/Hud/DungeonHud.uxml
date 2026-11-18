@@ -23,12 +23,12 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <ui:Label name="pause-banner" class="pause-banner" text="일시정지  ·  스페이스로 다시 진행" picking-mode="Ignore" />
+        <ui:Label name="pause-banner" class="pause-banner" text="일시정지" picking-mode="Ignore" />
 
         <!-- Experience and item names float up from the board here; DungeonHud.cs adds and removes the labels. -->
         <ui:VisualElement name="pops" class="pops" picking-mode="Ignore" />
 
-        <!-- The settlement after each fight: experience, level-ups and what happened to every item. -->
+        <!-- Automatic weapon settlement after combat. -->
         <ui:VisualElement name="spoils" class="spoils" picking-mode="Ignore">
             <ui:Label class="spoils-title" text="— 전투 정산 —" picking-mode="Ignore" />
             <ui:VisualElement name="spoils-lines" class="spoils-lines" picking-mode="Ignore" />
@@ -41,6 +41,7 @@
         </ui:VisualElement>
 
         <ui:VisualElement name="party" class="party" picking-mode="Ignore">
+            <ui:Label name="party-level" class="hero-level" picking-mode="Ignore" />
             <!-- The party's fatigue: one bar with marks at the 지침 and 탈진 thresholds. -->
             <ui:VisualElement name="fatigue" class="fatigue" picking-mode="Ignore">
                 <ui:VisualElement class="fatigue-row" picking-mode="Ignore">
@@ -61,18 +62,14 @@
                     <ui:Label name="name" class="hero-name" text="탱커  가론" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
                         <ui:Label name="hp" class="hero-hp" text="HP 46 / 46" picking-mode="Ignore" />
-                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
                         <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
                     </ui:VisualElement>
-                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
-                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
-                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
-                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
-                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="weapon" class="kit-slot gear" text="" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="" picking-mode="Ignore" />
                     <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
                         <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
                     </ui:Label>
@@ -93,18 +90,14 @@
                     <ui:Label name="name" class="hero-name" text="힐러  세레나" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
                         <ui:Label name="hp" class="hero-hp" text="HP 28 / 28" picking-mode="Ignore" />
-                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
                         <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
                     </ui:VisualElement>
-                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
-                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
-                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
-                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
-                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="weapon" class="kit-slot gear" text="" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="" picking-mode="Ignore" />
                     <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
                         <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
                     </ui:Label>
@@ -125,18 +118,14 @@
                     <ui:Label name="name" class="hero-name" text="근딜  카이" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
                         <ui:Label name="hp" class="hero-hp" text="HP 36 / 36" picking-mode="Ignore" />
-                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
                         <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
                     </ui:VisualElement>
-                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
-                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
-                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
-                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
-                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="weapon" class="kit-slot gear" text="" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="" picking-mode="Ignore" />
                     <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
                         <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
                     </ui:Label>
@@ -157,18 +146,14 @@
                     <ui:Label name="name" class="hero-name" text="원딜  리아" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
                         <ui:Label name="hp" class="hero-hp" text="HP 32 / 32" picking-mode="Ignore" />
-                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
                         <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
                     </ui:VisualElement>
-                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
-                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
-                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="kit" class="hero-kit" picking-mode="Ignore">
-                    <ui:Label name="weapon" class="kit-slot gear" text="무기 없음" picking-mode="Ignore" />
-                    <ui:Label name="armor" class="kit-slot gear" text="방어구 없음" picking-mode="Ignore" />
+                    <ui:Label name="weapon" class="kit-slot gear" text="" picking-mode="Ignore" />
+                    <ui:Label name="armor" class="kit-slot gear" text="" picking-mode="Ignore" />
                     <ui:Label name="skill-0" class="kit-slot skill" text="도발" picking-mode="Ignore">
                         <ui:VisualElement name="cooldown" class="kit-cooldown" picking-mode="Ignore" />
                     </ui:Label>
@@ -181,20 +166,18 @@
                     <ui:Label name="line" class="bubble-text" picking-mode="Ignore" />
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:Label name="ai-mode" class="ai-mode shadowed" text="로컬 전술 AI" picking-mode="Ignore" />
+            <ui:Label name="ai-mode" class="ai-mode shadowed" text="" picking-mode="Ignore" />
         </ui:VisualElement>
 
         <ui:VisualElement name="bottom" class="bottom">
             <ui:VisualElement class="tab-bar">
                 <ui:Label name="category" class="tab" text="몬스터 배치" />
-                <ui:Label name="hint" class="hint" text="바닥 클릭 배치  ·  우클릭·휠 드래그 이동  ·  휠 확대·축소" />
+                <ui:Label name="hint" class="hint" text="우클릭 드래그 이동 · 휠 확대" />
                 <ui:VisualElement class="stats">
                     <ui:Label class="stat-title" text="위협 예산" />
                     <ui:Label name="budget" class="stat-value gold" text="6" />
                     <ui:Label class="stat-title" text="신앙" />
                     <ui:Label name="faith" class="stat-value teal" text="1" />
-                    <ui:Label class="stat-title" text="역경" />
-                    <ui:Label name="trials" class="stat-value" text="2 / 2" />
                 </ui:VisualElement>
                 <ui:VisualElement name="speed" class="speed">
                     <ui:Button name="speed-0" class="chip" text="일시정지" focusable="false" />
@@ -208,37 +191,33 @@
             <ui:VisualElement name="content" class="content">
                 <ui:VisualElement name="planning" class="page">
                     <ui:Button name="brush-skeleton" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-skeleton" text="해" picking-mode="Ignore" />
                         <ui:Label class="card-title" text="해골" picking-mode="Ignore" />
                         <ui:Label name="detail" class="card-detail" text="비용 1" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-ghost" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-ghost" text="유" picking-mode="Ignore" />
                         <ui:Label class="card-title" text="유령" picking-mode="Ignore" />
                         <ui:Label name="detail" class="card-detail" text="비용 2 · 영혼 화살" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-zombie" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-zombie" text="좀" picking-mode="Ignore" />
                         <ui:Label class="card-title" text="좀비" picking-mode="Ignore" />
                         <ui:Label name="detail" class="card-detail" text="비용 3 · 내려찍기" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-remove" class="card" focusable="false">
                         <ui:Label class="card-icon icon-remove" text="×" picking-mode="Ignore" />
                         <ui:Label class="card-title" text="되돌리기" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="한 마리씩" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:VisualElement class="summary">
                         <ui:Label name="summary-title" class="summary-title" text="배치한 몬스터 없음" />
-                        <ui:Label name="summary-detail" class="summary-detail" text="비워 두고 출발할 수도 있습니다" />
-                        <ui:Label class="summary-note" text="입구 근처와 벽에는 둘 수 없습니다" />
+                        <ui:Label name="summary-detail" class="summary-detail" text="" />
                     </ui:VisualElement>
                 </ui:VisualElement>
 
                 <ui:VisualElement name="intervention" class="page">
                     <ui:Button name="trial" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-trial" text="d20" picking-mode="Ignore" />
                         <ui:Label class="card-title" text="낙석 역경" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="남은 2회" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" picking-mode="Ignore" />
+                        <ui:Label class="card-detail" text="성공 경험치·신앙 +1" picking-mode="Ignore" />
+                        <ui:Label name="trial-risk" class="card-detail" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="bless" class="card" focusable="false">
                         <ui:Label class="card-icon icon-bless" text="+" picking-mode="Ignore" />
@@ -253,8 +232,7 @@
                     <ui:VisualElement class="divider" />
                     <ui:VisualElement name="info" class="info status">
                         <ui:Label name="info-heading" class="info-heading" text="보스방을 찾는 중" />
-                        <ui:Label name="info-text" class="info-text" text="0걸음" />
-                        <ui:Label name="info-note" class="info-note" text="낙석 역경    d20 + 능력 보정 ≥ 난이도 13" />
+                        <ui:Label name="info-text" class="info-text" text="" />
                     </ui:VisualElement>
                 </ui:VisualElement>
 
@@ -275,6 +253,7 @@
                     <ui:Label class="history-title" text="원정 기록" />
                     <ui:Button name="history-close" class="chip history-close" text="닫기" focusable="false" />
                 </ui:VisualElement>
+                <ui:Label name="history-stats" class="info-text" />
                 <ui:ScrollView name="history-list" class="history-list" horizontal-scroller-visibility="Hidden" />
             </ui:VisualElement>
         </ui:VisualElement>

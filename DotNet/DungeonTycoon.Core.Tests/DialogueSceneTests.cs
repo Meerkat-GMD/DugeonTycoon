@@ -122,13 +122,13 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(die.Role, Is.EqualTo(HeroRole.Tank));
             Assert.That(die.Face, Is.EqualTo(1));
             Assert.That(die.Modifier, Is.EqualTo(run.TrialModifier(HeroRole.Tank)));
-            Assert.That(scene[2].Text, Does.Contain("실패").And.Contain(DungeonRun.TrialDamage.ToString()));
+            Assert.That(scene[2].Text, Does.Contain(DungeonRun.TrialDamage.ToString()).And.Not.Contain("실패"));
             Assert.That(scene[3].Text, Is.EqualTo(DialogueLines.Reaction(HeroRole.Tank, false)));
 
             int second = run.BeginAdversity();
             Assert.That(run.ResolveAdversity(second, HeroRole.Tank, 20), Is.True);
             Assert.That(run.LastScene[1].Success, Is.True);
-            Assert.That(run.LastScene[2].Text, Does.Contain("성공"));
+            Assert.That(run.LastScene[2].Text, Does.Contain("경험치 +1, 신앙 +1").And.Not.Contain("성공"));
             Assert.That(run.LastScene[3].Text, Is.EqualTo(DialogueLines.Reaction(HeroRole.Tank, true)));
         }
 

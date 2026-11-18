@@ -61,7 +61,7 @@
 
         <!-- The oracle: numbered path cards above the portraits. DialogueStage.cs fills oracle-cards. -->
         <ui:VisualElement name="stage-oracle" class="stage-oracle" picking-mode="Ignore">
-            <ui:Label name="oracle-question" class="oracle-question" text="신탁 — 어느 길을 계시하시겠습니까?" picking-mode="Ignore" />
+            <ui:Label name="oracle-question" class="oracle-question" text="신탁" picking-mode="Ignore" />
             <ui:VisualElement name="oracle-cards" class="oracle-cards" picking-mode="Ignore" />
             <ui:VisualElement class="oracle-countdown" picking-mode="Ignore">
                 <ui:VisualElement name="oracle-timer" class="oracle-timer" picking-mode="Ignore" />

@@ -129,8 +129,8 @@ namespace DungeonTycoon.Core
     /// <summary>Fixed narration and the local lines heroes say around a debate or an adversity.</summary>
     public static class DialogueLines
     {
-        public const string ForkOpening = "갈림길이다. 용사들이 의견을 나눈다.";
-        public const string BacktrackOpening = "막다른 길이다. 어디로 되돌아갈지 의논한다.";
+        public const string ForkOpening = "갈림길";
+        public const string BacktrackOpening = "막다른 길";
         public const string RockfallOpening = "낙석 역경! 천장이 무너져 내린다.";
         public const string PersuasionTitle = "설득 판정 — d20 + 매력";
 
@@ -174,7 +174,7 @@ namespace DungeonTycoon.Core
             }
         }
 
-        public const string OracleQuestion = "신탁 — 어느 길을 계시하시겠습니까?";
+        public const string OracleQuestion = "신탁";
         public const string OracleSkip = "넘어간다";
 
         public static string OracleTitle(int bonus) => $"설득 판정 — 용사 d20 + 매력 · 신 d20 + {bonus}";
@@ -190,7 +190,6 @@ namespace DungeonTycoon.Core
             }
         }
 
-        public const string LootOpening = "전투가 끝났다. 용사들이 전리품을 나눈다.";
         public const string LootRollTitle = "전리품 주사위 — d20";
         public const string LootRerollTitle = "다시 굴림 — d20";
         public const string Wants = "원함";

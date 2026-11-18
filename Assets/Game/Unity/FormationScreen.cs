@@ -15,19 +15,13 @@ namespace DungeonTycoon.Unity
     {
         private const string Teal = "#7BD5BF", Ember = "#EC9179";
         private static readonly string[] StepTitles = { "스탯 포인트", "전투 성향", "성격 성향" };
-        private static readonly string[] StepHints =
-        {
-            "10포인트를 나눠 투자한다. 남겨 둘 수도 있다.",
-            "전투 중 회피, 공격 대상, 보호 대상, 교전 위치를 정한다. 조건 밖에서는 역할 기본 전술을 따른다.",
-            "갈림길 의견, 장비 입찰, 기도, 동료에게 하는 말을 정한다."
-        };
         private static readonly BuildStat[] Stats = (BuildStat[])Enum.GetValues(typeof(BuildStat));
         private static readonly HeroRole[] Order =
             { HeroRole.Tank, HeroRole.Healer, HeroRole.MeleeDamage, HeroRole.RangedDamage };
 
         private DungeonGame game;
         private VisualElement root, party, editor, editorStats, steps, body;
-        private Label sub, note, title, hint, warn, editorName;
+        private Label sub, hint, warn, editorName;
         private Button prev, next;
         private HeroRole editing;
         private HeroBuild draft;
@@ -53,12 +47,10 @@ namespace DungeonTycoon.Unity
             root = hud.Q("formation-screen");
             party = root.Q("formation-party");
             sub = root.Q<Label>("formation-sub");
-            note = root.Q<Label>("formation-note");
             editor = root.Q("formation-editor");
             editorStats = root.Q("editor-stats");
             editorName = root.Q<Label>("editor-name");
             steps = root.Q("editor-steps");
-            title = root.Q<Label>("editor-title");
             hint = root.Q<Label>("editor-hint");
             body = root.Q("editor-body");
             warn = root.Q<Label>("editor-warn");
@@ -75,7 +67,7 @@ namespace DungeonTycoon.Unity
             root.Q<Button>("editor-restore").clicked += () =>
             {
                 draft = HeroBuild.Default(editing);
-                warn.text = "역할 기본값으로 되돌렸다. 완료를 눌러야 반영된다.";
+                warn.text = "완료하면 기본값이 반영됩니다.";
                 RenderEditor();
             };
             prev.clicked += () =>
@@ -93,8 +85,7 @@ namespace DungeonTycoon.Unity
                     RenderEditor();
                     return;
                 }
-                if (game.Run.SetBuild(editing, draft))
-                    note.text = game.Run.Party[(int)editing].Name + "의 편성을 바꿨다.";
+                game.Run.SetBuild(editing, draft);
                 CloseEditor();
                 RenderParty();
             };
@@ -112,9 +103,7 @@ namespace DungeonTycoon.Unity
         {
             if (root == null || !game.Run.CanEditFormation) return;
             IsOpen = true;
-            note.text = "";
-            var run = game.Run;
-            sub.text = $"{run.Stage}스테이지 · 몬스터 {run.Placements.Count}마리 배치 · 용사를 눌러 스탯과 성향을 정한다 · 출발하면 편성이 확정된다";
+            sub.text = "출발하면 편성이 확정됩니다.";
             root.style.display = DisplayStyle.Flex;
             editor.style.display = DisplayStyle.None;
             RenderParty();
@@ -241,7 +230,6 @@ namespace DungeonTycoon.Unity
             draft = game.Run.BuildOf(role);
             step = 0;
             warn.text = "";
-            note.text = "";
             for (int i = 0; i < 4; i++) editor.EnableInClassList("role-" + i, i == (int)role);
             editor.style.display = DisplayStyle.Flex;
             RenderEditor();
@@ -268,8 +256,7 @@ namespace DungeonTycoon.Unity
                 chip.EnableInClassList("past", i < step);
                 steps.Add(chip);
             }
-            title.text = StepTitles[step];
-            hint.text = StepHints[step];
+            hint.style.display = step == 0 ? DisplayStyle.Flex : DisplayStyle.None;
             prev.style.display = step > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             next.text = step == StepTitles.Length - 1 ? "완료" : "확인";
 
@@ -281,16 +268,6 @@ namespace DungeonTycoon.Unity
 
         private void RenderPoints()
         {
-            var pips = new VisualElement { pickingMode = PickingMode.Ignore };
-            pips.AddToClassList("pips");
-            for (int i = 0; i < HeroBuild.Budget; i++)
-            {
-                var pip = new VisualElement { pickingMode = PickingMode.Ignore };
-                pip.AddToClassList("pip");
-                pip.EnableInClassList("on", i < draft.Spent);
-                pips.Add(pip);
-            }
-            body.Add(pips);
             body.Add(Text($"남은 포인트 <b><color=#F0EAE0>{draft.Left}</color></b> / {HeroBuild.Budget}", "points-left"));
 
             foreach (var stat in Stats)
@@ -300,8 +277,7 @@ namespace DungeonTycoon.Unity
                 var row = new VisualElement();
                 row.AddToClassList("point-row");
                 row.Add(Text(HeroTraits.Name(stat), "point-name"));
-                string amount = stat == BuildStat.Speed ? $"기본값의 {Signed(points * gain, "0")}%" : Signed(points * gain, "0");
-                row.Add(Text($"점당 +{gain}{(stat == BuildStat.Speed ? "%" : "")} · {amount}", "point-gain"));
+                row.Add(Text($"점당 +{gain}{(stat == BuildStat.Speed ? "%" : "")}", "point-gain"));
                 row.Add(StepButton("−", () => ChangePoints(stat, -1)));
                 row.Add(Text(points.ToString(), "point-value"));
                 row.Add(StepButton("+", () => ChangePoints(stat, 1)));
@@ -315,7 +291,7 @@ namespace DungeonTycoon.Unity
             if (value < 0) return;
             if (delta > 0 && draft.Left == 0)
             {
-                warn.text = "포인트를 모두 썼다. 다른 스탯에서 빼고 넣는다.";
+                warn.text = "남은 포인트가 없습니다.";
                 return;
             }
             draft = draft.WithPoints(stat, value);
@@ -347,7 +323,7 @@ namespace DungeonTycoon.Unity
             about.AddToClassList("trait-about");
             about.Add(Text($"<b>{chosen.Name}</b> · {chosen.Trigger}", null));
             about.Add(Text($"“{chosen.Line}”", "line"));
-            about.Add(Text(Status(chosen, combat), "note"));
+            if (combat || !chosen.Works) about.Add(Text(Status(chosen, combat), "note"));
             body.Add(about);
         }
 

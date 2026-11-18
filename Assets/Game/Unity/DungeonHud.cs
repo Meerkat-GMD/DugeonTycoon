@@ -29,18 +29,19 @@ namespace DungeonTycoon.Unity
         private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
         private VisualElement planningPage, interventionPage, resultPage, speedGroup, info, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
-        private Label category, hint, budget, faith, trials, summaryTitle, summaryDetail;
-        private Label infoHeading, infoText, infoNote, resultTitle, resultText;
+        private Label category, hint, budget, faith, partyLevel, summaryTitle, summaryDetail;
+        private Label infoHeading, infoText, resultTitle, resultText;
         private Button follow, primary, collapse, skeletonCard, ghostCard, zombieCard, removeCard, trialCard, blessCard;
         private Label trialDetail, blessDetail, restDetail, fatigueStage, fatigueEffect;
         private Button restCard;
         private VisualElement fatigue, fatigueFill, fatigueTick1, fatigueTick2;
         private readonly Button[] speedButtons = new Button[3];
         private ScrollView historyList;
+        private Label historyStats;
         private readonly HeroCard[] heroes = new HeroCard[4];
 
         private MonsterKind brush = MonsterKind.Skeleton;
-        private bool panning, fitPending;
+        private bool panning, fitPending, cameraUsed;
         private Vector2 lastMouse;
         private string notice = "";
         private float noticeUntil;
@@ -68,8 +69,8 @@ namespace DungeonTycoon.Unity
 
         private sealed class HeroCard
         {
-            public VisualElement Root, Bubble, Health, Growth;
-            public Label Portrait, Name, Hp, Level, Line, Weapon, Armor;
+            public VisualElement Root, Bubble, Health;
+            public Label Portrait, Name, Hp, Line, Weapon, Armor;
             public readonly Label[] Skills = new Label[2];
             public readonly VisualElement[] Cooldowns = new VisualElement[2];
             public string Heard = "";
@@ -127,7 +128,7 @@ namespace DungeonTycoon.Unity
             hint = root.Q<Label>("hint");
             budget = root.Q<Label>("budget");
             faith = root.Q<Label>("faith");
-            trials = root.Q<Label>("trials");
+            partyLevel = root.Q<Label>("party-level");
             speedGroup = root.Q("speed");
             primary = root.Q<Button>("primary");
             collapse = root.Q<Button>("collapse");
@@ -141,6 +142,7 @@ namespace DungeonTycoon.Unity
             summaryTitle = root.Q<Label>("summary-title");
             summaryDetail = root.Q<Label>("summary-detail");
             trialCard = root.Q<Button>("trial");
+            trialCard.Q<Label>("trial-risk").text = $"실패 체력 -{DungeonRun.TrialDamage}";
             blessCard = root.Q<Button>("bless");
             trialDetail = trialCard.Q<Label>("detail");
             blessDetail = blessCard.Q<Label>("detail");
@@ -155,10 +157,10 @@ namespace DungeonTycoon.Unity
             info = root.Q("info");
             infoHeading = root.Q<Label>("info-heading");
             infoText = root.Q<Label>("info-text");
-            infoNote = root.Q<Label>("info-note");
             resultTitle = root.Q<Label>("result-title");
             resultText = root.Q<Label>("result-text");
             history = root.Q("history");
+            historyStats = root.Q<Label>("history-stats");
             historyList = root.Q<ScrollView>("history-list");
             spoilsBanner = root.Q("spoils");
             spoilsLines = root.Q("spoils-lines");
@@ -168,9 +170,9 @@ namespace DungeonTycoon.Unity
             {
                 var card = root.Q("hero-"+i);
                 heroes[i] = new HeroCard {
-                    Root = card, Bubble = card.Q("bubble"), Health = card.Q("health"), Growth = card.Q("growth"),
+                    Root = card, Bubble = card.Q("bubble"), Health = card.Q("health"),
                     Portrait = card.Q<Label>("portrait"), Name = card.Q<Label>("name"), Hp = card.Q<Label>("hp"),
-                    Level = card.Q<Label>("level"), Line = card.Q<Label>("line"),
+                    Line = card.Q<Label>("line"),
                     Weapon = card.Q<Label>("weapon"), Armor = card.Q<Label>("armor")
                 };
                 for (int s = 0; s < 2; s++)
@@ -315,8 +317,8 @@ namespace DungeonTycoon.Unity
             bossHp.text = hp+" / "+bossMaxHp;
             bossFill.style.width = Length.Percent(bossMaxHp == 0 ? 0 : 100f*hp/bossMaxHp);
 
-            string banner = !exploring ? "" : run.PendingAdversity ? "역경 판정 중  ·  시간이 멈췄습니다" :
-                game.Speed == 0 ? "일시정지  ·  스페이스로 다시 진행" : "";
+            string banner = !exploring ? "" : run.PendingAdversity ? "역경 판정 중" :
+                game.Speed == 0 ? "일시정지" : "";
             Show(pauseBanner,banner.Length > 0);
             pauseBanner.text = banner;
 
@@ -324,23 +326,23 @@ namespace DungeonTycoon.Unity
             follow.text = game.Board.FollowParty ? "따라가기  켬" : "따라가기  끔";
             follow.EnableInClassList("on",game.Board.FollowParty);
 
-            float growth = (float)run.ExperienceIntoLevel/DungeonRun.ExperiencePerLevel;
+            if (!game.Presenting)
+                partyLevel.text = $"파티 Lv.{run.Level}  ·  경험치 {run.ExperienceIntoLevel}/{DungeonRun.ExperiencePerLevel}";
             // The stage shows a result before the cards do, so they hold still until it closes.
             for (int i = 0; i < heroes.Length; i++)
                 if (game.Presenting) MuteHero(run.Party[i],i);
-                else RefreshHero(run,run.Party[i],i,growth);
+                else RefreshHero(run,run.Party[i],i);
             RefreshFatigue(run,exploring);
-            aiMode.text = game.AiMode+(game.Thinking ? "  ·  판단 중" : "");
+            aiMode.text = "판단 중";
+            Show(aiMode,game.Thinking && !game.Presenting);
             aiMode.EnableInClassList("thinking",game.Thinking);
 
             category.text = planning ? "몬스터 배치" : finished ? "원정 결과" : "사회자 개입";
             bool warning = notice.Length > 0 && Time.unscaledTime < noticeUntil;
-            hint.text = warning ? notice : planning ? "바닥 클릭 배치  ·  우클릭·휠 드래그 이동  ·  휠 확대·축소" :
-                run.Log.Count == 0 ? "" : run.Log[run.Log.Count-1].Replace('\n',' ');
+            hint.text = warning ? notice : planning && !cameraUsed ? "우클릭 드래그 이동 · 휠 확대·축소" : "";
             hint.EnableInClassList("warning",warning);
             budget.text = run.Budget.ToString();
             if (!game.Presenting) faith.text = run.Faith.ToString();
-            trials.text = run.TrialsLeft+" / 2";
 
             Show(speedGroup,exploring);
             for (int speed = 0; speed < speedButtons.Length; speed++)
@@ -360,10 +362,14 @@ namespace DungeonTycoon.Unity
             else if (finished) RefreshResult(run);
             else RefreshIntervention(run);
 
-            if (HistoryOpen) AppendHistory(run);
+            if (HistoryOpen)
+            {
+                historyStats.text = $"{run.StepsTaken}걸음 · 발견 {run.SpottedCount}/{run.Placements.Count} · 처치 {run.DefeatedCount} · 갈림길 {run.ForkCount}회";
+                AppendHistory(run);
+            }
         }
 
-        private void RefreshHero(DungeonRun run,HeroState hero,int index,float growth)
+        private void RefreshHero(DungeonRun run,HeroState hero,int index)
         {
             var card = heroes[index];
             bool down = hero.Hp == 0;
@@ -373,9 +379,7 @@ namespace DungeonTycoon.Unity
             card.Root.EnableInClassList("picked",Exploring(run) && game.SelectedHero == index);
             card.Name.text = RoleNames[index]+"  "+hero.Name;
             card.Hp.text = down ? "쓰러짐" : "HP "+hero.Hp+" / "+hero.MaxHp;
-            card.Level.text = "Lv."+run.Level;
             card.Health.style.width = Length.Percent(hero.MaxHp == 0 ? 0 : 100f*hero.Hp/hero.MaxHp);
-            card.Growth.style.width = Length.Percent(100f*growth);
 
             // Speech floats beside the card for a few seconds after a hero says something new.
             string line = hero.LastLine ?? "";
@@ -414,8 +418,8 @@ namespace DungeonTycoon.Unity
         /// <summary>Weapon and armour names, and the two skills: the second greyed until the party level opens it.</summary>
         private void RefreshKit(DungeonRun run,HeroState hero,HeroCard card)
         {
-            Gear(card.Weapon,hero.Weapon,"무기 없음");
-            Gear(card.Armor,hero.BodyArmor,"방어구 없음");
+            Gear(card.Weapon,hero.Weapon);
+            Gear(card.Armor,hero.BodyArmor);
             for (int s = 0; s < 2; s++)
             {
                 var skill = HeroSkills.Of(hero.Role,s);
@@ -435,9 +439,10 @@ namespace DungeonTycoon.Unity
             return total <= 0 ? 0 : Mathf.Clamp01((float)run.SkillCooldownLeft(role,index)/total);
         }
 
-        private static void Gear(Label slot,Equipment item,string none)
+        private static void Gear(Label slot,Equipment item)
         {
-            slot.text = item?.Name ?? none;
+            Show(slot,item != null);
+            slot.text = item?.Name ?? "";
             slot.EnableInClassList("empty",item == null);
             slot.EnableInClassList("rare",item != null && item.Grade == EquipmentGrade.Rare);
         }
@@ -451,6 +456,7 @@ namespace DungeonTycoon.Unity
             if (spoils != null && spoils.Number != shownSpoils && !game.Presenting && run.PendingLoot == null)
             {
                 shownSpoils = spoils.Number;
+                if (!spoils.Items.Any(result => result.Item.Slot == EquipmentSlot.Weapon)) return;
                 FillSpoils(run,spoils);
                 spoilsUntil = Time.unscaledTime+SpoilsSeconds;
                 spoilsBanner.style.display = DisplayStyle.Flex;
@@ -470,12 +476,10 @@ namespace DungeonTycoon.Unity
         private void FillSpoils(DungeonRun run,CombatSpoils spoils)
         {
             spoilsLines.Clear();
-            string head = "경험치 +"+spoils.Experience;
-            bool levelled = spoils.LevelAfter > spoils.LevelBefore;
-            SpoilsLine(levelled ? head+"  ·  파티 레벨 "+spoils.LevelAfter : head,levelled ? "level" : null);
             foreach (var result in spoils.Items)
             {
                 var item = result.Item;
+                if (item.Slot != EquipmentSlot.Weapon) continue;
                 if (result.Wearer is HeroRole wearer)
                     SpoilsLine($"{run.Party[(int)wearer].Name} ▸ {item.Name} 장착 ({item.Stats})",
                         item.Grade == EquipmentGrade.Rare ? "rare" : null);
@@ -610,22 +614,22 @@ namespace DungeonTycoon.Unity
             removeCard.EnableInClassList("chosen",brush == MonsterKind.None);
             int Placed(MonsterKind kind) => run.Placements.Count(p => p.Kind == kind);
             bool empty = run.Placements.Count == 0;
-            summaryTitle.text = empty ? "배치한 몬스터 없음" : "배치 "+run.Placements.Count+"마리";
-            summaryDetail.text = empty ? "비워 두고 출발할 수도 있습니다"
+            summaryTitle.text = "배치 "+run.Placements.Count+"마리";
+            summaryDetail.text = empty ? ""
                 : "해골 "+Placed(MonsterKind.Skeleton)+"  ·  유령 "+Placed(MonsterKind.Ghost)+"  ·  좀비 "+Placed(MonsterKind.Zombie);
         }
 
         private void RefreshIntervention(DungeonRun run)
         {
             trialCard.SetEnabled(run.TrialsLeft > 0 && !run.PendingAdversity);
-            SetDetail(trialDetail,"남은 "+run.TrialsLeft+"회");
+            SetDetail(trialDetail,$"d20+보정 ≥ {run.TrialDifficulty} · {run.TrialsLeft}회");
             int target = game.SelectedHero;
             SetDetail(blessDetail,target < 0 ? "용사를 먼저 고르세요" :
                 run.Party[target].Hp == run.Party[target].MaxHp ? run.Party[target].Name+" · 다치지 않음" :
-                run.Faith < DungeonRun.BlessCost ? "신앙 부족" : run.Party[target].Name+" · 신앙 "+DungeonRun.BlessCost);
+                run.Faith < DungeonRun.BlessCost ? "신앙 부족" : $"체력 +{run.BlessRecovery(run.Party[target])} · 신앙 {DungeonRun.BlessCost}");
             blessCard.SetEnabled(target >= 0 && run.CanBlessHero((HeroRole)target));
             SetDetail(restDetail,run.FatigueSteps == 0 ? "피로 없음" : run.Faith < DungeonRun.BlessCost ? "신앙 부족" :
-                "피로 -"+DungeonRun.FatigueRelief+" · 신앙 "+DungeonRun.BlessCost);
+                "피로 -"+System.Math.Min(run.FatigueSteps,DungeonRun.FatigueRelief)+" · 신앙 "+DungeonRun.BlessCost);
             restCard.SetEnabled(run.CanRelieveFatigue);
 
             var fork = run.PendingFork;
@@ -653,9 +657,7 @@ namespace DungeonTycoon.Unity
                     .Select(m => m.Name+" "+m.Hp+"/"+m.MaxHp).ToList();
                 info.RemoveFromClassList("detail");
                 infoHeading.text = engaged.Count > 0 ? string.Join("   ·   ",engaged) : where;
-                infoText.text = run.StepsTaken+"걸음   ·   발견한 몬스터 "+run.SpottedCount+" / "+run.Placements.Count+
-                    "   ·   처치 "+run.DefeatedCount+"   ·   갈림길 "+run.ForkCount+"번";
-                infoNote.text = "낙석 역경    d20 + 능력 보정 ≥ 난이도 "+run.TrialDifficulty;
+                infoText.text = "";
             }
         }
 
@@ -687,7 +689,7 @@ namespace DungeonTycoon.Unity
             resultTitle.text = won ? "마왕을 쓰러뜨렸습니다" : "파티가 전멸했습니다";
             resultTitle.EnableInClassList("lost",!won);
             resultText.text = "최종 파티 레벨 "+run.Level+"    ·    누적 경험치 "+run.Experience+
-                (run.ReachedBoss ? "    ·    보스전" : "")+"    ·    "+run.StepsTaken+"걸음";
+                (!won && run.ReachedBoss ? "    ·    보스전" : "")+"    ·    "+run.StepsTaken+"걸음";
         }
 
         // ── History ──────────────────────────────────────────────────────
@@ -757,11 +759,19 @@ namespace DungeonTycoon.Unity
             if ((Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2)) && overBoard) panning = true;
             if (panning && !Input.GetMouseButton(1) && !Input.GetMouseButton(2)) panning = false;
             // A drag that started on the board keeps panning even when the cursor crosses the HUD.
-            if (panning && mouse != lastMouse) game.Board.Pan(lastMouse,mouse);
+            if (panning && mouse != lastMouse)
+            {
+                cameraUsed = true;
+                game.Board.Pan(lastMouse,mouse);
+            }
             lastMouse = mouse;
 
             float wheel = Input.mouseScrollDelta.y;
-            if (wheel != 0 && overBoard) game.Board.ZoomAt(mouse,Mathf.Clamp(-wheel,-1,1));
+            if (wheel != 0 && overBoard)
+            {
+                cameraUsed = true;
+                game.Board.ZoomAt(mouse,Mathf.Clamp(-wheel,-1,1));
+            }
 
             // A left click advances the dialogue stage while it is open; it must not also pick a hero.
             if (Input.GetMouseButtonDown(0) && overBoard && !game.Presenting)

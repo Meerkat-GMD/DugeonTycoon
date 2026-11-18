@@ -196,7 +196,6 @@ namespace DungeonTycoon.Core
             }
             bool answered = answer != PrayerAnswer.Ignore;
             hero.Belief = answered ? Belief.Firm : Belief.Shaken;
-            narration += answered ? $" {hero.Name}의 믿음이 굳건해졌다." : $" {hero.Name}의 믿음이 흔들린다.";
             string reaction = answered ? DialogueLines.PrayerAnswered(hero.Voice) : DialogueLines.PrayerIgnored(hero.Voice);
             hero.LastLine = reaction;
             log.Add($"믿음 • {hero.Name} {BeliefName(hero.Belief)} “{reaction}”");

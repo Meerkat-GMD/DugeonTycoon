@@ -41,7 +41,7 @@ namespace DungeonTycoon.Unity
         public int AskingPrayer { get; private set; } = -1;
         public int LastRoll { get; private set; }
         public string TrialAnnouncement { get; private set; } = "";
-        /// <summary>The latest fork result or adversity, shown for a few seconds in the intervention panel.</summary>
+        /// <summary>Feedback from the most recent blessing or fatigue relief.</summary>
         public string SpotlightTitle { get; private set; } = "";
         public string SpotlightText { get; private set; } = "";
         public float SpotlightUntil { get; private set; }
@@ -222,7 +222,6 @@ namespace DungeonTycoon.Unity
                         index => Board.ShowRoute(index >= 0 ? fork.Options[index].Route : null), token);
                 }
                 if (Run != expedition || !expedition.ResolveFork(fork.Token, null, oracle)) return;
-                Spotlight(fork.Backtracking ? "막다른 길 · 결정" : "갈림길 · 결정", expedition.LastFork);
                 await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
             }
             finally
@@ -233,7 +232,7 @@ namespace DungeonTycoon.Unity
         }
 
         /// <summary>
-        /// Plays the armour sharing on the stage: the narrator opens while the standing heroes think, Core settles it
+        /// Plays the armour sharing on the stage: the standing heroes think, Core settles it
         /// from their wishes (local ones if the AI is offline or wrong) and the stage shows who wants it, the loot
         /// dice and who wears it. The dungeon is frozen throughout.
         /// </summary>
@@ -243,9 +242,7 @@ namespace DungeonTycoon.Unity
             try
             {
                 stage.SetThinking(System.Linq.Enumerable.ToArray(loot.Heroes));
-                var answer = Think(director.ShareLootAsync(expedition, loot, token));
-                await stage.SayAsync(null, DialogueLines.LootOpening, token);
-                var wishes = await answer;
+                var wishes = await Think(director.ShareLootAsync(expedition, loot, token));
                 stage.SetThinking(Array.Empty<HeroRole>());
                 if (Run != expedition || !expedition.ResolveLoot(loot.Token, wishes)) return;
                 await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
@@ -275,17 +272,9 @@ namespace DungeonTycoon.Unity
             if (Run != expedition) return;
             var heard = expedition.HearPrayer(prayer.Token, proposal);
             if (heard == null) return;
-            var hero = expedition.Party[(int)heard.Role];
-            if (!heard.Praying)
-            {
-                Spotlight("기도 거절", $"{hero.Name} “{heard.Line}”");
-                return;
-            }
+            if (!heard.Praying) return;
             await prayerScene.PlayAsync(expedition, heard,
                 answer => expedition.AnswerPrayer(heard.Token, answer) ? expedition.LastPrayer : null, token);
-            var outcome = expedition.LastPrayer;
-            if (Run == expedition && outcome != null && outcome.Role == heard.Role)
-                Spotlight(outcome.Answered ? "기도 · 기적" : "기도 · 외면", outcome.Narration);
             if (Run == expedition) RefreshParty();
         }
 
@@ -367,7 +356,6 @@ namespace DungeonTycoon.Unity
                 foreach (var beat in expedition.LastScene)
                     if (beat.Kind == BeatKind.Roll) LastRoll = beat.Rolls[0].Face;
                 TrialAnnouncement = expedition.LastTrial;
-                Spotlight("낙석 역경 · 판정 결과", expedition.LastTrial);
                 await stage.PlayAsync(expedition.LastScene, PlayRoll, token);
             }
             finally
