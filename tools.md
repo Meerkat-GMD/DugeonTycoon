@@ -30,6 +30,17 @@ dotnet test DotNet/DungeonTycoon.Core.Tests/DungeonTycoon.Core.Tests.csproj --fi
 2. `unity command`로 해당 에디터에서 제공하는 명령을 확인한다. [시작 씬](Assets/Scenes/SampleScene.unity)의 임포트와 컴파일이 끝나면 `unity command editor.playmode start`로 실행하고 CLI로 변경한 동작을 재현한다. 같은 경로로 여러 인스턴스가 잡히면 `unity command --pid <PID> editor.playmode start`처럼 대상을 지정한다.
 3. CLI에서 씬 이름, Play 상태, 게임 상태 변화와 콘솔 오류를 확인한다. 완료 보고에 수행한 조작과 결과를 적고, 연결이나 컴파일에서 막혔다면 첫 관련 오류를 기록한다.
 
+화면이 뿌옇게 보이면 코드를 고치기 전에 Game 뷰부터 확인한다. 고정 해상도(예: Full HD)가 창보다 크면 Unity가 프레임 전체를 축소해 보여 주고, Windows 배율이 100%가 아닐 때 Low Resolution Aspect Ratios가 켜져 있으면 작게 그린 뒤 늘려서 보여 준다. 선명도를 판단할 때는 Free Aspect에 Low Resolution을 끈 상태로 본다.
+
+## HUD를 고칠 때
+
+HUD는 UI Toolkit으로 만든다. 모양은 [DungeonHud.uxml](Assets/Game/Unity/Resources/Hud/DungeonHud.uxml)(구조)과 [DungeonHud.uss](Assets/Game/Unity/Resources/Hud/DungeonHud.uss)(색·크기·위치)에 있고, Unity 에디터에서 UXML을 더블클릭하면 UI Builder에서 바로 고칠 수 있다. [DungeonHud.cs](Assets/Game/Unity/DungeonHud.cs)는 이름(`name`)으로 요소를 찾아 값과 클래스만 바꾸므로, 요소를 옮기거나 스타일을 바꿔도 이름은 유지한다.
+
+- 크기 단위는 화면 높이 약 640 단위 기준이다. 실행 중에는 `DungeonHud.cs`가 [HudPanel](Assets/Game/Unity/Resources/Hud/HudPanel.asset)의 복사본 배율을 화면에 맞게 바꾸고, 에셋 자체는 배율 1로 둔다.
+- `picking-mode="Ignore"`인 요소는 마우스를 아래 던전으로 통과시킨다. 글자만 있는 표시나 말풍선처럼 던전 조작을 막지 않아야 하는 요소에 쓴다.
+- 카메라는 용사 카드 열(`party`), 보스 바(`boss-bar`), 아래 패널(`bottom`)의 실제 위치를 읽어 가려지지 않는 영역을 정한다. 이 요소들의 이름을 바꾸면 스크립트도 같이 바꾼다.
+- 한글 글꼴은 [Noto Sans KR](Assets/Art/Fonts/NotoSansKR/)(SIL Open Font License, [OFL.txt](Assets/Art/Fonts/NotoSansKR/OFL.txt))의 동적 SDF 글꼴 에셋이다. Regular 에셋의 굵기 표에 Bold 에셋이 연결되어 있어 USS의 `-unity-font-style: bold`가 실제 굵은 글꼴로 그려진다. 원본 OTF는 [notofonts/noto-cjk](https://github.com/notofonts/noto-cjk)의 `Sans/SubsetOTF/KR`에서 받았다.
+
 ## 웹 프로토타입으로 규칙을 빠르게 시험할 때
 
 [Prototype](Prototype/)은 한 판 흐름을 브라우저에서 바로 돌려 보는 HTML 프로토타입이다. Unity 구현과 별개이며, 수치는 모두 조정용 임시값이다. 지금은 [게임 규칙](gamerules.md)으로 바뀌기 전의 직선 경로 4칸·라운드제 전투 규칙을 따른다.

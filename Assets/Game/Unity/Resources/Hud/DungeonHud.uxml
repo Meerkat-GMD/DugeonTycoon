@@ -1,0 +1,200 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="DungeonHud.uss" />
+    <!--
+        The dungeon fills the whole screen and this HUD floats on top of it. Anything marked
+        picking-mode="Ignore" lets the mouse through to the board; everything else blocks it.
+        DungeonHud.cs finds elements by name, so keep the names when restyling or moving things.
+    -->
+    <ui:VisualElement name="hud" class="hud" picking-mode="Ignore">
+
+        <ui:VisualElement name="stage-title" class="stage-title" picking-mode="Ignore">
+            <ui:Label name="stage-number" class="stage-number shadowed" text="스테이지 1 / 2" picking-mode="Ignore" />
+            <ui:Label name="stage-name" class="stage-name shadowed" text="성문으로 가는 길" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="boss-bar" class="boss-bar">
+            <ui:VisualElement class="boss-row" picking-mode="Ignore">
+                <ui:Label name="boss-tag" class="boss-tag" text="BOSS" picking-mode="Ignore" />
+                <ui:Label name="boss-name" class="boss-name" text="성문 수호자" picking-mode="Ignore" />
+                <ui:Label name="boss-hp" class="boss-hp" text="64 / 64" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="meter boss-meter" picking-mode="Ignore">
+                <ui:VisualElement name="boss-fill" class="meter-fill health" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:Label name="pause-banner" class="pause-banner" text="일시정지  ·  스페이스로 다시 진행" picking-mode="Ignore" />
+
+        <ui:VisualElement name="view-buttons" class="view-buttons" picking-mode="Ignore">
+            <ui:Button name="follow" class="chip follow" text="따라가기  켬" focusable="false" />
+            <ui:Button name="whole" class="chip" text="전체 보기" focusable="false" />
+            <ui:Button name="history-open" class="chip" text="기록" focusable="false" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="party" class="party" picking-mode="Ignore">
+            <ui:VisualElement name="hero-0" class="hero-card role-0">
+                <ui:Label name="portrait" class="portrait" text="탱" picking-mode="Ignore" />
+                <ui:VisualElement class="hero-info" picking-mode="Ignore">
+                    <ui:Label name="name" class="hero-name" text="탱커  가론" picking-mode="Ignore" />
+                    <ui:VisualElement class="hero-row" picking-mode="Ignore">
+                        <ui:Label name="hp" class="hero-hp" text="HP 46 / 46" picking-mode="Ignore" />
+                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
+                        <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
+                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
+                    <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />
+                    <ui:Label name="line" class="bubble-text" text="내 뒤로 물러서!" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="hero-1" class="hero-card role-1">
+                <ui:Label name="portrait" class="portrait" text="힐" picking-mode="Ignore" />
+                <ui:VisualElement class="hero-info" picking-mode="Ignore">
+                    <ui:Label name="name" class="hero-name" text="힐러  세레나" picking-mode="Ignore" />
+                    <ui:VisualElement class="hero-row" picking-mode="Ignore">
+                        <ui:Label name="hp" class="hero-hp" text="HP 28 / 28" picking-mode="Ignore" />
+                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
+                        <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
+                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
+                    <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />
+                    <ui:Label name="line" class="bubble-text" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="hero-2" class="hero-card role-2">
+                <ui:Label name="portrait" class="portrait" text="근" picking-mode="Ignore" />
+                <ui:VisualElement class="hero-info" picking-mode="Ignore">
+                    <ui:Label name="name" class="hero-name" text="근딜  카이" picking-mode="Ignore" />
+                    <ui:VisualElement class="hero-row" picking-mode="Ignore">
+                        <ui:Label name="hp" class="hero-hp" text="HP 36 / 36" picking-mode="Ignore" />
+                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
+                        <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
+                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
+                    <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />
+                    <ui:Label name="line" class="bubble-text" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="hero-3" class="hero-card role-3">
+                <ui:Label name="portrait" class="portrait" text="원" picking-mode="Ignore" />
+                <ui:VisualElement class="hero-info" picking-mode="Ignore">
+                    <ui:Label name="name" class="hero-name" text="원딜  리아" picking-mode="Ignore" />
+                    <ui:VisualElement class="hero-row" picking-mode="Ignore">
+                        <ui:Label name="hp" class="hero-hp" text="HP 32 / 32" picking-mode="Ignore" />
+                        <ui:Label name="level" class="hero-level" text="Lv.1" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-health" picking-mode="Ignore">
+                        <ui:VisualElement name="health" class="meter-fill health" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="meter hero-growth" picking-mode="Ignore">
+                        <ui:VisualElement name="growth" class="meter-fill growth" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="bubble" class="bubble" picking-mode="Ignore">
+                    <ui:VisualElement class="bubble-tail" picking-mode="Ignore" />
+                    <ui:Label name="line" class="bubble-text" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label name="ai-mode" class="ai-mode shadowed" text="로컬 전술 AI" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="bottom" class="bottom">
+            <ui:VisualElement class="tab-bar">
+                <ui:Label name="category" class="tab" text="몬스터 배치" />
+                <ui:Label name="hint" class="hint" text="바닥 클릭 배치  ·  우클릭·휠 드래그 이동  ·  휠 확대·축소" />
+                <ui:VisualElement class="stats">
+                    <ui:Label class="stat-title" text="위협 예산" />
+                    <ui:Label name="budget" class="stat-value gold" text="6" />
+                    <ui:Label class="stat-title" text="신앙" />
+                    <ui:Label name="faith" class="stat-value teal" text="1" />
+                    <ui:Label class="stat-title" text="역경" />
+                    <ui:Label name="trials" class="stat-value" text="2 / 2" />
+                </ui:VisualElement>
+                <ui:VisualElement name="speed" class="speed">
+                    <ui:Button name="speed-0" class="chip" text="일시정지" focusable="false" />
+                    <ui:Button name="speed-1" class="chip" text="1배속" focusable="false" />
+                    <ui:Button name="speed-2" class="chip" text="2배속" focusable="false" />
+                </ui:VisualElement>
+                <ui:Button name="primary" class="primary" text="원정 출발  ›" focusable="false" />
+                <ui:Button name="collapse" class="chip collapse" text="▼" focusable="false" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="content" class="content">
+                <ui:VisualElement name="planning" class="page">
+                    <ui:Button name="brush-goblin" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-goblin" text="고" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="고블린" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="비용 1" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:Button name="brush-ogre" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-ogre" text="오" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="오우거" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="비용 2" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:Button name="brush-remove" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-remove" text="×" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="되돌리기" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="한 마리씩" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:VisualElement class="summary">
+                        <ui:Label name="summary-title" class="summary-title" text="배치한 몬스터 없음" />
+                        <ui:Label name="summary-detail" class="summary-detail" text="비워 두고 출발할 수도 있습니다" />
+                        <ui:Label class="summary-note" text="입구 근처와 벽에는 둘 수 없습니다" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement name="intervention" class="page">
+                    <ui:Button name="trial" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-trial" text="d20" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="낙석 역경" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="남은 2회" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:Button name="bless" class="card" focusable="false">
+                        <ui:Label class="card-icon icon-bless" text="+" picking-mode="Ignore" />
+                        <ui:Label class="card-title" text="축복" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="card-detail" text="용사를 먼저 고르세요" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:VisualElement class="divider" />
+                    <ui:VisualElement name="info" class="info status">
+                        <ui:Label name="info-heading" class="info-heading" text="보스방을 찾는 중" />
+                        <ui:Label name="info-text" class="info-text" text="0걸음" />
+                        <ui:Label name="info-note" class="info-note" text="낙석 역경    d20 + 능력 보정 ≥ 난이도 13" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement name="result" class="page result">
+                    <ui:Label name="result-title" class="result-title" text="마왕을 쓰러뜨렸습니다" />
+                    <ui:Label name="result-text" class="result-text" text="최종 파티 레벨 1" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="history" class="history-backdrop">
+            <ui:VisualElement class="history-box">
+                <ui:VisualElement class="history-head">
+                    <ui:Label class="history-title" text="원정 기록" />
+                    <ui:Button name="history-close" class="chip history-close" text="닫기" focusable="false" />
+                </ui:VisualElement>
+                <ui:ScrollView name="history-list" class="history-list" horizontal-scroller-visibility="Hidden" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

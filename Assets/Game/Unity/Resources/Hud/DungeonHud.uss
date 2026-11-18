@@ -1,0 +1,694 @@
+/*
+    Dungeon HUD. Sizes are in panel units: DungeonHud.cs scales the panel so the screen is about
+    640 units tall (never less than 1000 x 500 units), so these numbers read like a 1000 x 640 layout.
+    Every rule is prefixed with .hud so it wins over the default runtime theme.
+*/
+
+:root {
+    --ink: #151B20;
+    --panel: #202A30;
+    --card: #29343A;
+    --edge: #435056;
+    --muted: #B3BEBB;
+    --paper: #F0EAE0;
+    --gold: #E8BE76;
+    --teal: #7BD5BF;
+    --ember: #EC9179;
+    --health: #D9534F;
+    --growth: #F2C14E;
+    --chosen: #35534D;
+}
+
+.hud {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-font-definition: url("/Assets/Art/Fonts/NotoSansKR/NotoSansKR-Regular-SDF.asset");
+    color: var(--paper);
+    font-size: 12px;
+}
+
+.hud .unity-label {
+    margin: 0;
+    padding: 0;
+}
+
+.hud .shadowed {
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+
+.hud .chip {
+    height: 26px;
+    min-width: 78px;
+    margin: 0 0 0 6px;
+    padding: 0 10px;
+    border-width: 0;
+    border-radius: 0;
+    background-color: var(--card);
+    color: var(--paper);
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .chip:hover {
+    background-color: #424C50;
+}
+
+.hud .chip.on {
+    background-color: var(--chosen);
+    color: var(--teal);
+}
+
+.hud .chip:disabled {
+    opacity: 1;
+    background-color: var(--card);
+    color: #91A09E;
+}
+
+.hud .primary {
+    width: 124px;
+    height: 26px;
+    margin: 0 0 0 14px;
+    padding: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: var(--gold);
+    color: var(--ink);
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .primary:hover {
+    background-color: #E9C383;
+}
+
+/* ── Top: stage title, boss bar, pause banner, view buttons ──────── */
+
+.hud .stage-title {
+    position: absolute;
+    left: 12px;
+    top: 6px;
+    width: 280px;
+}
+
+.hud .stage-number {
+    font-size: 11px;
+    color: var(--gold);
+    -unity-font-style: bold;
+}
+
+.hud .stage-name {
+    font-size: 17px;
+    -unity-font-style: bold;
+}
+
+.hud .boss-bar {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 42%;
+    min-width: 300px;
+    max-width: 560px;
+    height: 38px;
+    translate: -50% 0;
+    padding: 3px 10px 0 10px;
+    background-color: rgba(21, 27, 32, 0.78);
+}
+
+.hud .boss-row {
+    flex-direction: row;
+    align-items: center;
+    height: 20px;
+}
+
+.hud .boss-tag,
+.hud .boss-hp {
+    width: 110px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.hud .boss-tag {
+    -unity-font-style: bold;
+}
+
+.hud .boss-hp {
+    -unity-text-align: middle-right;
+}
+
+.hud .boss-name {
+    flex-grow: 1;
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .boss-bar.engaged .boss-tag,
+.hud .boss-bar.engaged .boss-name {
+    color: var(--ember);
+}
+
+.hud .meter {
+    background-color: rgba(21, 27, 32, 0.9);
+}
+
+.hud .meter-fill {
+    width: 100%;
+    height: 100%;
+}
+
+.hud .health {
+    background-color: var(--health);
+}
+
+.hud .growth {
+    background-color: var(--growth);
+}
+
+.hud .boss-meter {
+    height: 6px;
+    margin-top: 3px;
+}
+
+.hud .pause-banner {
+    position: absolute;
+    top: 54px;
+    left: 50%;
+    width: 300px;
+    height: 26px;
+    translate: -50% 0;
+    background-color: rgba(21, 27, 32, 0.85);
+    border-bottom-width: 2px;
+    border-bottom-color: var(--gold);
+    color: var(--gold);
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .view-buttons {
+    position: absolute;
+    top: 14px;
+    right: 10px;
+    flex-direction: row;
+}
+
+.hud .follow {
+    min-width: 94px;
+}
+
+/* ── Party column ────────────────────────────────────────────────── */
+
+.hud .party {
+    position: absolute;
+    left: 10px;
+    top: 60px;
+    width: 170px;
+}
+
+.hud .hero-card {
+    flex-direction: row;
+    width: 170px;
+    height: 50px;
+    margin-bottom: 10px;
+    padding: 2px;
+    background-color: rgba(21, 27, 32, 0.78);
+}
+
+.hud .hero-card.pickable:hover {
+    background-color: rgba(41, 52, 58, 0.78);
+}
+
+.hud .hero-card.picked {
+    padding: 0;
+    border-width: 2px;
+    border-color: var(--gold);
+}
+
+.hud .portrait {
+    width: 46px;
+    height: 46px;
+    border-width: 3px;
+    color: var(--ink);
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .role-0 .portrait { border-color: #74C5C4; background-color: #5C9A9B; }
+.hud .role-1 .portrait { border-color: #E2C77D; background-color: #AF9C66; }
+.hud .role-2 .portrait { border-color: #DB9AA8; background-color: #A97A86; }
+.hud .role-3 .portrait { border-color: #A2CD88; background-color: #7FA06E; }
+
+.hud .hero-card.down .portrait {
+    border-color: var(--edge);
+    background-color: var(--card);
+    color: var(--muted);
+}
+
+.hud .hero-info {
+    flex-grow: 1;
+    margin: 0 4px 0 8px;
+}
+
+.hud .hero-name {
+    height: 17px;
+    margin-top: 1px;
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.hud .hero-row {
+    flex-direction: row;
+    justify-content: space-between;
+    height: 13px;
+}
+
+.hud .hero-hp {
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.hud .hero-level {
+    font-size: 10px;
+    color: var(--growth);
+}
+
+.hud .hero-card.down .hero-name {
+    color: var(--muted);
+}
+
+.hud .hero-card.down .hero-hp {
+    color: var(--ember);
+}
+
+.hud .hero-health {
+    height: 5px;
+    margin-top: 2px;
+}
+
+.hud .hero-growth {
+    height: 4px;
+    margin-top: 3px;
+}
+
+.hud .bubble {
+    position: absolute;
+    left: 178px;
+    top: 50%;
+    max-width: 240px;
+    translate: 0 -50%;
+    padding: 5px 8px;
+    background-color: rgba(240, 234, 224, 0.92);
+}
+
+.hud .bubble-tail {
+    position: absolute;
+    left: -4px;
+    top: 50%;
+    width: 4px;
+    height: 6px;
+    translate: 0 -50%;
+    background-color: rgba(240, 234, 224, 0.92);
+}
+
+.hud .bubble-text {
+    color: var(--ink);
+    font-size: 12px;
+    white-space: normal;
+}
+
+.hud .ai-mode {
+    margin: -4px 0 0 2px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.hud .ai-mode.thinking {
+    color: var(--gold);
+}
+
+/* ── Bottom panel ────────────────────────────────────────────────── */
+
+.hud .bottom {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+}
+
+.hud .tab-bar {
+    flex-direction: row;
+    align-items: center;
+    height: 34px;
+    padding-right: 6px;
+    background-color: rgba(21, 27, 32, 0.94);
+}
+
+.hud .tab {
+    width: 118px;
+    height: 100%;
+    flex-shrink: 0;
+    border-top-width: 2px;
+    border-top-color: var(--gold);
+    background-color: rgba(32, 42, 48, 0.96);
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .hint {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0 10px 0 14px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.hud .hint.warning {
+    color: var(--ember);
+}
+
+.hud .stats {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.hud .stat-title {
+    margin: 0 6px 0 16px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.hud .stat-value {
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+
+.hud .gold { color: var(--gold); }
+.hud .teal { color: var(--teal); }
+
+.hud .speed {
+    flex-direction: row;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.hud .speed .chip {
+    height: 24px;
+    min-width: 52px;
+    margin-left: 4px;
+    padding: 0 8px;
+}
+
+.hud .collapse {
+    width: 30px;
+    min-width: 30px;
+    height: 24px;
+    margin-left: 8px;
+    padding: 0;
+}
+
+.hud .content {
+    flex-direction: row;
+    align-items: center;
+    height: 116px;
+    padding: 0 12px;
+    background-color: rgba(32, 42, 48, 0.94);
+}
+
+.hud .bottom.collapsed .content {
+    display: none;
+}
+
+.hud .page {
+    flex-direction: row;
+    flex-grow: 1;
+    align-items: center;
+    height: 100%;
+}
+
+/* Element cards: a glyph tile, a title and one detail line. */
+.hud .card {
+    flex-shrink: 0;
+    align-items: center;
+    width: 104px;
+    height: 90px;
+    margin: 0 8px 0 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: var(--card);
+}
+
+.hud .card:hover {
+    background-color: #3D464B;
+}
+
+.hud .card.chosen {
+    border-width: 2px;
+    border-color: var(--teal);
+    background-color: var(--chosen);
+}
+
+.hud .card:disabled {
+    opacity: 1;
+    background-color: var(--card);
+}
+
+.hud .card-icon {
+    width: 34px;
+    height: 34px;
+    margin-top: 9px;
+    color: var(--ink);
+    font-size: 17px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .icon-goblin { background-color: #A2CD88; }
+.hud .icon-ogre { background-color: var(--ember); }
+.hud .icon-remove { background-color: var(--muted); }
+.hud .icon-trial { background-color: var(--gold); font-size: 13px; }
+.hud .icon-bless { background-color: var(--teal); }
+
+.hud .card:disabled .card-icon {
+    background-color: var(--edge);
+}
+
+.hud .card-title {
+    height: 20px;
+    margin-top: 4px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .card.chosen .card-title {
+    color: var(--teal);
+}
+
+.hud .card:disabled .card-title {
+    color: var(--muted);
+}
+
+/* DungeonHud.cs steps this font down (11 → 8) when a detail is wider than the card. */
+.hud .card-detail {
+    height: 16px;
+    font-size: 11px;
+    white-space: nowrap;
+    color: var(--muted);
+    -unity-text-align: middle-center;
+}
+
+.hud .card:disabled .card-detail {
+    color: var(--edge);
+}
+
+.hud .summary {
+    flex-grow: 1;
+    align-items: flex-end;
+}
+
+.hud .summary-title {
+    font-size: 17px;
+    -unity-font-style: bold;
+}
+
+.hud .summary-detail {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.hud .summary-note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.hud .divider {
+    width: 1px;
+    height: 88px;
+    margin: 0 16px 0 8px;
+    background-color: var(--edge);
+}
+
+.hud .info {
+    flex-grow: 1;
+    flex-shrink: 1;
+    height: 92px;
+}
+
+.hud .info-heading {
+    font-size: 17px;
+    -unity-font-style: bold;
+}
+
+.hud .info-text {
+    margin-top: 6px;
+    font-size: 13px;
+    white-space: normal;
+    color: var(--muted);
+}
+
+.hud .info-note {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* A fork, an adversity or a fresh result: gold heading over a longer paper-coloured body. */
+.hud .info.detail .info-heading {
+    font-size: 13px;
+    color: var(--gold);
+}
+
+.hud .info.detail .info-text {
+    font-size: 14px;
+    color: var(--paper);
+}
+
+.hud .info.detail .info-note {
+    display: none;
+}
+
+.hud .result {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding-left: 4px;
+}
+
+.hud .result-title {
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: var(--gold);
+}
+
+.hud .result-title.lost {
+    color: var(--ember);
+}
+
+.hud .result-text {
+    margin-top: 10px;
+    font-size: 15px;
+    color: var(--muted);
+}
+
+/* ── History overlay ─────────────────────────────────────────────── */
+
+.hud .history-backdrop {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    padding: 26px 21px;
+    background-color: rgba(0, 0, 0, 0.72);
+}
+
+.hud .history-backdrop.open {
+    display: flex;
+}
+
+.hud .history-box {
+    flex-grow: 1;
+    width: 100%;
+    max-width: 730px;
+    padding: 8px 14px 14px 14px;
+    border-top-width: 3px;
+    border-top-color: var(--gold);
+    background-color: var(--panel);
+}
+
+.hud .history-head {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 44px;
+    margin-bottom: 4px;
+}
+
+.hud .history-title {
+    margin-left: 3px;
+    font-size: 22px;
+    -unity-font-style: bold;
+}
+
+.hud .history-close {
+    height: 34px;
+    min-width: 72px;
+}
+
+.hud .history-list {
+    flex-grow: 1;
+}
+
+/* Dark scrollbar without arrow buttons, instead of the default theme's light one. */
+.hud .history-list .unity-scroller--vertical {
+    width: 8px;
+    margin-left: 6px;
+}
+
+.hud .history-list .unity-scroller__low-button,
+.hud .history-list .unity-scroller__high-button {
+    display: none;
+}
+
+.hud .history-list .unity-base-slider__tracker {
+    border-width: 0;
+    background-color: var(--ink);
+}
+
+.hud .history-list .unity-base-slider__dragger {
+    border-width: 0;
+    background-color: var(--edge);
+}
+
+.hud .history-list .unity-base-slider__dragger:hover {
+    background-color: var(--muted);
+}
+
+.hud .log-row {
+    min-height: 31px;
+    padding: 6px 9px;
+    font-size: 14px;
+    white-space: normal;
+}
+
+.hud .log-row.shaded {
+    background-color: var(--card);
+}
