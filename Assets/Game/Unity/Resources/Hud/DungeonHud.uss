@@ -231,25 +231,35 @@
     border-color: var(--gold);
 }
 
+/* Profile: the round frame behind, the hero's face on top (Assets/Art/Heroes/Portraits). */
 .hud .portrait {
     width: 46px;
     height: 46px;
-    border-width: 3px;
-    color: var(--ink);
-    font-size: 20px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
+    background-image: url("/Assets/Art/Heroes/Portraits/portrait_frame.png");
+    -unity-background-scale-mode: scale-to-fit;
 }
 
-.hud .role-0 .portrait { border-color: #74C5C4; background-color: #5C9A9B; }
-.hud .role-1 .portrait { border-color: #E2C77D; background-color: #AF9C66; }
-.hud .role-2 .portrait { border-color: #DB9AA8; background-color: #A97A86; }
-.hud .role-3 .portrait { border-color: #A2CD88; background-color: #7FA06E; }
+.hud .portrait-face {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    right: 1px;
+    bottom: 1px;
+    -unity-background-scale-mode: scale-to-fit;
+}
 
+.hud .role-0 .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_tank.png"); }
+.hud .role-1 .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_healer.png"); }
+.hud .role-2 .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_melee.png"); }
+.hud .role-3 .portrait-face { background-image: url("/Assets/Art/Heroes/Portraits/portrait_ranged.png"); }
+
+/* A fallen hero's profile fades to grey. */
 .hud .hero-card.down .portrait {
-    border-color: var(--edge);
-    background-color: var(--card);
-    color: var(--muted);
+    -unity-background-image-tint-color: rgba(140, 140, 140, 0.6);
+}
+
+.hud .hero-card.down .portrait-face {
+    -unity-background-image-tint-color: rgba(110, 110, 110, 0.55);
 }
 
 .hud .hero-info {

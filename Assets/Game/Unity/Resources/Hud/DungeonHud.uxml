@@ -33,7 +33,9 @@
 
         <ui:VisualElement name="party" class="party" picking-mode="Ignore">
             <ui:VisualElement name="hero-0" class="hero-card role-0">
-                <ui:Label name="portrait" class="portrait" text="탱" picking-mode="Ignore" />
+                <ui:Label name="portrait" class="portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="portrait-face" picking-mode="Ignore" />
+                </ui:Label>
                 <ui:VisualElement class="hero-info" picking-mode="Ignore">
                     <ui:Label name="name" class="hero-name" text="탱커  가론" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
@@ -53,7 +55,9 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="hero-1" class="hero-card role-1">
-                <ui:Label name="portrait" class="portrait" text="힐" picking-mode="Ignore" />
+                <ui:Label name="portrait" class="portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="portrait-face" picking-mode="Ignore" />
+                </ui:Label>
                 <ui:VisualElement class="hero-info" picking-mode="Ignore">
                     <ui:Label name="name" class="hero-name" text="힐러  세레나" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
@@ -73,7 +77,9 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="hero-2" class="hero-card role-2">
-                <ui:Label name="portrait" class="portrait" text="근" picking-mode="Ignore" />
+                <ui:Label name="portrait" class="portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="portrait-face" picking-mode="Ignore" />
+                </ui:Label>
                 <ui:VisualElement class="hero-info" picking-mode="Ignore">
                     <ui:Label name="name" class="hero-name" text="근딜  카이" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
@@ -93,7 +99,9 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="hero-3" class="hero-card role-3">
-                <ui:Label name="portrait" class="portrait" text="원" picking-mode="Ignore" />
+                <ui:Label name="portrait" class="portrait" picking-mode="Ignore">
+                    <ui:VisualElement name="face" class="portrait-face" picking-mode="Ignore" />
+                </ui:Label>
                 <ui:VisualElement class="hero-info" picking-mode="Ignore">
                     <ui:Label name="name" class="hero-name" text="원딜  리아" picking-mode="Ignore" />
                     <ui:VisualElement class="hero-row" picking-mode="Ignore">
