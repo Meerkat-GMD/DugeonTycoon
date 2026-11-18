@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>던전 전투 비교</title>
+<style>
+  :root { color-scheme: dark; font-family: "Malgun Gothic", system-ui, sans-serif; background: #15171d; color: #f4eee6; }
+  * { box-sizing: border-box; }
+  body { max-width: 1232px; margin: auto; padding: 40px 24px; }
+  h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 48px); letter-spacing: -.06em; }
+  h2 { margin: 0; font-size: 18px; }
+  p { color: #bdb9b8; line-height: 1.6; margin: 4px 0; }
+  button, select { background: #282b35; border: 1px solid #545363; color: inherit; padding: 9px 14px; border-radius: 6px; font: inherit; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #ffd193; outline-offset: 3px; }
+  #play { background: #ffd193; color: #272019; font-weight: bold; border-color: #ffd193; }
+  #play:disabled { opacity: 1; }
+  input { accent-color: #ffd193; }
+  .controls, .placement { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 12px; }
+  .controls { margin: 22px 0 16px; }
+  .modes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .modes [aria-pressed="true"] { color: #ffd193; border-color: #c28b5d; }
+  .build { display: grid; gap: 8px; font-size: 13px; }
+  .build select { padding: 5px 8px; max-width: 100%; }
+  .investments { display: flex; gap: 8px 12px; flex-wrap: wrap; }
+  .investments input { width: 3.3em; margin-left: 4px; background: #282b35; color: inherit; border: 1px solid #545363; border-radius: 4px; padding: 4px; }
+  .build-summary { color: #d2c7bc; font-variant-numeric: tabular-nums; }
+  .trait-note { color: #d2c7bc; font-size: 12px; }
+  .lab { display: grid; gap: 16px; }
+  .lab[hidden], .boards[hidden], .controls[hidden], .seek[hidden] { display: none; }
+  .lab header, .lab article { padding: 16px; }
+  .lab header { background: #20222a; border: 1px solid #393b47; border-radius: 10px; }
+  .lab h2 { margin-bottom: 8px; }
+  .lab .placement { margin-bottom: 8px; }
+  .lab select { max-width: 100%; }
+  .lab dl { margin-bottom: 0; }
+  .lab dt { margin-top: 10px; }
+  .lab-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+  .lab-list button { text-align: left; }
+  .lab-list button span, .lab-list button small { display: block; }
+  .lab-list button small { color: #d2c7bc; }
+  .lab-list button[aria-pressed="true"] { border-color: #f0af77; color: #ffd193; }
+  .placement { font-size: 13px; }
+  .placement input { width: 112px; }
+  .boards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  article { min-width: 0; background: #20222a; border: 1px solid #393b47; border-radius: 10px; overflow: hidden; }
+  .heading { min-height: 82px; padding: 14px 16px; display: grid; gap: 7px; }
+  .arena { height: 220px; position: relative; overflow: hidden; background-color: #2d2a32; background-image: linear-gradient(to right, #ffffff0b 1px, transparent 1px), linear-gradient(to bottom, #ffffff0b 1px, transparent 1px); background-size: 8.333% 25%; border-block: 1px solid #4b4145; }
+  .arena::before { content: ""; position: absolute; inset: 16% 0; background: #f0ad7810; border-block: 1px solid #ecb3932b; }
+  .route { position: absolute; top: 19%; height: 2px; border-top: 2px dashed #f3ab68; }
+  .route::before, .route::after { position: absolute; top: -11px; color: #ffd193; font-size: 12px; }
+  .route::before { content: "◀"; left: -7px; }
+  .route::after { content: "▶"; right: -7px; }
+  .route-label { display: block; color: #ffd193; text-align: center; transform: translateY(-29px); font-size: 11px; white-space: nowrap; }
+  .beam { position: absolute; inset: 0; background: #ea784959; pointer-events: none; }
+  .beam.locked { background: #ff6b5e91; }
+  .beam.fired { background: #ffe4ad; box-shadow: inset 0 0 30px #ff9465; }
+  .meteor-zone { position: absolute; transform: translate(-50%, -50%); border: 2px dashed #ffa35f; border-radius: 50%; background: #f1764c37; pointer-events: none; }
+  .meteor-zone.fired { border-style: solid; border-color: #ffe4ad; background: #ffc885a8; box-shadow: inset 0 0 28px #ff724b; }
+  .destination { position: absolute; z-index: 1; transform: translate(-50%, -50%); border: 1px dashed #a4f3bf; border-radius: 50%; width: 24px; height: 24px; pointer-events: none; }
+  .dialogue { display: grid; align-content: start; gap: 4px; min-height: 82px; padding: 10px 16px; border-top: 1px solid #393b47; font-size: 13px; }
+  .dialogue strong { color: #c9dbff; }
+  .dialogue .praise strong { color: #a4f3bf; }
+  .dialogue .rebuke strong { color: #ffa982; }
+  .effect { position: absolute; z-index: 1; pointer-events: none; color: #ffc1a1; font-weight: bold; font-size: 14px; text-shadow: 0 1px 4px #15131c, 0 1px 4px #15131c; }
+  .effect.heal { color: #a4f3bf; }
+  .effect-line { position: absolute; pointer-events: none; height: 2px; transform-origin: left center; background: #ffc1a1; }
+  .effect-line.heal { background: #a4f3bf; }
+  .unit { --ink: #b6c9fa; position: absolute; width: 58px; transform: translate(-50%, -50%); text-align: center; }
+  .enemy { --ink: #ffad7f; }
+  .ogre { --ink: #f7a763; }
+  .token { width: 37px; height: 37px; display: grid; place-items: center; margin: auto; border: 2px solid var(--ink); border-radius: 12px; font-weight: bold; color: var(--ink); background: #27252f; box-shadow: 0 3px 6px #15131c; }
+  .ogre .token { width: 46px; height: 46px; }
+  .unit small { display: block; font-size: 10px; font-weight: bold; text-shadow: 0 1px 2px black; white-space: nowrap; }
+  .unit .hp { height: 4px; margin: 4px auto 2px; width: 34px; }
+  .hp { display: block; background: #453e46; height: 5px; border-radius: 8px; overflow: hidden; }
+  .hp i { display: block; height: 100%; background: var(--ink, #b6c9fa); }
+  .dead { opacity: .35; }
+  .critical { --ink: #fa7974; }
+  .cue { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 95%; width: max-content; text-align: center; background: #1d1921ec; border: 1px solid #634a4c; color: #ffd193; border-radius: 5px; padding: 5px 9px; font-size: 12px; }
+  .cue:empty { display: none; }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; gap: 12px; padding: 13px 16px; }
+  dt { color: #c3bbc3; font-size: 12px; }
+  dd { margin: 3px 0 0; font-weight: bold; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .event-list { min-height: 82px; padding: 10px 16px; border-top: 1px solid #393b47; font-size: 12px; line-height: 1.6; color: #c9c3cb; }
+  .event-list time { color: #ffd193; font-variant-numeric: tabular-nums; }
+  .seek { display: flex; gap: 12px; align-items: center; margin-top: 14px; }
+  .seek input { flex: 1; min-width: 0; }
+  .seek output { min-width: 4.6em; text-align: right; font-variant-numeric: tabular-nums; }
+  footer { margin-top: 18px; font-size: 12px; color: #c3bbc3; }
+  @media (max-width: 760px) { body { padding: 24px 12px; } .boards { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>던전 전투 비교</h1>
+  <nav class="modes" aria-label="비교할 전투">
+    <button type="button" data-mode="meteor" aria-pressed="true">보스 메테오</button>
+    <button type="button" data-mode="boss" aria-pressed="false">보스 레이저</button>
+    <button type="button" data-mode="patrol" aria-pressed="false">순찰 오우거</button>
+    <button type="button" data-mode="traits" aria-pressed="false">성향 30종</button>
+  </nav>
+  <p id="intro"></p>
+</header>
+<section class="controls" aria-label="재생 조작">
+  <button id="play">동시 재생</button>
+  <button id="reset">처음으로</button>
+  <label for="speed">속도</label>
+  <select id="speed"><option value="0.5">0.5배</option><option value="1" selected>1배</option><option value="2">2배</option></select>
+</section>
+<main class="boards" id="boards"></main>
+<section id="trait-lab" class="lab" hidden aria-label="성향 테스트">
+  <header>
+    <h2>상황별 성향 비교</h2>
+    <div class="placement">
+      <label for="lab-role">용사 역할</label><select id="lab-role"></select>
+      <label for="lab-scene">상황</label><select id="lab-scene"></select>
+    </div>
+    <p id="lab-situation"></p>
+  </header>
+  <div class="boards">
+    <article id="lab-base"></article>
+    <article id="lab-selected"></article>
+  </div>
+  <div id="lab-list" class="lab-list" aria-label="시험할 성향"></div>
+</section>
+<label class="seek" for="seek">전투 시간<input id="seek" type="range" min="0" value="0"><output id="clock" for="seek">0.0초</output></label>
+<footer>관전용 프로토타입 · 임시 전투 수치 · 같은 조건은 항상 같은 결과</footer>
+
+<script id="combat">
+const combat = (() => {
+  const stepSeconds = 0.05;
+  const patrol = { left: 6.9, right: 11, y: 19, speed: 0.78 };
+  const placements = [0, 0.4, 0.8, 1.2, 1.6, 2];
+  const units = [
+    { name: "탱커", mark: "탱", x: 4.05, y: 40, max: 104, armor: 4, attack: 8, period: 1.1, first: 0.45 },
+    { name: "근거리", mark: "근", x: 4.18, y: 69, max: 54, armor: 1, attack: 13, period: 1.15, first: 0.75 },
+    { name: "원거리", mark: "궁", x: 2.35, y: 60, max: 48, armor: 0, attack: 10, period: 0.95, first: 0.2 },
+    { name: "힐러", mark: "힐", x: 1.85, y: 25, max: 44, armor: 0, attack: 4, period: 2.45, first: 1.75 },
+    { name: "고블린 1", mark: "고", x: 5.15, y: 61, max: 51, armor: 0, attack: 15, period: 1.2, first: 0.65, enemy: true },
+    { name: "고블린 2", mark: "고", x: 5.35, y: 34, max: 53, armor: 0, attack: 15, period: 1.2, first: 1.05, enemy: true },
+    { name: "오우거", mark: "오", x: patrol.right, y: patrol.y, max: 112, armor: 2, attack: 27, period: 1.6, first: 0, enemy: true }
+  ];
+
+  function simulate(tile) {
+    const shift = placements[tile - 1];
+    const actors = units.map(unit => ({ ...unit, hp: unit.max, next: unit.first }));
+    const [tank, , , healer, firstGoblin, secondGoblin, ogre] = actors;
+    const heroes = actors.slice(0, 4);
+    const enemies = actors.slice(4);
+    firstGoblin.x += shift;
+    secondGoblin.x += shift;
+    const marchStart = -1.1;
+    const marchSpeed = 1.5;
+    const front = tank.x + shift + 1.6;
+    const patrolLength = patrol.right - patrol.left;
+    const frames = [];
+    const events = [];
+    const effects = [];
+    let joined = null;
+    let spotted = null;
+    let spottedX = null;
+    let started = null;
+    let cleared = null;
+    let overlap = 0;
+    let outcome = "";
+    let lowest = tank.max;
+    let critical = false;
+    let cue = null;
+    let time = 0;
+
+    function announce(message) {
+      cue = { time, message };
+      events.push(cue);
+    }
+
+    for (let tick = 0; tick <= 800 && !outcome; tick++) {
+      time = tick * stepSeconds;
+      const march = Math.min(shift, marchStart + time * marchSpeed);
+      heroes.forEach((hero, i) => { hero.x = units[i].x + march; });
+      if (started === null && march === shift) {
+        started = time;
+        actors.forEach(actor => { actor.next = time + actor.first; });
+        announce("고블린 교전 시작");
+      }
+      if (spotted === null) {
+        const progress = time * patrol.speed % (2 * patrolLength);
+        ogre.x = patrol.right - Math.min(progress, 2 * patrolLength - progress);
+        if (ogre.x - tank.x <= 3) {
+          spotted = time;
+          spottedX = ogre.x;
+          announce("순찰 오우거가 파티를 발견했다");
+        }
+      }
+      if (spotted !== null && joined === null) {
+        const progress = Math.min(1, (time - spotted) * 1.55 / (spottedX - front));
+        ogre.x = spottedX + (front - spottedX) * progress;
+        ogre.y = patrol.y + (48 - patrol.y) * progress;
+      }
+      if (spotted !== null && joined === null && ogre.x <= front) {
+        joined = time;
+        ogre.next = time + 0.6;
+        announce("오우거 합류 · " + (cleared === null ? "고블린이 아직 살아 있다!" : "고블린 정리 후 교전"));
+      }
+
+      for (const actor of actors) {
+        if (started === null || actor.hp <= 0 || actor.next > time + 0.00001 || (actor === ogre && joined === null)) continue;
+        const target = actor.enemy
+          ? heroes.find(hero => hero.hp > 0)
+          : enemies.find(enemy => enemy.hp > 0 && (enemy !== ogre || joined !== null));
+        if (!target) continue;
+        actor.next = time + actor.period;
+        const wounded = actor === healer && heroes
+          .filter(hero => hero.hp > 0 && hero.hp < hero.max)
+          .sort((a, b) => a.hp / a.max - b.hp / b.max)[0];
+        if (wounded) {
+          const amount = Math.min(wounded.max - wounded.hp, 24);
+          wounded.hp = Math.min(wounded.max, wounded.hp + 24);
+          effects.push({ time, from: actors.indexOf(actor), to: actors.indexOf(wounded), amount, heal: true });
+          if (wounded === tank && critical && wounded.hp > tank.max * 0.25) {
+            announce("힐러가 탱커를 위기에서 구했다");
+          }
+          continue;
+        }
+        const amount = Math.min(target.hp, Math.max(0, actor.attack - target.armor));
+        target.hp -= amount;
+        effects.push({ time, from: actors.indexOf(actor), to: actors.indexOf(target), amount, heal: false });
+        lowest = Math.min(lowest, tank.hp);
+        if (target.hp === 0) announce(target.name + (target.enemy ? " 처치" : " 쓰러짐"));
+        else if (target === tank && tank.hp <= tank.max * 0.25 && !critical) announce("탱커 위독!");
+        critical = tank.hp <= tank.max * 0.25;
+        if (cleared === null && !firstGoblin.hp && !secondGoblin.hp) cleared = time;
+      }
+
+      if (joined !== null) overlap = Math.max(0, (cleared ?? time) - joined);
+      if (enemies.every(enemy => enemy.hp === 0)) outcome = "승리";
+      else if (heroes.every(hero => hero.hp === 0)) outcome = "전멸";
+      else if (tick === 800) outcome = "시간 종료";
+
+      frames.push({
+        time, spotted, joined, started, cleared, overlap, lowest, outcome,
+        cue: cue && time - cue.time <= 2.1 ? cue.message : "",
+        healIn: healer.hp > 0 ? Math.max(0, healer.next - time) : null,
+        actors: actors.map(({ hp, x, y }) => ({ hp, x, y }))
+      });
+    }
+    return { frames, events, effects };
+  }
+
+  return { simulate, units, stepSeconds, patrol };
+})();
+</script>
+<script id="trait-rules">
+const traitRules = (() => {
+  const statLabels = { max: "체력", attack: "공격력", armor: "방어", speed: "이동 속도" };
+  const roles = {
+    tank: { name: "탱커", hero: "가론", max: 104, attack: 8, armor: 4, speed: 90 },
+    healer: { name: "힐러", hero: "세레나", max: 44, attack: 4, armor: 0, speed: 100 },
+    melee: { name: "근거리 딜러", hero: "카이", max: 54, attack: 13, armor: 1, speed: 110 },
+    ranged: { name: "원거리 딜러", hero: "리아", max: 48, attack: 10, armor: 0, speed: 105 }
+  };
+  const traits = {
+    attack: {
+      name: "딜에 미친 자", stats: { attack: 5, max: -8 },
+      trigger: "자신을 향한 빔이나 발밑의 장판이 예고될 때",
+      reactions: { beam: "hold", meteor: "hold" },
+      action: "제자리에서 공격을 계속한다.", line: "이 정도는 버텨. 계속 친다!"
+    },
+    protect: {
+      name: "동료를 지키는 자", stats: { max: 20, attack: -2 },
+      trigger: "자신이 빔의 표적이 되거나 발밑에 장판이 생길 때",
+      reactions: { beam: "turn", meteor: "dodge" },
+      action: "빔은 빈 벽 쪽으로 돌리고, 장판에서는 몸을 뺀다.", line: "내가 이쪽으로 뺄게!"
+    },
+    quick: {
+      name: "재빠른 발", stats: { speed: 15, max: -10 },
+      trigger: "발밑에 낙하 범위가 표시될 때",
+      reactions: { meteor: "dodge" },
+      action: "가장 빨리 닿는 안전한 자리로 이동한다.", line: "먼저 장판에서 빠질게!"
+    },
+    stoic: {
+      name: "버티는 자", stats: { armor: 4, speed: -10 },
+      trigger: "발밑에 장판이 생기고 현재 체력이 60% 이상일 때",
+      reactions: { meteor: "hold" }, when: state => state.hpRatio >= 0.6,
+      action: "현재 역할 행동을 유지하며 낙하를 버틴다.", line: "이 정도 체력이면 버틸 수 있어."
+    },
+    pilot: {
+      name: "사선 유도자", stats: { speed: 10, attack: -2 },
+      trigger: "자신을 따라 움직이는 빔이 예고될 때",
+      reactions: { beam: "turn" },
+      action: "조준이 잠기기 전에 빔을 빈 벽 쪽으로 유도한다.", line: "사선을 벽으로 돌릴게."
+    },
+    greedy: {
+      name: "탐욕광", stats: { max: 8, speed: -5 },
+      trigger: "전투 후 장비 분배가 시작될 때",
+      reactions: { loot: "bid", upgrade: "bid", downgrade: "bid" },
+      action: "장비의 위력이나 다른 후보와 관계없이 입찰을 선언한다.", line: "일단 나도 입찰!"
+    },
+    generous: {
+      name: "양보하는 자", stats: { max: 12, attack: -2 },
+      trigger: "살아 있는 동료가 자신보다 장비로 얻는 이득이 클 때",
+      reactions: { loot: "pass", upgrade: "pass" }, when: state => state.allyGain > state.ownGain,
+      action: "이번 장비는 더 필요한 동료에게 양보한다.", line: "이번 건 네가 입어."
+    },
+    appraiser: {
+      name: "감정가", stats: { armor: 2, max: -6 },
+      trigger: "장비를 바꿨을 때 위력이 5 이상 오를 때",
+      reactions: { upgrade: "bid", loot: "pass", downgrade: "pass" },
+      action: "위력 +5 이상인 장비에만 입찰한다.", line: "입어볼 가치가 있는 것만 고를게."
+    },
+    collector: {
+      name: "희귀품 수집가", stats: { attack: 2, speed: -5 },
+      trigger: "희귀 장비가 분배될 때",
+      reactions: { upgrade: "bid" }, when: state => state.rare,
+      action: "희귀 장비에 즉시 입찰한다.", line: "희귀품이면 내가 빠질 수 없지."
+    },
+    underdog: {
+      name: "약자 챙김", stats: { max: 10, armor: -2 },
+      trigger: "장비 분배에 자기보다 방어력이 낮은 동료가 참여할 때",
+      reactions: { loot: "pass", upgrade: "pass" }, when: state => state.allyArmor < state.ownArmor,
+      action: "방어력이 낮은 동료에게 장비를 양보한다.", line: "방어구부터 필요한 사람이 가져."
+    },
+    challenger: {
+      name: "승부광", stats: { attack: 4, armor: -2 },
+      trigger: "갈림길 한쪽에 강한 적이 보일 때",
+      reactions: { fork: "hard-path" },
+      action: "강한 적이 있는 길에 투표한다.", line: "저 녀석을 잡고 가자."
+    },
+    cautious: {
+      name: "신중한 길잡이", stats: { armor: 3, speed: -5 },
+      trigger: "파티 평균 체력이 절반 미만이고 안전한 길이 보일 때",
+      reactions: { fork: "safe-path" }, when: state => state.partyHp < 0.5,
+      action: "적이 보이지 않는 길에 투표한다.", line: "지금 체력으론 저 길이 낫겠어."
+    },
+    explorer: {
+      name: "호기심쟁이", stats: { speed: 10, armor: -2 },
+      trigger: "갈림길에 짧은 미탐색 샛길이 보일 때",
+      reactions: { fork: "explore" }, when: state => state.sidePath,
+      action: "합류한 뒤 바로 돌아올 수 있는 샛길에 투표한다.", line: "저 모퉁이 너머만 보고 오자."
+    },
+    navigator: {
+      name: "길눈 밝은 자", stats: { speed: 8, attack: -2 },
+      trigger: "갈림길에서 이전에 본 보스방 표식을 기억할 때",
+      reactions: { fork: "remembered-path" }, when: state => state.bossClue,
+      action: "표식과 이어지는 길을 파티에 제안한다.", line: "아까 본 표식, 이쪽으로 이어져."
+    },
+    lookout: {
+      name: "망보기", stats: { speed: 8, max: -6 },
+      trigger: "교전 중 새 적이 추격을 시작하는 것을 볼 때",
+      reactions: { reinforce: "warn" },
+      action: "접근 방향과 새 적의 이름을 아군에게 알린다.", line: "오른쪽! 오우거가 온다!"
+    },
+    interceptor: {
+      name: "가로막는 자", stats: { armor: 4, attack: -2 },
+      trigger: "증원 몬스터가 체력이 낮은 아군을 향할 때",
+      reactions: { reinforce: "intercept" }, when: state => state.allyInDanger,
+      action: "증원과 아군 사이로 이동해 어글을 끈다.", line: "내가 저 녀석을 막을게!"
+    },
+    finisher: {
+      name: "마무리 집착", stats: { attack: 4, max: -8 },
+      trigger: "증원이 접근 중이고 기존 적의 체력이 15% 이하일 때",
+      reactions: { reinforce: "finish" }, when: state => state.enemyHp <= 0.15,
+      action: "쓰러뜨리기 직전인 적에게 공격을 집중한다.", line: "새로 온 놈은 잠깐만. 이 녀석 한 대면 끝이야!"
+    },
+    huntsman: {
+      name: "거인 사냥꾼", stats: { attack: 3, speed: -5 },
+      trigger: "큰 몬스터가 전투에 합류하고 공격할 수 있을 때",
+      reactions: { reinforce: "target-ogre" }, when: state => state.ogreInRange,
+      action: "공격 대상을 오우거로 바꾼다.", line: "큰 놈부터 쓰러뜨리자."
+    },
+    triage: {
+      name: "응급 처치광", stats: { speed: 5, attack: -1 },
+      trigger: "체력 25% 이하인 아군에게 회복 스킬이 닿을 때",
+      reactions: { critical: "heal" }, when: state => state.canHeal && state.allyHp <= 0.25,
+      action: "현재 공격을 끊고 위독한 아군에게 회복을 쓴다.", line: "움직이지 마, 지금 치료할게!"
+    },
+    bodyguard: {
+      name: "호위 본능", stats: { max: 16, speed: -6 },
+      trigger: "위독한 힐러가 적에게 쫓길 때",
+      reactions: { critical: "cover-healer" }, when: state => state.healerPursued,
+      action: "힐러와 적 사이에 들어가 공격 대상을 자신으로 돌린다.", line: "힐러 뒤로! 나부터 상대해."
+    },
+    berserk: {
+      name: "궁지의 전사", stats: { attack: 5, armor: -3 },
+      trigger: "자기 체력이 25% 이하이고 노리던 적이 사거리 안에 있을 때",
+      reactions: { critical: "press-attack" }, when: state => state.hpRatio <= 0.25,
+      action: "후퇴를 미루고 현재 적에게 계속 공격한다.", line: "나 아직 안 쓰러졌어!"
+    },
+    survivor: {
+      name: "생존 우선", stats: { max: 12, attack: -2 },
+      trigger: "자기 체력이 25% 이하이고 회복이 필요할 때",
+      reactions: { critical: "fall-back" }, when: state => state.hpRatio <= 0.25,
+      action: "공격을 멈추고 힐러가 닿는 자리로 물러난다.", line: "잠깐 빠질게. 치료 좀 부탁해!"
+    },
+    avenger: {
+      name: "복수심", stats: { attack: 4, armor: -2 },
+      trigger: "동료가 쓰러지고 쓰러뜨린 적이 살아 있을 때",
+      reactions: { fallen: "avenge" },
+      action: "동료에게 마지막 공격을 가한 적을 노린다.", line: "네가 쓰러뜨렸지. 이제 내 차례야."
+    },
+    rescuer: {
+      name: "구조대장", stats: { max: 12, speed: -5 },
+      trigger: "동료가 쓰러졌고 부활 스킬을 사용할 수 있을 때",
+      reactions: { fallen: "revive" }, when: state => state.canRevive,
+      action: "쓰러진 아군에게 닿는 위치로 이동해 부활을 시도한다.", line: "아직 끝난 거 아니야. 일어나!"
+    },
+    leader: {
+      name: "대열 정비자", stats: { armor: 3, attack: -2 },
+      trigger: "동료가 쓰러져 전열과 후열 사이가 열렸을 때",
+      reactions: { fallen: "regroup" }, when: state => state.lineOpen,
+      action: "살아 있는 동료들에게 후퇴 지점을 콜한다.", line: "대열 무너졌어! 내 쪽으로 모여."
+    },
+    faithful: {
+      name: "독실한 신자", stats: { max: 8, armor: -1 },
+      trigger: "위독한 동료가 있고 자신에게 기도할 기회가 생길 때",
+      reactions: { prayer: "pray" }, when: state => state.allyInDanger,
+      action: "위독한 동료를 살려 달라고 기도한다.", line: "제발 저 사람만은 다시 일어서게 해 주세요."
+    },
+    skeptic: {
+      name: "불신자", stats: { armor: 2, max: -6 },
+      trigger: "위기 중 기도할 기회가 생길 때",
+      reactions: { prayer: "refuse" },
+      action: "기도를 거절하고 현재 역할 행동을 이어간다.", line: "지금은 내가 할 일을 할게."
+    },
+    cheerer: {
+      name: "칭찬쟁이", stats: { speed: 5, attack: -1 },
+      trigger: "동료의 회복이 위독한 아군을 살렸을 때",
+      reactions: { saved: "praise" },
+      action: "누가 어떤 행동으로 살렸는지 말하며 칭찬한다.", line: "그 회복 덕에 버텼어. 타이밍 끝내줬다!"
+    },
+    grumbler: {
+      name: "잔소리꾼", stats: { armor: 2, speed: -5 },
+      trigger: "아군이 피할 수 있던 예고 공격에 맞았을 때",
+      reactions: { avoidable: "rebuke" },
+      action: "맞은 동료에게 피할 수 있었던 위험을 짚어 준다.", line: "젠장, 다음엔 바닥부터 봐!"
+    },
+    peacemaker: {
+      name: "중재자", stats: { max: 8, attack: -1 },
+      trigger: "동료들이 같은 장비에 입찰해 언쟁할 때",
+      reactions: { dispute: "mediate" },
+      action: "양쪽의 장비 이득을 짚고 정해진 분배 판정으로 돌린다.", line: "둘 다 필요한 건 알겠어. 판정대로 하자."
+    }
+  };
+
+  function reaction(id, event, state = {}) {
+    const trait = traits[id];
+    const action = trait?.reactions[event];
+    return action && (!trait.when || trait.when(state)) ? action : null;
+  }
+
+  function startingStats(base, id, investment = {}) {
+    const modifiers = traits[id]?.stats ?? {};
+    return Object.fromEntries(Object.keys(statLabels).map(key => {
+      const bonus = (modifiers[key] ?? 0) + (investment[key] ?? 0);
+      const value = key === "speed" ? base[key] * (100 + bonus) / 100 : base[key] + bonus;
+      return [key, Math.max(key === "max" || key === "speed" ? 1 : 0, value)];
+    }));
+  }
+
+  function describeStats(stats) {
+    return Object.entries(stats).map(([key, amount]) =>
+      statLabels[key] + " " + (amount > 0 ? "+" : "") + Number(amount.toFixed(2)) + (key === "speed" ? "%" : "")).join(" · ");
+  }
+
+  return { traits, roles, statLabels, reaction, startingStats, describeStats };
+})();
+</script>
+<script id="boss-combat">
+const bossCombat = (() => {
+  const { stepSeconds } = combat;
+  const units = combat.units.slice(0, 4).map((unit, index) => ({
+    ...unit, x: [6.9, 7.4, 3.65, 3.1][index], y: [50, 76, 74, 50][index]
+  }));
+  units.push({ name: "보스", mark: "왕", x: 9.6, y: 50, max: 169, armor: 0, attack: 26, first: 0.9, period: 1.25, enemy: true });
+  const budget = 10;
+  const partyRoles = ["tank", "melee", "ranged", "healer"];
+  const stats = [
+    { key: "max", label: "체력", gain: 6, unit: "" },
+    { key: "attack", label: "공격력", gain: 1, unit: "" },
+    { key: "armor", label: "방어", gain: 1, unit: "" },
+    { key: "speed", label: "이속", gain: 4, unit: "%" }
+  ];
+  const aimAt = 44;
+  const lockAt = 84;
+  const beamHalfWidth = 0.23;
+  const meteor = { x: 5, y: 2.5, radius: 2.25 };
+  const healRange = 4.4;
+  const dodgeSpots = [{ x: 2.4, y: 50 }, { x: 3.75, y: 12 }];
+  const tankDodge = { x: 7.65, y: 50 };
+
+  function heroStats(role, points, trait) {
+    const investment = Object.fromEntries(stats.map(({ key, gain }) => [key, gain * (points[key] ?? 0)]));
+    return traitRules.startingStats(traitRules.roles[role], trait, investment);
+  }
+
+  function aim(boss, target) {
+    const dx = target.x - boss.x;
+    const dy = (target.y - boss.y) / 20;
+    const length = Math.hypot(dx, dy);
+    return { x: boss.x, y: boss.y / 20, dx: dx / length, dy: dy / length, halfWidth: beamHalfWidth };
+  }
+
+  function inBeam(actor, beam) {
+    const x = actor.x - beam.x;
+    const y = actor.y / 20 - beam.y;
+    return x * beam.dx + y * beam.dy >= 0 && Math.abs(x * beam.dy - y * beam.dx) <= beam.halfWidth;
+  }
+
+  function distance(first, second) {
+    return Math.hypot(first.x - second.x, (first.y - second.y) / 20);
+  }
+
+  function inMeteor(actor) {
+    return Math.hypot(actor.x - meteor.x, actor.y / 20 - meteor.y) <= meteor.radius;
+  }
+
+  function moveToward(actor, destination, speed) {
+    const gap = distance(actor, destination);
+    if (!gap) return;
+    const fraction = Math.min(1, speed * stepSeconds / gap);
+    actor.x += (destination.x - actor.x) * fraction;
+    actor.y += (destination.y - actor.y) * fraction;
+  }
+
+  function simulate(trait, points, pattern = "beam") {
+    const usesMeteor = pattern === "meteor";
+    const fireAt = usesMeteor ? 78 : 94;
+    const actors = units.map(unit => ({ ...unit }));
+    partyRoles.forEach((role, i) => {
+      Object.assign(actors[i], heroStats(role, points[role] ?? {}, role === "tank" ? trait : null));
+    });
+    if (usesMeteor) actors[2].x = 2.45;
+    actors.forEach(actor => { actor.hp = actor.max; actor.next = actor.first; });
+    const [tank, , , healer, boss] = actors;
+    const party = actors.slice(0, 4);
+    const frames = [];
+    const events = [];
+    const effects = [];
+    const dialogue = [];
+    let time = 0;
+    let target = null;
+    let locked = null;
+    let hitNames = null;
+    let cancelled = false;
+    let lowest = tank.hp;
+    let outcome = "";
+    let cue = null;
+    let healSpot = null;
+    let praisedHeal = false;
+    let tankAction = null;
+
+    function announce(message) {
+      cue = { time, message };
+      events.push(cue);
+    }
+
+    function speak(actor, line, tone = "") {
+      dialogue.push({ time, speaker: actor.name, line, tone });
+    }
+
+    function damage(from, to, strength) {
+      const amount = Math.min(to.hp, Math.max(0, strength - to.armor));
+      to.hp -= amount;
+      effects.push({ time, from: actors.indexOf(from), to: actors.indexOf(to), amount, heal: false });
+      lowest = Math.min(lowest, tank.hp);
+      if (to.hp === 0) announce(to.name + (to.enemy ? " 처치" : " 쓰러짐"));
+    }
+
+    for (let tick = 0; tick <= 320 && !outcome; tick++) {
+      time = tick * stepSeconds;
+      let beam = null;
+      let zone = null;
+      if (tick === aimAt) {
+        target = party.find(actor => actor.hp > 0);
+        const reaction = target === tank && traitRules.reaction(trait, pattern, { hpRatio: tank.hp / tank.max });
+        tankAction = reaction || (usesMeteor ? "dodge" : "hold");
+        if (usesMeteor) {
+          announce("메테오 낙하 위치 표시");
+          if (tank.hp && inMeteor(tank)) {
+            speak(tank, reaction ? traitRules.traits[trait].line : "장판 밖으로 갈게!");
+          }
+          if (healer.hp && inMeteor(healer)) {
+            const projectedTank = tankAction === "dodge" && inMeteor(tank) ? tankDodge : tank;
+            const reachable = dodgeSpots.filter(spot => !inMeteor(spot) && distance(healer, spot) <= (fireAt - aimAt) * stepSeconds * 2 * healer.speed / 100);
+            healSpot = reachable.find(spot => distance(spot, projectedTank) <= healRange) ?? reachable[0];
+            if (healSpot && distance(healSpot, projectedTank) <= healRange) speak(healer, "장판 밖에서도 네게 회복이 닿아. 이쪽으로 갈게.");
+          }
+        } else {
+          announce("레이저 조준 · " + target.name);
+          if (target === tank) speak(tank, tankAction === "turn" ? "벽 쪽으로 돌릴게!" : "공격을 계속한다!");
+        }
+      }
+      const windingUp = tick >= aimAt && tick < fireAt;
+      const diverting = target === tank && (tankAction === "turn" || tankAction === "dodge") && windingUp;
+      const speed = tank.speed / 100;
+      if (usesMeteor) {
+        if (diverting && tank.hp) moveToward(tank, tankDodge, 2 * speed);
+        if (healSpot && healer.hp) moveToward(healer, healSpot, 2 * healer.speed / 100);
+        if (tick >= aimAt && tick < fireAt + 10) zone = { ...meteor, phase: tick < fireAt ? "aiming" : "fired" };
+      } else if (tank.hp) {
+        tank.y = diverting ? Math.max(18, tank.y - 32 * speed * stepSeconds) : Math.min(units[0].y, tank.y + 32 * speed * stepSeconds);
+      }
+      if (!usesMeteor && tick === lockAt) {
+        locked = aim(boss, target);
+        announce("레이저 방향 고정");
+      }
+      if (!usesMeteor && target && tick < fireAt) beam = { ...(locked ?? aim(boss, target)), phase: locked ? "locked" : "aiming" };
+
+      if (tick === fireAt) {
+        const hits = party.filter(actor => actor.hp > 0 && (usesMeteor ? inMeteor(actor) : inBeam(actor, locked)));
+        hitNames = hits.map(actor => actor.name);
+        announce((usesMeteor ? "메테오 낙하" : "레이저 발사") + " · " + (hitNames.join(", ") || "피격 없음"));
+        hits.forEach(actor => damage(boss, actor, usesMeteor ? 64 : 56));
+        if (usesMeteor && healer.hp && hits.includes(tank)) {
+          speak(healer, tank.hp ? "젠장, 장판은 좀 피해! 회복 넣을게." : "젠장, 장판을 피했어야지!", "rebuke");
+        } else if (usesMeteor && healer.hp && tank.hp && !hits.includes(tank) && tankAction === "dodge") {
+          speak(healer, "잘 빠졌어! 여기서도 회복이 닿아.", "praise");
+        } else if (!usesMeteor && hits.includes(tank) && hits.length === 1 && healer.hp && tankAction === "turn") {
+          speak(healer, "빔 잘 돌렸어! 덕분에 살았다.", "praise");
+        } else if (!usesMeteor && hits.includes(healer) && party[1].hp) {
+          speak(party[1], "젠장, 빔을 우리 쪽으로 쐈잖아!", "rebuke");
+        }
+      }
+      if (!usesMeteor && hitNames && tick < fireAt + 10) beam = { ...locked, phase: "fired" };
+
+      for (const actor of party) {
+        if (!actor.hp || !boss.hp || actor.next > time + 0.00001 || (actor === tank && diverting)) continue;
+        actor.next = time + actor.period;
+        const wounded = actor === healer && party.filter(ally => ally.hp && ally.hp < ally.max && (!usesMeteor || distance(actor, ally) <= healRange))
+          .sort((a, b) => a.hp / a.max - b.hp / b.max)[0];
+        if (wounded) {
+          const amount = Math.min(24, wounded.max - wounded.hp);
+          wounded.hp += amount;
+          effects.push({ time, from: 3, to: actors.indexOf(wounded), amount, heal: true });
+          if (usesMeteor && !praisedHeal && hitNames?.includes(tank.name) && wounded === tank && !inMeteor(healer)) {
+            praisedHeal = true;
+            speak(tank, "그 자리에서도 회복이 닿네. 나이스!", "praise");
+          }
+        } else damage(actor, boss, actor.attack);
+      }
+      const bossTarget = party.find(actor => actor.hp > 0);
+      const casting = tick >= aimAt && tick < fireAt + 10;
+      if (boss.hp && bossTarget && !casting && boss.next <= time + 0.00001) {
+        boss.next = time + boss.period;
+        damage(boss, bossTarget, boss.attack);
+      }
+      if (!boss.hp) {
+        outcome = "승리";
+        if (tick < fireAt) {
+          cancelled = true;
+          beam = null;
+          zone = null;
+          announce(usesMeteor ? "낙하 전에 보스 처치" : "발사 전에 보스 처치");
+        }
+      } else if (!bossTarget) outcome = "전멸";
+      else if (tick === 320) outcome = "시간 종료";
+
+      frames.push({
+        time, beam, zone, healSpot: windingUp && healSpot && distance(healer, healSpot) > 0.01 ? healSpot : null,
+        hitNames, cancelled, lowest, outcome, waitForAttack: Math.max(0, (fireAt - tick) * stepSeconds),
+        cue: cue && time - cue.time <= 1.8 ? cue.message : "",
+        actors: actors.map(({ hp, max, x, y }) => ({ hp, max, x, y }))
+      });
+    }
+    return { frames, events, effects, dialogue };
+  }
+
+  return { simulate, units, stats, budget, heroStats };
+})();
+</script>
+<script>
+const { simulate, units, stepSeconds, patrol } = combat;
+const boards = document.querySelector("#boards");
+const seek = document.querySelector("#seek");
+const clock = document.querySelector("#clock");
+const play = document.querySelector("#play");
+const speed = document.querySelector("#speed");
+const seconds = value => value === null ? "대기" : value.toFixed(1) + "초";
+
+function createBoard(title, { tile, adjustable, trait } = {}) {
+  const isBoss = trait !== undefined;
+  const roster = isBoss ? bossCombat.units : units;
+  const points = Object.fromEntries(Object.keys(traitRules.roles).map(role =>
+    [role, Object.fromEntries(bossCombat.stats.map(({ key }) => [key, 0]))]));
+  const panel = document.createElement("article");
+  panel.innerHTML = `
+    <header class="heading">
+      <h2>${title}</h2>
+      ${isBoss ? `<div class="build">
+        <label>탱커 성향 <select class="trait">
+          ${Object.entries(traitRules.traits).map(([key, trait]) => `<option value="${key}">${trait.name}</option>`).join("")}
+        </select></label>
+        <div class="trait-note"></div>
+        <label>스탯 배분 <select class="build-role">
+          ${Object.entries(traitRules.roles).map(([key, role]) => `<option value="${key}">${role.hero} · ${role.name}</option>`).join("")}
+        </select></label>
+        <div class="investments">${bossCombat.stats.map(({ key, label, gain, unit }) =>
+          `<label>${label} <small>(+${gain}${unit}/점)</small> <input type="number" data-stat="${key}" min="0" max="${bossCombat.budget}" step="1" value="0"></label>`).join("")}</div>
+        <div class="base-summary build-summary"></div>
+        <output class="build-summary"></output>
+      </div>` : `<div class="placement">${adjustable ? `<label for="position">고블린 위치</label><input id="position" type="range" min="1" max="6" value="${tile}">` : "고블린 위치"}
+      <output class="position"></output></div>`}
+    </header>
+    <div class="arena" aria-label="전투 상황">
+      ${isBoss ? '<div class="beam" hidden aria-hidden="true"></div><div class="meteor-zone" hidden aria-hidden="true"></div><div class="destination" hidden aria-hidden="true"></div>' : `<div class="route" style="left:${patrol.left / 12 * 100}%;width:${(patrol.right - patrol.left) / 12 * 100}%"><span class="route-label">오우거 순찰로</span></div>`}
+      ${roster.map((unit, index) => `
+        <div class="unit ${unit.enemy ? "enemy" : ""} ${index === 6 ? "ogre" : ""}">
+          <span class="token" aria-hidden="true">${unit.mark}</span>
+          <span class="hp"><i></i></span><small></small>
+        </div>`).join("")}
+      <div class="effects" aria-hidden="true"></div>
+      <div class="cue"></div>
+    </div>
+    <dl class="stats">
+      ${(isBoss
+        ? ["보스 패턴", "피격 용사", "탱커 최저 체력", "결과"]
+        : ["고블린 교전 시작", "오우거가 파티 발견", "오우거 합류", "두 무리 동시 교전", "탱커 최저 체력", "힐러 다음 행동", "고블린 정리", "결과"]
+      ).map(label => `<div><dt>${label}</dt><dd></dd></div>`).join("")}
+    </dl>
+    ${isBoss ? '<div class="dialogue" aria-label="최근 용사 대사"></div>' : ""}
+    <div class="event-list" aria-label="최근 전투 기록"></div>`;
+  boards.append(panel);
+  const traitSelect = panel.querySelector(".trait");
+  if (traitSelect) traitSelect.value = trait;
+  return {
+    tile, trait, points, roster, traitSelect, isBoss,
+    run: isBoss ? bossCombat.simulate(trait, points) : simulate(tile),
+    panel, tokens: [...panel.querySelectorAll(".unit")],
+    stats: [...panel.querySelectorAll("dd")],
+    cue: panel.querySelector(".cue"), log: panel.querySelector(".event-list"),
+    arena: panel.querySelector(".arena"), effects: panel.querySelector(".effects"),
+    position: panel.querySelector(".position"), beam: panel.querySelector(".beam"),
+    zone: panel.querySelector(".meteor-zone"), destination: panel.querySelector(".destination"),
+    dialogue: panel.querySelector(".dialogue"),
+    roleSelect: panel.querySelector(".build-role"), baseSummary: panel.querySelector(".base-summary"),
+    traitNote: panel.querySelector(".trait-note"),
+    summary: panel.querySelector("output.build-summary"), lastTick: -1
+  };
+}
+
+const reference = createBoard("기준 배치", { tile: 1 });
+const comparison = createBoard("비교 배치", { tile: 6, adjustable: true });
+const bossViews = [createBoard("왼쪽 파티", { trait: "attack" }), createBoard("오른쪽 파티", { trait: "protect" })];
+const patrolViews = [reference, comparison];
+let mode = "meteor";
+let views = bossViews;
+let elapsed = 0;
+let running = false;
+let lastTime = null;
+let endTick = 0;
+
+const labScenes = {
+  beam: { name: "레이저 조준", event: "beam", text: "보스가 탱커를 조준한다. 사선 뒤에 힐러가 있다." },
+  meteor: { name: "메테오 · 체력 80%", event: "meteor", hpRatio: 0.8, text: "발밑에 메테오가 예고됐다. 내 체력은 80%다." },
+  woundedMeteor: { name: "메테오 · 체력 20%", event: "meteor", hpRatio: 0.2, text: "발밑에 같은 메테오가 예고됐다. 이번엔 내 체력이 20%다." },
+  loot: { name: "장비 · 작은 업그레이드", event: "loot", ownGain: 2, allyGain: 5, ownArmor: 4, allyArmor: 1, text: "일반 갑옷이 나왔다. 내 위력은 +2, 더 낮은 방어의 동료는 +5 오른다." },
+  upgrade: { name: "장비 · 희귀 업그레이드", event: "upgrade", rare: true, ownGain: 5, allyGain: 7, ownArmor: 4, allyArmor: 1, text: "희귀 갑옷이 나왔다. 내 위력은 +5, 더 낮은 방어의 동료는 +7 오른다." },
+  downgrade: { name: "장비 · 현재보다 약함", event: "downgrade", ownGain: -2, text: "낡은 갑옷이 나왔다. 바꿔 입으면 내 위력이 2 내려간다." },
+  fork: { name: "갈림길", event: "fork", partyHp: 0.42, sidePath: true, bossClue: true, text: "파티 체력은 42%. 강한 적이 보이는 길, 안전한 길, 짧은 미탐색 샛길이 있다. 안전한 길에 보스방 표식이 보인다." },
+  reinforce: { name: "오우거 증원", event: "reinforce", allyInDanger: true, enemyHp: 0.12, ogreInRange: true, text: "고블린 체력이 12% 남았다. 사거리 안으로 들어온 오우거가 체력 낮은 아군을 쫓는다." },
+  critical: { name: "자신과 아군 위독", event: "critical", hpRatio: 0.22, allyHp: 0.24, healerPursued: true, text: "내 체력은 22%, 공격받는 아군 힐러는 24%다. 적과 아군 모두 사거리 안에 있다." },
+  fallen: { name: "동료가 쓰러짐", event: "fallen", lineOpen: true, text: "동료가 쓰러져 전열이 열렸다. 쓰러뜨린 적은 살아 있다. 힐러라면 부활 스킬을 쓸 수 있다." },
+  prayer: { name: "기도할 기회", event: "prayer", allyInDanger: true, text: "아군이 위독하다. 신에게 도움을 청할 기회가 생겼다." },
+  saved: { name: "아슬아슬하게 회복", event: "saved", text: "힐러가 쓰러지기 직전의 동료를 회복으로 살렸다." },
+  avoidable: { name: "피할 수 있었던 피격", event: "avoidable", text: "아군이 피할 시간과 자리가 있었지만 장판을 밟았다." },
+  dispute: { name: "장비 입찰 다툼", event: "dispute", text: "동료 둘이 같은 갑옷에 입찰해 서로 자기 몫이라고 주장한다." }
+};
+let labTrait = "greedy";
+const labRole = document.querySelector("#lab-role");
+const labScene = document.querySelector("#lab-scene");
+const labList = document.querySelector("#lab-list");
+
+function renderLab() {
+  const role = traitRules.roles[labRole.value];
+  const trait = traitRules.traits[labTrait];
+  const scene = labScenes[labScene.value];
+  const state = { ...scene, canHeal: labRole.value === "healer", canRevive: labRole.value === "healer" };
+  document.querySelector("#lab-situation").textContent = scene.text;
+  const loot = scene.ownGain !== undefined;
+  const normalBehavior = loot ? (scene.ownGain > 0 ? "장비 위력이 오르므로 입찰한다." : "장비 위력이 내려가므로 패스한다.")
+    : scene.event === "meteor" ? "장판 밖으로 나가 역할에 맞는 행동을 이어간다."
+    : scene.event === "beam" ? "현재 역할 위치를 유지하며 교전한다."
+    : role.name + "의 기본 판단을 따른다.";
+  const action = traitRules.reaction(labTrait, scene.event, state);
+  for (const [id, selected] of [["lab-base", false], ["lab-selected", true]]) {
+    const starting = traitRules.startingStats(role, selected ? labTrait : null);
+    const applies = selected && action;
+    const bid = applies ? action === "bid" : loot && scene.ownGain > 0;
+    const bidResult = loot && bid ? (scene.ownGain < 0 ? "입찰 선언 · 위력 하락으로 판정 후보 제외" : "입찰 선언 · 분배 판정 참여") : "";
+    document.querySelector("#" + id).innerHTML = `
+      <h2>${selected ? trait.name : "기본 " + role.name}</h2>
+      <p>${traitRules.describeStats(starting).replaceAll("+", "")}</p>
+      ${selected ? `<p>성향 보정 · ${traitRules.describeStats(trait.stats)}</p>` : ""}
+      <dl>
+        ${selected ? `<dt>발동 조건</dt><dd>${trait.trigger}</dd>` : ""}
+        <dt>${selected ? (applies ? "성향 발동" : "성향 발동 없음") : "기본 행동"}</dt>
+        <dd>${applies ? trait.action : normalBehavior}</dd>
+        ${applies ? `<dt>대사</dt><dd>“${trait.line}”</dd>` : ""}
+        ${bidResult ? `<dt>입찰 결과</dt><dd>${bidResult}</dd>` : ""}
+      </dl>`;
+  }
+  labList.querySelectorAll("button").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.trait === labTrait));
+  });
+}
+
+labRole.innerHTML = Object.entries(traitRules.roles)
+  .map(([id, role]) => `<option value="${id}">${role.name}</option>`).join("");
+labScene.innerHTML = Object.entries(labScenes)
+  .map(([id, scene]) => `<option value="${id}">${scene.name}</option>`).join("");
+labScene.value = "downgrade";
+labList.innerHTML = Object.entries(traitRules.traits).map(([id, trait]) =>
+  `<button type="button" data-trait="${id}" aria-pressed="false"><span>${trait.name}</span><small>${traitRules.describeStats(trait.stats)}</small></button>`).join("");
+labList.addEventListener("click", event => {
+  const button = event.target.closest("[data-trait]");
+  if (!button) return;
+  labTrait = button.dataset.trait;
+  const trait = traitRules.traits[labTrait];
+  const firstEvent = Object.keys(trait.reactions)[0];
+  labScene.value = labTrait === "greedy" ? "downgrade" : Object.keys(labScenes).find(id => labScenes[id].event === firstEvent);
+  if (labTrait === "triage" || labTrait === "rescuer") labRole.value = "healer";
+  renderLab();
+});
+labRole.addEventListener("change", renderLab);
+labScene.addEventListener("change", renderLab);
+
+function renderEffects(view, frame) {
+  const width = view.arena.clientWidth;
+  const height = view.arena.clientHeight;
+  view.effects.innerHTML = view.run.effects.filter(effect =>
+    effect.time <= frame.time && frame.time - effect.time < 0.45
+  ).map(({ time, from, to, amount, heal }) => {
+    const x = frame.actors[from].x / 12 * width;
+    const y = frame.actors[from].y / 100 * height;
+    const targetX = frame.actors[to].x / 12 * width;
+    const targetY = frame.actors[to].y / 100 * height;
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const age = frame.time - time;
+    const opacity = 1 - age / 0.45;
+    const colorClass = heal ? " heal" : "";
+    return `<span class="effect-line${colorClass}" style="left:${x}px;top:${y}px;width:${Math.hypot(dx, dy)}px;transform:rotate(${Math.atan2(dy, dx)}rad);opacity:${opacity * 0.65}"></span>
+      <span class="effect${colorClass}" style="left:${targetX + 14}px;top:${targetY - 20 - age * 35}px;opacity:${opacity}">${heal ? "+" : "−"}${amount}</span>`;
+  }).join("");
+}
+
+function renderBeam(element, beam) {
+  element.hidden = !beam;
+  if (!beam) return;
+  const { x, y, dx, dy, halfWidth } = beam;
+  const tipX = x + dx * 15;
+  const tipY = y + dy * 15;
+  const offsetX = -dy * halfWidth;
+  const offsetY = dx * halfWidth;
+  const corners = [
+    [x + offsetX, y + offsetY], [tipX + offsetX, tipY + offsetY],
+    [tipX - offsetX, tipY - offsetY], [x - offsetX, y - offsetY]
+  ];
+  element.className = "beam " + beam.phase;
+  element.style.clipPath = "polygon(" + corners.map(([px, py]) => (px / 12 * 100) + "% " + (py * 20) + "%").join(", ") + ")";
+}
+
+function renderMeteor(view, frame) {
+  const { zone, healSpot } = frame;
+  view.zone.hidden = !zone;
+  if (zone) {
+    view.zone.classList.toggle("fired", zone.phase === "fired");
+    view.zone.style.left = zone.x / 12 * 100 + "%";
+    view.zone.style.top = zone.y * 20 + "%";
+    view.zone.style.width = zone.radius * 2 / 12 * 100 + "%";
+    view.zone.style.height = zone.radius * 2 * 20 + "%";
+  }
+  view.destination.hidden = !healSpot;
+  if (healSpot) {
+    view.destination.style.left = healSpot.x / 12 * 100 + "%";
+    view.destination.style.top = healSpot.y + "%";
+  }
+}
+
+function render() {
+  const tick = Math.min(Math.floor(elapsed / stepSeconds + 0.00001), endTick);
+  seek.value = tick;
+  clock.value = seconds(tick * stepSeconds);
+  play.textContent = running ? "일시정지" : tick === endTick ? "다시 재생" : tick ? "이어 보기" : "동시 재생";
+  for (const view of views) {
+    const index = Math.min(tick, view.run.frames.length - 1);
+    if (view.lastTick === index) continue;
+    view.lastTick = index;
+    const frame = view.run.frames[index];
+    renderEffects(view, frame);
+    if (view.isBoss) {
+      renderBeam(view.beam, frame.beam);
+      renderMeteor(view, frame);
+      const lines = view.run.dialogue.filter(line => line.time <= frame.time).slice(-2);
+      view.dialogue.innerHTML = lines.map(({ speaker, line, tone }) =>
+        `<div class="${tone}"><strong>${speaker}</strong> · ${line}</div>`).join("");
+    }
+    frame.actors.forEach((actor, i) => {
+      const token = view.tokens[i];
+      const unit = view.roster[i];
+      const ratio = actor.hp / (actor.max ?? unit.max);
+      token.style.left = 100 * actor.x / 12 + "%";
+      token.style.top = actor.y + "%";
+      token.classList.toggle("dead", actor.hp === 0);
+      token.classList.toggle("critical", ratio > 0 && ratio <= 0.25 && !unit.enemy);
+      token.querySelector("i").style.width = (ratio * 100) + "%";
+      const ogreStatus = i === 6 && actor.hp > 0 ? (frame.joined !== null ? "교전" : frame.spotted !== null ? "추격" : "순찰") + " · " : "";
+      token.querySelector("small").textContent = ogreStatus + unit.name + " " + actor.hp;
+    });
+    if (view.position) view.position.value = view.tile + "번 칸";
+    view.cue.textContent = frame.cue;
+    const result = frame.outcome ? frame.outcome + " · " + frame.actors.slice(0, 4).filter(actor => actor.hp > 0).length + "명 생존" : null;
+    const meteorMode = mode === "meteor";
+    const telegraph = frame.zone ? "낙하 예고" : frame.beam?.phase === "locked" ? "방향 고정" : "조준 중";
+    const values = view.isBoss ? [
+      frame.cancelled ? (meteorMode ? "낙하 전 보스 처치" : "발사 전 보스 처치")
+        : frame.hitNames ? (meteorMode ? "낙하 완료" : "발사 완료")
+        : frame.beam || frame.zone ? telegraph + " · " + seconds(frame.waitForAttack) : "대기",
+      frame.hitNames ? frame.hitNames.join(", ") || "없음" : "—",
+      frame.lowest + " / " + frame.actors[0].max,
+      result ?? (index ? "전투 중" : "준비")
+    ] : [
+      seconds(frame.started), seconds(frame.spotted), seconds(frame.joined), seconds(frame.overlap), frame.lowest + " / " + units[0].max,
+      frame.outcome || frame.started === null || frame.healIn === null ? "—" : seconds(frame.healIn),
+      seconds(frame.cleared),
+      result ?? (frame.started !== null ? "전투 중" : index ? "이동 중" : "준비")
+    ];
+    view.stats.forEach((stat, i) => { stat.textContent = values[i]; });
+    const recent = view.run.events.filter(event => event.time <= frame.time).slice(-3);
+    view.log.innerHTML = recent.length
+      ? recent.map(event => "<div><time>" + seconds(event.time) + "</time> · " + event.message + "</div>").join("")
+      : "전투 기록이 여기에 표시됩니다.";
+  }
+}
+
+function reset() {
+  running = false;
+  lastTime = null;
+  elapsed = 0;
+  endTick = Math.max(...views.map(view => view.run.frames.length - 1));
+  seek.max = endTick;
+  render();
+}
+
+function changeMode(nextMode) {
+  mode = nextMode;
+  const labMode = mode === "traits";
+  boards.hidden = labMode;
+  document.querySelector("#trait-lab").hidden = !labMode;
+  document.querySelector(".controls").hidden = labMode;
+  document.querySelector(".seek").hidden = labMode;
+  views = mode === "patrol" ? patrolViews : bossViews;
+  patrolViews.forEach(view => { view.panel.hidden = mode !== "patrol"; view.lastTick = -1; });
+  bossViews.forEach(view => {
+    view.panel.hidden = mode === "patrol";
+    if (!view.panel.hidden && !labMode) {
+      updateBuild(view);
+      recalculateBoss(view);
+    }
+  });
+  document.querySelectorAll("[data-mode]").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+  });
+  document.querySelector("#intro").textContent = {
+    meteor: "같은 자리에 메테오가 떨어집니다. 탱커가 버틸 때와 피할 때, 힐러가 어디로 움직여 회복하는지 비교하세요.",
+    boss: "같은 보스가 탱커를 조준합니다. 양쪽 파티의 용사마다 10포인트를 나눠 투자하고 전투를 비교하세요.",
+    traits: "카드를 고르면 대표 상황에서 기본 용사와 성향을 가진 용사의 시작 스탯, 행동, 대사를 비교할 수 있습니다.",
+    patrol: "오우거는 두 전투에서 같은 경로를 순찰합니다. 오른쪽 고블린 무리만 옮겨서 오우거가 언제 파티를 발견하고 합류하는지 보세요."
+  }[mode];
+  if (labMode) {
+    running = false;
+    lastTime = null;
+    renderLab();
+  } else reset();
+}
+
+function updateBuild(view) {
+  const role = view.roleSelect.value;
+  const points = view.points[role];
+  const remaining = bossCombat.budget - Object.values(points).reduce((sum, value) => sum + value, 0);
+  const current = bossCombat.heroStats(role, points, role === "tank" ? view.trait : null);
+  const describe = values => bossCombat.stats.map(({ key, label, unit }) =>
+    label + " " + Number(values[key].toFixed(2)) + unit).join(" · ");
+  view.baseSummary.textContent = "기본 · " + describe(traitRules.roles[role]);
+  view.summary.value = "남은 " + remaining + " / " + bossCombat.budget + " · 시작 " + describe(current);
+  view.traitNote.textContent = "성향 보정 " + traitRules.describeStats(traitRules.traits[view.trait].stats) +
+    " · " + (traitRules.traits[view.trait].reactions[mode === "meteor" ? "meteor" : "beam"] ? "이 전투에서 발동 가능" : "이 전투에서는 역할 기본 행동");
+  view.panel.querySelectorAll("[data-stat]").forEach(input => {
+    input.max = points[input.dataset.stat] + remaining;
+    if (document.activeElement !== input) input.value = points[input.dataset.stat];
+  });
+}
+
+function recalculateBoss(view) {
+  view.run = bossCombat.simulate(view.trait, view.points, mode === "meteor" ? "meteor" : "beam");
+  view.lastTick = -1;
+}
+
+function replayWithBuild(view) {
+  updateBuild(view);
+  recalculateBoss(view);
+  reset();
+}
+
+function animate(now) {
+  if (running) {
+    if (lastTime !== null) elapsed += Math.min((now - lastTime) / 1000, 0.1) * Number(speed.value);
+    lastTime = now;
+    if (elapsed >= endTick * stepSeconds) {
+      elapsed = endTick * stepSeconds;
+      running = false;
+    }
+    render();
+  }
+  requestAnimationFrame(animate);
+}
+
+play.addEventListener("click", () => {
+  if (elapsed >= endTick * stepSeconds) elapsed = 0;
+  running = !running;
+  lastTime = null;
+  render();
+});
+document.querySelector("#reset").addEventListener("click", reset);
+document.querySelectorAll("[data-mode]").forEach(button => {
+  button.addEventListener("click", () => changeMode(button.dataset.mode));
+});
+for (const view of bossViews) {
+  updateBuild(view);
+  view.roleSelect.addEventListener("change", () => updateBuild(view));
+  view.traitSelect.addEventListener("change", () => {
+    view.trait = view.traitSelect.value;
+    replayWithBuild(view);
+  });
+  view.panel.querySelectorAll("[data-stat]").forEach(input => {
+    input.addEventListener("input", () => {
+      const key = input.dataset.stat;
+      const value = Math.max(0, Math.min(Number(input.max), Math.trunc(input.valueAsNumber || 0)));
+      if (input.value !== "" && input.valueAsNumber !== value) input.value = value;
+      view.points[view.roleSelect.value][key] = value;
+      replayWithBuild(view);
+    });
+    input.addEventListener("blur", () => { input.value = view.points[view.roleSelect.value][input.dataset.stat]; });
+  });
+}
+document.querySelector("#position").addEventListener("input", event => {
+  comparison.tile = Number(event.target.value);
+  comparison.run = simulate(comparison.tile);
+  comparison.lastTick = -1;
+  reset();
+});
+seek.addEventListener("input", () => {
+  elapsed = Number(seek.value) * stepSeconds;
+  running = false;
+  lastTime = null;
+  render();
+});
+window.addEventListener("resize", () => {
+  if (mode === "traits") return;
+  views.forEach(view => { view.lastTick = -1; });
+  render();
+});
+changeMode("meteor");
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

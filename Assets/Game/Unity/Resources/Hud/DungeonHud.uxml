@@ -194,13 +194,13 @@
                     <ui:Button name="brush-ghost" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-ghost-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="유령" picking-mode="Ignore" />
-                        <ui:Label class="placement-description" text="빠르게 움직이며 영혼 화살" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="빠른 이동 · 영혼 화살" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-zombie" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-zombie-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="좀비" picking-mode="Ignore" />
-                        <ui:Label class="placement-description" text="튼튼한 몸으로 내려찍기" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="높은 체력 · 내려찍기" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-remove" class="skill-button placement-button" focusable="false">

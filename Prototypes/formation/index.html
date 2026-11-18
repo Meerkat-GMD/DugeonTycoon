@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>출발 전 편성</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #151B20; --panel: #202A30; --card: #29343A; --edge: #435056; --muted: #B3BEBB;
+    --paper: #F0EAE0; --gold: #E8BE76; --teal: #7BD5BF; --ember: #EC9179; --chosen: #35534D;
+    font-family: "Malgun Gothic", system-ui, sans-serif; background: #0f1418; color: var(--paper);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .primary { background: var(--gold); color: #272019; border-color: var(--gold); font-weight: bold; }
+  .up { color: var(--teal); }
+  .down { color: var(--ember); }
+
+  .screen { width: min(1240px, 100%); background: var(--ink); border: 2px solid var(--edge); border-radius: 12px; padding: 20px 24px; display: grid; gap: 18px; }
+  .top h1 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
+  .top p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+  .party { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; align-items: start; }
+  .hero { display: grid; grid-template-rows: auto auto; padding: 0; text-align: left; background: var(--panel); border: 2px solid var(--edge); border-radius: 14px; overflow: hidden; transition: transform .15s, border-color .15s; }
+  .hero:hover { transform: translateY(-4px); border-color: var(--gold); }
+  .hero .art { aspect-ratio: 3 / 4; background: radial-gradient(circle at 50% 35%, #3a4a50, #1a2328 70%); position: relative; }
+  .hero .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+  .hero .art .edit { position: absolute; right: 8px; top: 8px; font-size: 11px; background: #151b20d0; border: 1px solid var(--edge); border-radius: 4px; padding: 3px 7px; color: var(--muted); }
+  .hero:hover .edit { color: var(--gold); border-color: var(--gold); }
+  .hero .info { padding: 12px 14px 14px; display: grid; gap: 8px; }
+  .hero .name b { font-size: 17px; }
+  .hero .name span { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .hero dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .hero dt { color: var(--muted); }
+  .hero dd { margin: 0; text-align: right; }
+  .chips { display: grid; gap: 4px; }
+  .chip { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: var(--card); border: 1px solid var(--edge); display: flex; justify-content: space-between; gap: 6px; }
+  .chip small { color: var(--muted); font-size: 11px; }
+  .left { font-size: 12px; color: var(--gold); }
+  .left.done { color: var(--muted); }
+
+  .bottom { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  #start { font-size: 18px; padding: 12px 34px; border-radius: 10px; }
+  #msg { margin: 0; font-size: 13px; color: var(--gold); flex: 1; text-align: right; }
+
+  .overlay { position: fixed; inset: 0; background: #070a0cc8; display: grid; place-items: center; padding: 16px; }
+  .overlay[hidden] { display: none; }
+  .dialog { width: min(920px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 2px solid var(--edge); border-radius: 14px; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+  .side { background: var(--ink); border-right: 1px solid var(--edge); padding: 16px; display: grid; gap: 10px; align-content: start; }
+  .side img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: 50% 25%; border-radius: 10px; background: radial-gradient(circle at 50% 35%, #3a4a50, #1a2328 70%); }
+  .side .name b { font-size: 17px; }
+  .side .name span { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .side dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .side dt { color: var(--muted); }
+  .side dd { margin: 0; text-align: right; }
+  .main { padding: 18px 20px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+  .steps { display: flex; gap: 6px; font-size: 12px; }
+  .steps span { padding: 4px 10px; border-radius: 12px; border: 1px solid var(--edge); color: var(--muted); }
+  .steps span.now { border-color: var(--gold); color: var(--gold); }
+  .steps span.past { color: var(--teal); border-color: #3f6f63; }
+  .main h2 { margin: 0; font-size: 20px; }
+  .main .hint { margin: -8px 0 0; color: var(--muted); font-size: 13px; }
+
+  .pips { display: flex; gap: 4px; }
+  .pips i { flex: 1; height: 8px; border-radius: 4px; background: var(--card); border: 1px solid var(--edge); }
+  .pips i.on { background: var(--gold); border-color: var(--gold); }
+  .stat { display: grid; grid-template-columns: 80px 1fr 40px 40px 40px; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--card); }
+  .stat small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .stat button { padding: 0; height: 36px; font-size: 18px; }
+  .stat output { text-align: center; font-size: 18px; font-weight: bold; font-variant-numeric: tabular-nums; }
+
+  .traits { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+  .trait { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; text-align: left; padding: 8px 10px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; font-size: 13px; }
+  .trait[aria-pressed="true"] { border: 2px solid var(--gold); padding: 7px 9px; background: var(--chosen); }
+  .trait.blocked { opacity: .5; }
+  .trait .mods { grid-column: 1 / -1; font-size: 11px; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; align-self: start; white-space: nowrap; background: var(--ink); color: var(--muted); border: 1px solid var(--edge); }
+  .badge.works { color: var(--teal); border-color: #3f6f63; }
+  .badge.only { color: var(--ember); border-color: #7a4a3e; }
+  .about { background: var(--ink); border: 1px solid var(--edge); border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.6; }
+  .about .line { color: var(--gold); font-style: italic; }
+  .about .note { color: var(--muted); font-size: 12px; }
+  .foot { display: flex; justify-content: space-between; gap: 8px; align-items: center; border-top: 1px solid var(--edge); padding-top: 12px; }
+  .foot .warn { color: var(--gold); font-size: 12px; flex: 1; }
+  @media (max-width: 900px) {
+    .party { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dialog { grid-template-columns: 1fr; }
+    .side { border-right: 0; border-bottom: 1px solid var(--edge); grid-template-columns: 96px 1fr; }
+    .side img { grid-row: span 2; }
+  }
+</style>
+</head>
+<body>
+<main class="screen">
+  <header class="top">
+    <h1>출발 전 편성</h1>
+    <p>1스테이지 · 몬스터 배치 완료 (위협 6/6) · 용사를 눌러 스탯과 성향을 정한다</p>
+  </header>
+  <section class="party" id="party" aria-label="파티"></section>
+  <footer class="bottom">
+    <button id="back">배치로 돌아가기</button>
+    <p id="msg" role="status"></p>
+    <button id="start" class="primary">Start</button>
+  </footer>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="step-title">
+    <aside class="side" id="side"></aside>
+    <div class="main">
+      <div class="steps" id="steps"></div>
+      <h2 id="step-title"></h2>
+      <p class="hint" id="step-hint"></p>
+      <div id="step-body"></div>
+      <div class="foot">
+        <button id="cancel">취소</button>
+        <button id="restore" title="전투·성격 성향과 스탯 포인트를 모두 역할 기본값으로 되돌린다">기본값으로</button>
+        <span class="warn" id="warn"></span>
+        <button id="prev">이전</button>
+        <button id="next" class="primary">확인</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const art = "../../Assets/Art/";
+const roles = {
+  tank:   { hero: "가론",  name: "탱커",       full: "Prayer/tank_radiant.png",   max: 104, attack: 8,  armor: 4, speed: 90,  defaults: ["protect", "cautious"],
+            defaultPoints: { max: 6, attack: 0, armor: 4, speed: 0 } },
+  healer: { hero: "세레나", name: "힐러",       full: "Prayer/healer_radiant.png", max: 44,  attack: 4,  armor: 0, speed: 100, defaults: ["triage", "cautious"],
+            defaultPoints: { max: 5, attack: 0, armor: 3, speed: 2 } },
+  melee:  { hero: "카이",  name: "근거리 딜러", full: "Prayer/melee_radiant.png",  max: 54,  attack: 13, armor: 1, speed: 110, defaults: ["attack", "challenger"],
+            defaultPoints: { max: 3, attack: 5, armor: 2, speed: 0 } },
+  ranged: { hero: "리아",  name: "원거리 딜러", full: "Prayer/ranged_radiant.png", max: 48,  attack: 10, armor: 0, speed: 105, defaults: ["quick", "explorer"],
+            defaultPoints: { max: 2, attack: 6, armor: 0, speed: 2 } }
+};
+// works: behaviour exists in the first implementation. only: role the behaviour needs.
+const combat = {
+  attack:      { name: "딜에 미친 자",   stats: { attack: 5, max: -8 },  text: "자신을 겨눈 빔이나 발밑 장판이 예고되면 공격을 계속한다.", line: "이 정도는 버텨. 계속 친다!" },
+  protect:     { name: "동료를 지키는 자", stats: { max: 20, attack: -2 }, text: "빔이 자신을 겨누면 빈 벽 쪽으로 유도하고, 발밑 장판에서는 벗어난다.", line: "내가 이쪽으로 뺄게!" },
+  quick:       { name: "재빠른 발",     stats: { speed: 15, max: -10 }, text: "발밑 장판이 예고되면 가장 빨리 닿는 안전한 자리로 이동한다.", line: "먼저 장판에서 빠질게!" },
+  stoic:       { name: "버티는 자",     stats: { armor: 4, speed: -10 }, text: "장판이 생기고 체력 60% 이상이면 역할 행동을 이어간다.", line: "이 정도 체력이면 버틸 수 있어." },
+  pilot:       { name: "사선 유도자",   stats: { speed: 10, attack: -2 }, text: "추적형 빔이 자신을 겨누면 조준이 잠기기 전에 빈 벽 쪽으로 돌린다.", line: "사선을 벽으로 돌릴게." },
+  lookout:     { name: "망보기",       stats: { speed: 8, max: -6 },   text: "교전 중 증원을 발견하면 적의 종류와 접근 방향을 알린다.", line: "오른쪽! 오우거가 온다!" },
+  interceptor: { name: "가로막는 자",   stats: { armor: 4, attack: -2 }, text: "증원이 위독한 아군을 쫓으면 사이에 들어가고 가능하면 도발한다.", line: "내가 저 녀석을 막을게!" },
+  finisher:    { name: "마무리 집착",   stats: { attack: 4, max: -8 },  text: "증원이 접근하고 기존 적 체력이 15% 이하면 기존 적부터 마무리한다.", line: "이 녀석 한 대면 끝이야!" },
+  huntsman:    { name: "거인 사냥꾼",   stats: { attack: 3, speed: -5 }, text: "큰 몬스터가 합류해 사거리에 들어오면 그 몬스터를 공격한다.", line: "큰 놈부터 쓰러뜨리자." },
+  triage:      { name: "응급 처치광",   stats: { speed: 5, attack: -1 }, text: "체력 25% 이하 아군을 치료할 수 있으면 하던 공격을 멈추고 회복한다.", line: "움직이지 마, 지금 치료할게!", only: "healer" },
+  bodyguard:   { name: "호위 본능",     stats: { max: 16, speed: -6 },  text: "위독한 힐러가 추격당하면 적과 힐러 사이를 막는다.", line: "힐러 뒤로! 나부터 상대해." },
+  berserk:     { name: "궁지의 전사",   stats: { attack: 5, armor: -3 }, text: "자기 체력 25% 이하이고 적이 사거리에 있으면 후퇴를 미루고 공격한다.", line: "나 아직 안 쓰러졌어!" },
+  survivor:    { name: "생존 우선",     stats: { max: 12, attack: -2 }, text: "자기 체력 25% 이하면 힐러의 회복 사거리로 물러난다.", line: "잠깐 빠질게. 치료 좀 부탁해!" },
+  avenger:     { name: "복수심",       stats: { attack: 4, armor: -2 }, text: "동료가 쓰러지고 가해자가 살아 있으면 그 적을 노린다.", line: "네가 쓰러뜨렸지. 이제 내 차례야." },
+  rescuer:     { name: "구조대장",     stats: { max: 12, speed: -5 },  text: "동료가 쓰러지고 부활을 쓸 수 있으면 부활 사거리로 이동한다.", line: "아직 끝난 거 아니야. 일어나!", only: "healer" },
+  leader:      { name: "대열 정비자",   stats: { armor: 3, attack: -2 }, text: "동료가 쓰러져 전열이 열리면 접근 가능한 후퇴 지점을 알린다.", line: "대열 무너졌어! 내 쪽으로 모여." }
+};
+const personality = {
+  greedy:     { name: "탐욕광",       stats: { max: 8, speed: -5 },   text: "장비가 분배되면 항상 입찰을 선언한다. 위력이 내려가면 판정 후보에서 빠진다.", line: "일단 나도 입찰!", works: true },
+  generous:   { name: "양보하는 자",   stats: { max: 12, attack: -2 }, text: "장비로 더 큰 이득을 보는 동료가 입찰하면 양보한다.", line: "이번 건 네가 입어.", works: true },
+  appraiser:  { name: "감정가",       stats: { armor: 2, max: -6 },   text: "장비 교체로 위력이 5 이상 오를 때만 입찰한다.", line: "입어볼 가치가 있는 것만 고를게." },
+  collector:  { name: "희귀품 수집가", stats: { attack: 2, speed: -5 }, text: "희귀 장비가 나오면 입찰한다.", line: "희귀품이면 내가 빠질 수 없지." },
+  underdog:   { name: "약자 챙김",     stats: { max: 10, armor: -2 },  text: "방어가 더 낮은 동료가 같은 장비에 입찰하면 양보한다.", line: "방어구부터 필요한 사람이 가져." },
+  challenger: { name: "승부광",       stats: { attack: 4, armor: -2 }, text: "갈림길에서 강한 적이 보이는 쪽을 제안한다. (기존 무모함)", line: "저 녀석을 잡고 가자.", works: true },
+  cautious:   { name: "신중한 길잡이", stats: { armor: 3, speed: -5 }, text: "파티가 다쳤으면 적이 보이지 않는 길을 제안한다. (기존 조심스러움)", line: "지금 체력으론 저 길이 낫겠어.", works: true },
+  explorer:   { name: "호기심쟁이",   stats: { speed: 10, armor: -2 }, text: "갈림길에서 짧아 보이는 미탐색 샛길을 제안한다. (기존 호기심)", line: "저 모퉁이 너머만 보고 오자.", works: true },
+  navigator:  { name: "길눈 밝은 자", stats: { speed: 8, attack: -2 }, text: "기억하는 보스방 표식의 방향을 제안한다.", line: "아까 본 표식, 이쪽으로 이어져." },
+  faithful:   { name: "독실한 신자",   stats: { max: 8, armor: -1 },   text: "위독한 동료가 있고 기회가 생기면 동료를 위해 기도한다.", line: "제발 저 사람만은 다시 일어서게 해 주세요." },
+  skeptic:    { name: "불신자",       stats: { armor: 2, max: -6 },   text: "기도할 기회가 생기면 거절하고 하던 행동을 이어간다.", line: "지금은 내가 할 일을 할게.", works: true },
+  cheerer:    { name: "칭찬쟁이",     stats: { speed: 5, attack: -1 }, text: "치료로 위독한 동료가 위기를 벗어나면 치료한 동료를 칭찬한다.", line: "그 회복 덕에 버텼어!" },
+  grumbler:   { name: "잔소리꾼",     stats: { armor: 2, speed: -5 }, text: "동료가 피할 수 있었던 예고 공격에 맞으면 놓친 점을 짚어 준다.", line: "젠장, 다음엔 바닥부터 봐!" },
+  peacemaker: { name: "중재자",       stats: { max: 8, attack: -1 },  text: "같은 장비를 두고 언쟁이 나면 분배 판정으로 진행하자고 말한다.", line: "둘 다 필요한 건 알겠어. 판정대로 하자." }
+};
+const stats = [
+  { key: "max", label: "체력", gain: 6, unit: "" },
+  { key: "attack", label: "공격력", gain: 1, unit: "" },
+  { key: "armor", label: "방어", gain: 1, unit: "" },
+  { key: "speed", label: "이동 속도", gain: 4, unit: "%" }
+];
+const budget = 10;
+// What a hero starts with when the GM changes nothing: role traits and a spent 10-point build.
+const defaultBuild = id => ({
+  combat: roles[id].defaults[0], personality: roles[id].defaults[1], points: { ...roles[id].defaultPoints }
+});
+const isDefault = (id, build) => JSON.stringify(build) === JSON.stringify(defaultBuild(id));
+const builds = Object.fromEntries(Object.keys(roles).map(id => [id, defaultBuild(id)]));
+const steps = [
+  { key: "points", title: "스탯 포인트", hint: "10포인트를 나눠 투자한다. 남겨 둘 수도 있다." },
+  { key: "combat", title: "전투 성향", hint: "전투 중 회피, 공격 대상, 보호 대상, 교전 위치를 정한다." },
+  { key: "personality", title: "성격 성향", hint: "갈림길 의견, 장비 입찰, 기도, 동료에게 하는 말을 정한다." }
+];
+let editing = null;   // hero id being edited
+let draft = null;     // copy of that hero's build, committed on the last 확인
+let step = 0;
+
+const $ = id => document.getElementById(id);
+const round = value => Math.round(value * 10) / 10;
+const signed = value => (value > 0 ? "+" : "") + round(value);
+const spentOf = build => Object.values(build.points).reduce((sum, value) => sum + value, 0);
+const statInfo = key => stats.find(stat => stat.key === key);
+const describe = mods => Object.entries(mods).map(([key, value]) =>
+  `<span class="${value > 0 ? "up" : "down"}">${statInfo(key).label} ${signed(value)}${statInfo(key).unit}</span>`).join(" · ");
+
+function finalStats(id, build) {
+  const role = roles[id];
+  const mods = [combat[build.combat].stats, personality[build.personality].stats];
+  return Object.fromEntries(stats.map(({ key, gain }) => {
+    const trait = mods.reduce((sum, mod) => sum + (mod[key] ?? 0), 0);
+    const invest = build.points[key] * gain;
+    const value = key === "speed"
+      ? Math.max(1, role.speed * (100 + trait + invest) / 100)
+      : Math.max(key === "max" ? 1 : 0, role[key] + trait + invest);
+    return [key, { base: role[key], trait, invest, value }];
+  }));
+}
+
+function statList(id, build, withBase) {
+  const f = finalStats(id, build);
+  return `<dl>${stats.map(({ key, label, unit }) => {
+    const { base, value } = f[key];
+    const shown = key === "speed" ? round(value) + "%" : value;
+    const delta = round(value - base);
+    const change = withBase && delta ? ` <span class="${delta > 0 ? "up" : "down"}">(${signed(delta)}${unit})</span>` : "";
+    return `<dt>${label}</dt><dd>${shown}${change}</dd>`;
+  }).join("")}</dl>`;
+}
+
+function renderParty() {
+  $("party").innerHTML = Object.entries(roles).map(([id, role]) => {
+    const build = builds[id];
+    const left = budget - spentOf(build);
+    return `<button class="hero" data-hero="${id}" aria-label="${role.hero} 편성 수정">
+      <div class="art"><img src="${art + role.full}" alt=""><span class="edit">수정</span></div>
+      <div class="info">
+        <div class="name"><b>${role.hero}</b><span>${role.name}</span></div>
+        ${statList(id, build, false)}
+        <div class="chips">
+          <span class="chip">${combat[build.combat].name}<small>전투</small></span>
+          <span class="chip">${personality[build.personality].name}<small>성격</small></span>
+        </div>
+        <span class="left ${left ? "" : "done"}">${isDefault(id, build) ? "기본 편성" : "수정됨"} · ${left ? "남은 포인트 " + left : "포인트 배분 완료"}</span>
+      </div>
+    </button>`;
+  }).join("");
+}
+
+function badge(trait, group) {
+  if (trait.only && trait.only !== editing) return `<span class="badge only">${roles[trait.only].name} 전용</span>`;
+  if (group === "personality" && trait.works) return `<span class="badge works">동작</span>`;
+  return `<span class="badge">행동 미구현</span>`;
+}
+
+function renderPoints() {
+  const used = spentOf(draft);
+  return `<div class="pips" aria-hidden="true">${Array.from({ length: budget }, (_, i) => `<i class="${i < used ? "on" : ""}"></i>`).join("")}</div>
+    <p style="margin:8px 0 4px;font-size:13px;color:var(--muted)">남은 포인트 <strong style="color:var(--paper)">${budget - used}</strong> / ${budget}</p>
+    ${stats.map(({ key, label, gain, unit }) => {
+      const points = draft.points[key];
+      const amount = key === "speed" ? `기본값의 ${signed(points * gain)}%` : signed(points * gain);
+      return `<div class="stat">
+        <span>${label}</span>
+        <small>점당 +${gain}${unit} · ${amount}</small>
+        <button data-stat="${key}" data-step="-1" aria-label="${label} 포인트 빼기">−</button>
+        <output>${points}</output>
+        <button data-stat="${key}" data-step="1" aria-label="${label} 포인트 더하기">+</button>
+      </div>`;
+    }).join("")}`;
+}
+
+function renderTraits(group, table) {
+  const chosen = table[draft[group]];
+  const blocked = chosen.only && chosen.only !== editing;
+  const note = group === "combat"
+    ? (blocked ? `${roles[chosen.only].name}가 아니라 발동하지 않는다. 스탯 보정만 적용된다.` : "대응할 상황이 아직 Core에 없어 스탯 보정만 적용된다.")
+    : (chosen.works ? "첫 구현에서 동작한다." : "아직 행동이 없어 스탯 보정만 적용된다.");
+  return `<div class="traits">${Object.entries(table).map(([id, trait]) =>
+      `<button class="trait ${trait.only && trait.only !== editing ? "blocked" : ""}" data-group="${group}" data-trait="${id}" aria-pressed="${id === draft[group]}">
+        <span>${trait.name}</span>${badge(trait, group)}
+        <span class="mods">${describe(trait.stats)}</span>
+      </button>`).join("")}</div>
+    <div class="about" style="margin-top:10px">
+      <strong>${chosen.name}</strong> · ${chosen.text}<br>
+      <span class="line">“${chosen.line}”</span><br>
+      <span class="note">${note}</span>
+    </div>`;
+}
+
+function renderDialog() {
+  const role = roles[editing];
+  $("side").innerHTML = `<img src="${art + role.full}" alt="">
+    <div class="name"><b>${role.hero}</b><span>${role.name}</span></div>
+    ${statList(editing, draft, true)}`;
+  $("steps").innerHTML = steps.map((s, i) =>
+    `<span class="${i === step ? "now" : i < step ? "past" : ""}">${i + 1}. ${s.title}</span>`).join("");
+  $("step-title").textContent = steps[step].title;
+  $("step-hint").textContent = steps[step].hint;
+  const key = steps[step].key;
+  $("step-body").innerHTML = key === "points" ? renderPoints()
+    : renderTraits(key, key === "combat" ? combat : personality);
+  $("prev").hidden = step === 0;
+  $("next").textContent = step === steps.length - 1 ? "완료" : "확인";
+}
+
+function open(id) {
+  editing = id;
+  draft = structuredClone(builds[id]);
+  step = 0;
+  $("warn").textContent = "";
+  $("overlay").hidden = false;
+  renderDialog();
+  $("next").focus();
+}
+
+function close(commit) {
+  if (commit) builds[editing] = draft;
+  const who = roles[editing].hero;
+  $("overlay").hidden = true;
+  editing = draft = null;
+  renderParty();
+  $("msg").textContent = commit ? `${who}의 편성을 바꿨다.` : "";
+}
+
+document.addEventListener("click", event => {
+  const hero = event.target.closest("[data-hero]");
+  const trait = event.target.closest("[data-trait]");
+  const stat = event.target.closest("[data-stat]");
+  if (hero) return open(hero.dataset.hero);
+  if (event.target === $("overlay")) return close(false);
+  if (trait) { draft[trait.dataset.group] = trait.dataset.trait; return renderDialog(); }
+  if (stat) {
+    const delta = Number(stat.dataset.step);
+    if (delta > 0 && spentOf(draft) >= budget) { $("warn").textContent = "포인트를 모두 썼다. 다른 스탯에서 빼고 넣는다."; return; }
+    draft.points[stat.dataset.stat] = Math.max(0, draft.points[stat.dataset.stat] + delta);
+    $("warn").textContent = "";
+    return renderDialog();
+  }
+  switch (event.target.id) {
+    case "cancel": return close(false);
+    case "restore":
+      draft = defaultBuild(editing);
+      $("warn").textContent = "역할 기본값으로 되돌렸다. 완료를 눌러야 반영된다.";
+      return renderDialog();
+    case "prev": step--; $("warn").textContent = ""; return renderDialog();
+    case "next":
+      if (step === steps.length - 1) return close(true);
+      step++; $("warn").textContent = ""; return renderDialog();
+    case "start": {
+      const left = Object.keys(roles).filter(id => spentOf(builds[id]) < budget).map(id => `${roles[id].hero} ${budget - spentOf(builds[id])}점`);
+      $("msg").textContent = left.length ? `남은 포인트를 둔 채 출발한다 (${left.join(", ")}). 편성이 확정되었다.` : "편성이 확정되었다. 원정을 시작한다.";
+      return;
+    }
+    case "back": $("msg").textContent = "배치 단계로 돌아간다. 편성은 그대로 남는다."; return;
+  }
+});
+
+document.addEventListener("keydown", event => {
+  if ($("overlay").hidden) return;
+  if (event.key === "Escape") close(false);
+});
+
+renderParty();
+</script>
+</body>
+</html>
