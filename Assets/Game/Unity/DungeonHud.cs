@@ -791,7 +791,15 @@ namespace DungeonTycoon.Unity
                 if (!float.IsNaN(stageTop) && stageTop > 0) panelTop = Mathf.Min(panelTop,stageTop);
             }
             float w = screen.width, h = screen.height;
-            game.Board.SetClearArea(Rect.MinMaxRect((columnRight+8)/w,(h-panelTop)/h,1,1-(bossBottom+4)/h));
+            float left = (columnRight+8)/w, lower = (h-panelTop)/h, upper = (bossBottom+4)/h;
+            var area = Rect.MinMaxRect(left,lower,1,1-upper);
+            if (run.Phase == RunPhase.Planning)
+            {
+                // Mirror the HUD margins so the whole map fits around the actual screen centre.
+                float verticalMargin = Mathf.Max(lower,upper);
+                area = Rect.MinMaxRect(left,verticalMargin,1-left,1-verticalMargin);
+            }
+            game.Board.SetClearArea(area);
             if (!fitPending) return;
             // A new stage opens on the whole dungeon, framed inside the area the HUD leaves clear.
             fitPending = false;
