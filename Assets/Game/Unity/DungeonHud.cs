@@ -139,6 +139,9 @@ namespace DungeonTycoon.Unity
             ghostCard = root.Q<Button>("brush-ghost");
             zombieCard = root.Q<Button>("brush-zombie");
             removeCard = root.Q<Button>("brush-remove");
+            skeletonCard.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(MonsterKind.Skeleton)}";
+            ghostCard.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(MonsterKind.Ghost)}";
+            zombieCard.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(MonsterKind.Zombie)}";
             summaryTitle = root.Q<Label>("summary-title");
             summaryDetail = root.Q<Label>("summary-detail");
             trialCard = root.Q<Button>("trial");

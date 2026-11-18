@@ -755,86 +755,23 @@
     height: 100%;
 }
 
-/* Element cards: a glyph tile, a title and one detail line. */
-.hud .card {
+.hud .placement-button {
+    width: 136px;
+    height: 104px;
     flex-shrink: 0;
-    align-items: center;
-    width: 104px;
-    height: 90px;
-    margin: 0 8px 0 0;
-    padding: 0;
-    border-width: 0;
-    border-radius: 0;
-    background-color: var(--card);
+    margin-right: 6px;
 }
-
-.hud #planning .card, .hud #trial { justify-content: center; }
-
-.hud .card:hover {
-    background-color: #3D464B;
-}
-
-.hud .card.chosen {
-    border-width: 2px;
+.hud .placement-button.chosen {
     border-color: var(--teal);
     background-color: var(--chosen);
 }
-
-.hud .card:disabled {
-    opacity: 1;
-    background-color: var(--card);
-}
-
-.hud .card-icon {
-    width: 34px;
-    height: 34px;
-    margin-top: 9px;
-    color: var(--ink);
-    font-size: 17px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-}
-
-.hud .icon-skeleton { background-color: #D9D2BD; }
-.hud .icon-ghost { background-color: #9FC9D8; }
-.hud .icon-zombie { background-color: #8FA978; }
-.hud .icon-remove { background-color: var(--muted); }
-.hud .icon-trial { background-color: var(--gold); font-size: 13px; }
-.hud .icon-bless { background-color: var(--teal); }
-.hud .icon-rest { background-color: #9FB7E0; }
-
-.hud .card:disabled .card-icon {
-    background-color: var(--edge);
-}
-
-.hud .card-title {
-    height: 20px;
-    margin-top: 4px;
-    font-size: 14px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-}
-
-.hud .card.chosen .card-title {
-    color: var(--teal);
-}
-
-.hud .card:disabled .card-title {
-    color: var(--muted);
-}
-
-/* DungeonHud.cs steps this font down (11 → 8) when a detail is wider than the card. */
-.hud .card-detail {
-    height: 16px;
-    font-size: 11px;
-    white-space: nowrap;
-    color: var(--muted);
-    -unity-text-align: middle-center;
-}
-
-.hud .card:disabled .card-detail {
-    color: var(--edge);
-}
+.hud .placement-button.chosen .skill-title { color: var(--teal); }
+.hud .placement-description { font-size: 11px; color: var(--muted); }
+.hud .placement-cost { font-size: 12px; color: var(--gold); }
+.hud .brush-skeleton-art { background-image: url("SkeletonPortrait.png"); }
+.hud .brush-ghost-art { background-image: url("GhostPortrait.png"); }
+.hud .brush-zombie-art { background-image: url("ZombiePortrait.png"); }
+.hud .brush-remove-art { background-image: url("ErasePlacement.png"); }
 
 .hud .summary {
     flex-grow: 1;

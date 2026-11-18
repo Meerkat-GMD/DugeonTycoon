@@ -185,21 +185,29 @@
 
             <ui:VisualElement name="content" class="content">
                 <ui:VisualElement name="planning" class="page">
-                    <ui:Button name="brush-skeleton" class="card" focusable="false">
-                        <ui:Label class="card-title" text="해골" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="비용 1" picking-mode="Ignore" />
+                    <ui:Button name="brush-skeleton" class="skill-button placement-button" focusable="false">
+                        <ui:VisualElement class="skill-art brush-skeleton-art" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="해골" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="저비용 근접 몬스터" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
-                    <ui:Button name="brush-ghost" class="card" focusable="false">
-                        <ui:Label class="card-title" text="유령" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="비용 2 · 영혼 화살" picking-mode="Ignore" />
+                    <ui:Button name="brush-ghost" class="skill-button placement-button" focusable="false">
+                        <ui:VisualElement class="skill-art brush-ghost-art" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="유령" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="빠르게 움직이며 영혼 화살" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
-                    <ui:Button name="brush-zombie" class="card" focusable="false">
-                        <ui:Label class="card-title" text="좀비" picking-mode="Ignore" />
-                        <ui:Label name="detail" class="card-detail" text="비용 3 · 내려찍기" picking-mode="Ignore" />
+                    <ui:Button name="brush-zombie" class="skill-button placement-button" focusable="false">
+                        <ui:VisualElement class="skill-art brush-zombie-art" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="좀비" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="튼튼한 몸으로 내려찍기" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
-                    <ui:Button name="brush-remove" class="card" focusable="false">
-                        <ui:Label class="card-icon icon-remove" text="×" picking-mode="Ignore" />
-                        <ui:Label class="card-title" text="되돌리기" picking-mode="Ignore" />
+                    <ui:Button name="brush-remove" class="skill-button placement-button" focusable="false">
+                        <ui:VisualElement class="skill-art brush-remove-art" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="배치 지우기" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="선택한 칸의 몬스터 제거" picking-mode="Ignore" />
+                        <ui:Label name="detail" class="placement-cost" text="비용 환급" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:VisualElement class="summary">
                         <ui:Label name="summary-title" class="summary-title" text="배치한 몬스터 없음" />
