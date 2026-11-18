@@ -28,10 +28,11 @@ namespace DungeonTycoon.Unity
             "던전 TRPG 용사들이 갈림길에서 어느 길로 갈지 논의한다. 각 용사는 자기 성격 태그와 능력치, 파티의 체력, " +
             "입력에 적힌 보이는 정보만 근거로 길 하나를 고른다. 입력에 없는 것은 용사들도 모른다. " +
             "opinions 배열에 살아 있는 용사마다 role(입력의 영문 역할 ID), option(입력의 길 번호 숫자 문자열), " +
-            "line(30자 이내의 한국어 1인칭 주장)을 넣어 JSON으로 답하라. 최종 결정은 게임이 판정한다.";
+            "line(30자 이내의 한국어 1인칭 주장)을 넣어 JSON으로 답하라. line에서는 길 번호를 말하지 말고 " +
+            "'북쪽 길'처럼 입력에 적힌 길 이름으로 부르며, 용사마다 말투가 겹치지 않게 하라. 최종 결정은 게임이 판정한다.";
 
         private readonly string apiKey;
-        private readonly string model = "gpt-4.1-mini";
+        private readonly string model = "gpt-5.4-mini";
         private DateTime retryAfter;
 
         public PartyDirector()
@@ -174,7 +175,14 @@ namespace DungeonTycoon.Unity
         private async UniTask<T> RequestAsync<T>(DungeonRun run, string instructions, CancellationToken token, string input = null)
             where T : class
         {
-            var payload = new RequestBody { model = model, instructions = instructions, input = input ?? Describe(run) };
+            // GPT-5.x models reason before answering; the heroes' short JSON lines need none of it, and skipping it
+            // keeps answers fast and keeps hidden reasoning from eating the output budget. Older models reject the field.
+            RequestBody payload = model.StartsWith("gpt-5.", StringComparison.Ordinal)
+                ? new ReasoningRequestBody()
+                : new RequestBody();
+            payload.model = model;
+            payload.instructions = instructions;
+            payload.input = input ?? Describe(run);
             try
             {
                 using var request = new UnityWebRequest(Endpoint, "POST")
@@ -191,7 +199,13 @@ namespace DungeonTycoon.Unity
                 await request.SendWebRequest().WithCancellation(deadline.Token);
                 deadline.Token.ThrowIfCancellationRequested();
                 var response = JsonUtility.FromJson<ResponseBody>(request.downloadHandler.text);
-                if (response?.status != "completed" || response.output == null) return null;
+                if (response?.status != "completed" || response.output == null)
+                {
+                    string reason = response?.incomplete_details?.reason;
+                    Debug.LogWarning($"OpenAI 응답이 완료되지 않았습니다 ({model}, 상태 {response?.status ?? "없음"}" +
+                                     $"{(string.IsNullOrEmpty(reason) ? "" : ", 이유 " + reason)}). 이번 판단은 로컬 전술로 진행합니다.");
+                    return null;
+                }
                 foreach (var item in response.output)
                 {
                     if (item?.type != "message" || item.content == null) continue;
@@ -207,6 +221,10 @@ namespace DungeonTycoon.Unity
             {
                 token.ThrowIfCancellationRequested();
                 retryAfter = DateTime.UtcNow.AddSeconds(30);
+                // The message carries the HTTP status and OpenAI's error text (wrong key, unknown model, no credit…),
+                // never the key itself.
+                string why = exception is OperationCanceledException ? $"{TimeoutSeconds}초 안에 응답 없음" : exception.Message;
+                Debug.LogWarning($"OpenAI 요청 실패 ({model}): {why}. 30초 동안 로컬 전술로 진행합니다.");
             }
             return null;
         }
@@ -239,21 +257,25 @@ namespace DungeonTycoon.Unity
             return text.Length > 60 ? text.Substring(0, 60) : text;
         }
 
-        [Serializable] private sealed class RequestBody
+        [Serializable] private class RequestBody
         {
             public string model;
             public string instructions;
             public string input;
             public bool store = false;
-            public int max_output_tokens = 512;
+            // Answers are a few short lines; the headroom covers models that still spend tokens on reasoning.
+            public int max_output_tokens = 1024;
             public TextOptions text = new TextOptions();
         }
+        [Serializable] private sealed class ReasoningRequestBody : RequestBody { public Reasoning reasoning = new Reasoning(); }
+        [Serializable] private sealed class Reasoning { public string effort = "none"; }
         [Serializable] private sealed class TextOptions { public OutputFormat format = new OutputFormat(); }
         [Serializable] private sealed class OutputFormat { public string type = "json_object"; }
 
         // JsonUtility populates these fields from the wire response.
 #pragma warning disable CS0649
-        [Serializable] private sealed class ResponseBody { public string status; public OutputItem[] output; }
+        [Serializable] private sealed class ResponseBody { public string status; public IncompleteDetails incomplete_details; public OutputItem[] output; }
+        [Serializable] private sealed class IncompleteDetails { public string reason; }
         [Serializable] private sealed class OutputItem { public string type; public OutputPart[] content; }
         [Serializable] private sealed class OutputPart { public string type; public string text; }
         [Serializable] private sealed class CombatPlan { public Move[] tactics; }
