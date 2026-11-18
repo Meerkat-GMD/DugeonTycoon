@@ -7,7 +7,12 @@ namespace DungeonTycoon.Core
     public enum MonsterKind { None, Goblin, Ogre }
     public enum PlacementCheck { Allowed, Locked, InvalidKind, NotFloor, NearEntrance, OverBudget, NothingToRemove }
     public enum MonsterMood { Wandering, Chasing, Defeated }
-    public enum CombatEventKind { Attack, Heal, Taunt }
+    /// <summary>
+    /// Attack, Heal and Taunt go from a source to a target. Drop: monster <see cref="CombatEvent.Source"/> left
+    /// <see cref="DungeonRun.Spoils"/>[<see cref="CombatEvent.Amount"/>]. Skill: hero <see cref="CombatEvent.Source"/>
+    /// used the <see cref="HeroSkill"/> in <see cref="CombatEvent.Amount"/>; Target is the main target if any.
+    /// </summary>
+    public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill }
 
     public sealed class MonsterPlacement
     {

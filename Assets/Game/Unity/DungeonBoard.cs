@@ -489,6 +489,9 @@ namespace DungeonTycoon.Unity
                     : (e.Target >= 0 && e.Target < foes.Count ? foes[e.Target].Body.localPosition : Vector3.zero);
                 switch (e.Kind)
                 {
+                    case CombatEventKind.Drop:
+                    case CombatEventKind.Skill:
+                        break;
                     case CombatEventKind.Taunt:
                         tauntAt = Time.time;
                         break;

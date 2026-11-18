@@ -113,6 +113,7 @@ namespace DungeonTycoon.Core
             var item = DropOverride != null ? DropOverride(monster) : EquipmentCatalog.Roll(monster, lootDice);
             if (item == null) return;
             spoils.Add(item);
+            events.Add(new CombatEvent(CombatEventKind.Drop, false, monster.Id, false, monster.Id, spoils.Count - 1));
             log.Add($"전리품 • {HeroTraits.Subject(monster.Name)} {HeroTraits.Particle(item.Name, "을", "를")} 떨어뜨렸다 ({item.GradeName} · {item.Stats})");
         }
 
