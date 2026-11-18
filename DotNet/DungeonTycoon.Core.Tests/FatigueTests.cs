@@ -177,7 +177,7 @@ namespace DungeonTycoon.Core.Tests
                     amount = blow.Amount;
                     armor = target.Armor;
                     int penalty = run.Fatigue == FatigueStage.Rested ? 0 : DungeonRun.TiredAttackPenalty;
-                    Assert.That(amount, Is.EqualTo(Math.Max(0, tank.Attack + 2 * (run.Level - 1) - penalty - target.Armor)));
+                    Assert.That(amount, Is.EqualTo(DungeonRun.Mitigate(tank.Attack + DungeonRun.LevelAttackGain * (run.Level - 1) - penalty, target.Armor)));
                     return true;
                 });
                 Assert.That(amount, Is.Positive, "the tank should have struck through the armour");

@@ -76,11 +76,22 @@ namespace DungeonTycoon.Core.Tests
             Check(typeof(BalanceTable), document.RootElement, "");
         }
 
+        [TestCase(20, 0, 20)]
+        [TestCase(20, 20, 10)]
+        [TestCase(31, 11, 20)]
+        [TestCase(3, 200, 1)]
+        [TestCase(0, 5, 0)]
+        public void ArmourCutsABlowByRatioAndNeverToZero(int attack, int armor, int expected)
+        {
+            var table = new BalanceTable { armorScale = 20 };
+            Assert.That(table.Mitigate(attack, armor), Is.EqualTo(expected));
+        }
+
         [Test]
         public void TheRunUsesTheLoadedTable()
         {
             var table = BalanceFile.Read();
-            table.skeleton.hp = new[] { 1, 2, 3 };
+            table.skeleton.hp = 7;
             table.budget = new[] { 9, 9, 9 };
             var before = BalanceTable.Current;
             try
@@ -88,7 +99,7 @@ namespace DungeonTycoon.Core.Tests
                 BalanceTable.Current = table;
                 var run = new DungeonRun();
                 Assert.That(run.Budget, Is.EqualTo(9));
-                Assert.That(DungeonRun.MonsterStats(MonsterKind.Skeleton, 2).Hp, Is.EqualTo(2));
+                Assert.That(DungeonRun.MonsterStats(MonsterKind.Skeleton).Hp, Is.EqualTo(7));
             }
             finally
             {
