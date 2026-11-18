@@ -135,10 +135,22 @@ namespace DungeonTycoon.Core
         {
             Array.Clear(visible, 0, visible.Length);
             var fresh = new HashSet<TilePoint>();
+            void See(TilePoint tile)
+            {
+                visible[tile.X, tile.Y] = true;
+                if (seen[tile.X, tile.Y]) return;
+                seen[tile.X, tile.Y] = true;
+                fresh.Add(tile);
+            }
             foreach (var hero in party)
             {
                 if (hero.Hp == 0) continue;
                 var eye = heroTiles[(int)hero.Role];
+                // A hero standing in a room sees all of it, however big.
+                int roomId = Map.RoomOf(eye);
+                if (roomId >= 0)
+                    foreach (var tile in Map.RoomView(roomId))
+                        if (!visible[tile.X, tile.Y]) See(tile);
                 for (int y = eye.Y - VisionRadius; y <= eye.Y + VisionRadius; y++)
                 for (int x = eye.X - VisionRadius; x <= eye.X + VisionRadius; x++)
                 {
@@ -146,10 +158,7 @@ namespace DungeonTycoon.Core
                     if (!Map.Contains(tile) || visible[x, y]) continue;
                     int dx = x - eye.X, dy = y - eye.Y;
                     if (dx * dx + dy * dy > VisionRadius * VisionRadius || !Map.HasLineOfSight(eye, tile)) continue;
-                    visible[x, y] = true;
-                    if (seen[x, y]) continue;
-                    seen[x, y] = true;
-                    fresh.Add(tile);
+                    See(tile);
                 }
             }
             if (fresh.Count > 0)

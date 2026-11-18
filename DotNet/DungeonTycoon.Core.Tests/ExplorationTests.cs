@@ -32,17 +32,40 @@ namespace DungeonTycoon.Core.Tests
             var eye = run.Map.Entrance;
             Assert.That(run.IsVisible(eye), Is.True);
             Assert.That(run.IsSeen(run.Map.BossTile), Is.False);
+            var room = new HashSet<TilePoint>(run.Map.RoomView(run.Map.RoomOf(eye)));
             for (int y = 0; y < run.Map.Height; y++)
             for (int x = 0; x < run.Map.Width; x++)
             {
                 var tile = new TilePoint(x, y);
-                if (!run.IsVisible(tile)) continue;
+                if (!run.IsVisible(tile) || room.Contains(tile)) continue;
                 int dx = x - eye.X, dy = y - eye.Y;
                 Assert.That(dx * dx + dy * dy, Is.LessThanOrEqualTo(DungeonRun.VisionRadius * DungeonRun.VisionRadius), tile.ToString());
                 Assert.That(run.Map.HasLineOfSight(eye, tile), Is.True, tile.ToString());
             }
             // Stage 1: the corridor north of the entrance room lies behind the room's top wall.
             Assert.That(run.Map.HasLineOfSight(new TilePoint(2, 26), new TilePoint(5, 17)), Is.False);
+            Assert.That(run.IsSeen(new TilePoint(5, 17)), Is.False);
+        }
+
+        [Test]
+        public void AHeroInARoomSeesTheWholeRoomAndItsWalls()
+        {
+            var run = new DungeonRun();
+            run.Start();
+            var map = run.Map;
+            int entranceRoom = map.RoomOf(map.Entrance);
+            Assert.That(entranceRoom, Is.GreaterThanOrEqualTo(0));
+            foreach (var tile in map.RoomView(entranceRoom)) Assert.That(run.IsVisible(tile), Is.True, tile.ToString());
+            // Stage 1: the wall round the entrance room's far corner lies beyond the vision radius from the entrance.
+            var corner = new TilePoint(10, 19);
+            int dx = corner.X - map.Entrance.X, dy = corner.Y - map.Entrance.Y;
+            Assert.That(dx * dx + dy * dy, Is.GreaterThan(DungeonRun.VisionRadius * DungeonRun.VisionRadius));
+            Assert.That(run.IsVisible(corner), Is.True, "the wall round the room's corner");
+            // One-tile passages and doorways are corridor, not part of any room.
+            Assert.That(map.RoomOf(new TilePoint(5, 17)), Is.EqualTo(-1), "the corridor north of the entrance room");
+            Assert.That(map.RoomOf(new TilePoint(13, 23)), Is.EqualTo(-1), "the passage east of the entrance room");
+            Assert.That(map.RoomOf(new TilePoint(21, 23)), Is.Not.EqualTo(entranceRoom));
+            Assert.That(map.RoomOf(map.BossTile), Is.GreaterThanOrEqualTo(0));
         }
 
         [TestCase(1)]

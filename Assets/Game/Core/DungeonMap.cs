@@ -130,7 +130,67 @@ namespace DungeonTycoon.Core
                 if (d < b) best = tile;
             }
             map.BossTile = best;
+            map.FindRooms();
             return map;
+        }
+
+        /// <summary>
+        /// The room this floor tile belongs to, or -1 for corridors, walls and tiles outside the map. A room is
+        /// floor that lies in some open 2×2 square; one-tile-wide passages and doorways are corridor.
+        /// </summary>
+        public int RoomOf(TilePoint tile) => Contains(tile) ? room[tile.X, tile.Y] : -1;
+
+        /// <summary>The floor tiles of a room, with the walls around them, as seen from inside it.</summary>
+        public IReadOnlyList<TilePoint> RoomView(int id) => id >= 0 && id < roomViews.Count ? roomViews[id] : Array.Empty<TilePoint>();
+
+        public int RoomCount => roomViews.Count;
+
+        private int[,] room;
+        private readonly List<List<TilePoint>> roomViews = new List<List<TilePoint>>();
+
+        private void FindRooms()
+        {
+            room = new int[Width, Height];
+            var open = new bool[Width, Height];
+            for (int y = 0; y < Height; y++)
+            for (int x = 0; x < Width; x++)
+                room[x, y] = -1;
+            for (int y = 0; y + 1 < Height; y++)
+            for (int x = 0; x + 1 < Width; x++)
+                if (floor[x, y] && floor[x + 1, y] && floor[x, y + 1] && floor[x + 1, y + 1])
+                    open[x, y] = open[x + 1, y] = open[x, y + 1] = open[x + 1, y + 1] = true;
+
+            for (int y = 0; y < Height; y++)
+            for (int x = 0; x < Width; x++)
+            {
+                if (!open[x, y] || room[x, y] >= 0) continue;
+                int id = roomViews.Count;
+                var view = new List<TilePoint>();
+                var walls = new HashSet<TilePoint>();
+                var queue = new Queue<TilePoint>();
+                room[x, y] = id;
+                queue.Enqueue(new TilePoint(x, y));
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+                    view.Add(current);
+                    for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        var near = new TilePoint(current.X + dx, current.Y + dy);
+                        if (Contains(near) && !floor[near.X, near.Y]) walls.Add(near);
+                    }
+                    for (int i = 0; i < 4; i++)
+                    {
+                        var next = new TilePoint(current.X + StepX[i], current.Y + StepY[i]);
+                        if (!Contains(next) || !open[next.X, next.Y] || room[next.X, next.Y] >= 0) continue;
+                        room[next.X, next.Y] = id;
+                        queue.Enqueue(next);
+                    }
+                }
+                view.AddRange(walls);
+                roomViews.Add(view);
+            }
         }
 
         public bool Contains(TilePoint tile) => tile.X >= 0 && tile.Y >= 0 && tile.X < Width && tile.Y < Height;
