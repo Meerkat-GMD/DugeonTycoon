@@ -26,16 +26,21 @@ namespace DungeonTycoon.Core
     /// <summary>A desperate hero the party is waiting on. The dungeon is frozen until it is settled.</summary>
     public sealed class PrayerRequest
     {
-        internal PrayerRequest(int token, HeroRole role, PrayerProposal local, bool grumbling)
+        internal PrayerRequest(int token, HeroRole role, PrayerProposal local, bool grumbling, HeroRole? forAlly = null)
         {
             Token = token;
             Role = role;
+            For = forAlly ?? role;
             Local = local;
             Grumbling = grumbling;
         }
 
         public int Token { get; }
+        /// <summary>The hero who prays (or refuses). Their belief changes with the GM's answer.</summary>
         public HeroRole Role { get; }
+        /// <summary>The desperate hero the prayer is for: the same hero, or the ally a devout hero prays for.</summary>
+        public HeroRole For { get; }
+        public bool ForAlly => For != Role;
         /// <summary>The hero is too worn out to pray: they refuse whatever the AI says.</summary>
         public bool Grumbling { get; }
         /// <summary>What the hero does without an AI response.</summary>
@@ -128,7 +133,7 @@ namespace DungeonTycoon.Core
             if (prayer == null || !prayer.Praying) return false;
             switch (answer)
             {
-                case PrayerAnswer.HealingMiracle: return Faith >= MiracleCost && party[(int)prayer.Role].Hp > 0;
+                case PrayerAnswer.HealingMiracle: return Faith >= MiracleCost && party[(int)prayer.For].Hp > 0;
                 case PrayerAnswer.RestMiracle: return Faith >= MiracleCost && FatigueSteps > 0;
                 case PrayerAnswer.Ignore: return true;
                 default: return false;
@@ -147,8 +152,10 @@ namespace DungeonTycoon.Core
             if (prayer == null || token != prayer.Token || prayer.Praying) return null;
             var hero = party[(int)prayer.Role];
             var choice = proposal != null && (!proposal.Prays || !string.IsNullOrWhiteSpace(proposal.Line)) ? proposal : prayer.Local;
-            // The trait and the fatigue decide, not the AI: a skeptic or a grumbling hero never prays.
+            // The trait and the fatigue decide, not the AI: a skeptic or a grumbling hero never prays, a devout one
+            // always does (in the AI's words when it gave some).
             if (hero.Personality == PersonalityTrait.Skeptic || prayer.Grumbling) choice = prayer.Local;
+            else if (hero.Personality == PersonalityTrait.Devout && !choice.Prays) choice = prayer.Local;
             if (!choice.Prays)
             {
                 prayer.Line = prayer.Grumbling && hero.Personality != PersonalityTrait.Skeptic
@@ -177,15 +184,16 @@ namespace DungeonTycoon.Core
             var prayer = PendingPrayer;
             if (prayer == null || token != prayer.Token || !CanAnswerPrayer(answer)) return false;
             var hero = party[(int)prayer.Role];
+            var healed = party[(int)prayer.For];
             string narration;
             switch (answer)
             {
                 case PrayerAnswer.HealingMiracle:
                     Faith -= MiracleCost;
-                    hero.Hp = hero.MaxHp;
-                    hero.Critical = false;
-                    narration = $"치유의 기적 — {hero.Name}의 상처가 모두 아물었다.";
-                    log.Add($"치유의 기적 • {hero.Name} 체력 {hero.Hp} / {hero.MaxHp} / 신앙 -{MiracleCost}");
+                    healed.Hp = healed.MaxHp;
+                    healed.Critical = false;
+                    narration = $"치유의 기적 — {healed.Name}의 상처가 모두 아물었다.";
+                    log.Add($"치유의 기적 • {healed.Name} 체력 {healed.Hp} / {healed.MaxHp} / 신앙 -{MiracleCost}");
                     break;
                 case PrayerAnswer.RestMiracle:
                     Faith -= MiracleCost;
@@ -211,7 +219,8 @@ namespace DungeonTycoon.Core
 
         /// <summary>
         /// Run at the end of a tick: the most hurt desperate hero who has not just refused is asked to pray, if the
-        /// stage's prayer is unused and the GM could pay for a miracle at all.
+        /// stage's prayer is unused and the GM could pay for a miracle at all. A standing devout ally who has not just
+        /// refused (first in march order) kneels in their place and prays for them; a devout hero always prays.
         /// </summary>
         private void CheckDesperation()
         {
@@ -225,11 +234,20 @@ namespace DungeonTycoon.Core
                 if (chosen == null || hero.Hp * chosen.MaxHp < chosen.Hp * hero.MaxHp) chosen = hero;
             }
             if (chosen == null) return;
-            log.Add($"절망 • {chosen.Name} 체력 {chosen.Hp} / {chosen.MaxHp} — 신에게 기도할지 망설인다.");
-            bool grumbling = RollGrumblers(new[] { chosen.Role }).Count > 0;
-            bool prays = chosen.Personality != PersonalityTrait.Skeptic && !grumbling;
-            var local = new PrayerProposal(prays, DialogueLines.Prayer(chosen.Voice));
-            PendingPrayer = new PrayerRequest(++nextPrayerToken, chosen.Role, local, grumbling);
+            var devout = chosen.Personality == PersonalityTrait.Devout ? null : MarchOrder.Select(role => party[(int)role])
+                .FirstOrDefault(hero => hero != chosen && hero.Hp > 0 && hero.Personality == PersonalityTrait.Devout &&
+                                        prayerHolds[(int)hero.Role] == PrayerHold.None);
+            var praying = devout ?? chosen;
+            log.Add(devout == null
+                ? $"절망 • {chosen.Name} 체력 {chosen.Hp} / {chosen.MaxHp} — 신에게 기도할지 망설인다."
+                : $"절망 • {chosen.Name} 체력 {chosen.Hp} / {chosen.MaxHp} — {HeroTraits.Subject(devout.Name)} 대신 기도하려 한다.");
+            bool grumbling = RollGrumblers(new[] { praying.Role }).Count > 0;
+            bool prays = praying.Personality != PersonalityTrait.Skeptic && !grumbling;
+            string words = devout != null ? DialogueLines.DevoutPrayer(chosen.Name)
+                : praying.Personality == PersonalityTrait.Devout ? DialogueLines.DevoutOwnPrayer
+                : DialogueLines.Prayer(praying.Voice);
+            var local = new PrayerProposal(prays, words);
+            PendingPrayer = new PrayerRequest(++nextPrayerToken, praying.Role, local, grumbling, chosen.Role);
         }
 
         /// <summary>Heroes who refused to pray may be asked again once their hold is over.</summary>

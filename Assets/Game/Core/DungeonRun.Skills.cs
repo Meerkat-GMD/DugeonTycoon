@@ -124,14 +124,15 @@ namespace DungeonTycoon.Core
             TryTaunt(tank, engaged);
         }
 
-        private void TryTaunt(HeroState tank, List<MonsterState> engaged)
+        /// <summary>A <paramref name="force"/>d taunt (an interceptor holding a monster) fires whenever one is loose in range.</summary>
+        private void TryTaunt(HeroState tank, List<MonsterState> engaged, bool force = false)
         {
             if (!SkillReady(tank, 0)) return;
             var here = heroTiles[(int)tank.Role];
             var near = engaged.Where(m => Chebyshev(m.Tile, here) <= TauntRadius).ToList();
             var loose = near.Where(m => m.TauntedUntil <= Ticks).ToList();
             // Taunt when a monster goes after someone else, or before a pack can spread its blows.
-            if (!loose.Any(m => MonsterTarget(m) != tank) && loose.Count < 2) return;
+            if (force ? loose.Count == 0 : !loose.Any(m => MonsterTarget(m) != tank) && loose.Count < 2) return;
             UseSkill(tank, 0, false, near[0].Id, "이쪽이다! 덤벼라!",
                 $"{string.Join(", ", near.Select(m => m.Name))}의 시선을 끕니다.");
             foreach (var monster in near)
@@ -288,27 +289,29 @@ namespace DungeonTycoon.Core
             {
                 int before = hero.Hp;
                 hero.Hp = Math.Min(hero.MaxHp, hero.Hp + amount);
-                if (hero.Hp * 10 >= hero.MaxHp * 3) hero.Critical = false;
                 if (hero.Hp > before)
                     events.Add(new CombatEvent(CombatEventKind.Heal, true, (int)healer.Role, true, (int)hero.Role, hero.Hp - before));
+                Recovered(healer, hero);
             }
             return true;
         }
 
         /// <summary>
         /// Goes to the first fallen hero in marching order and raises them once per stage. Returns true while the
-        /// revive takes the healer's turn: walking over, waiting for the next action, or raising.
+        /// revive takes the healer's turn: walking over, waiting for the next action, or raising. A
+        /// <paramref name="bold"/> healer (the rescue leader) walks through areas it would otherwise wait out.
         /// </summary>
-        private bool TryRevive(HeroState healer)
+        private bool TryRevive(HeroState healer, bool bold = false)
         {
             if (healer.Hp == 0 || ReviveUsed || !SkillUnlocked(healer.Role, 1)) return false;
             var fallen = MarchOrder.Select(role => party[(int)role]).FirstOrDefault(hero => hero.Hp == 0);
             if (fallen == null) return false;
             var here = heroTiles[(int)healer.Role];
             var there = heroTiles[(int)fallen.Role];
+            if (bold) TraitShout(healer, $"{HeroTraits.Particle(fallen.Name, "을", "를")} 살리러 달려갑니다.");
             if (!InReach(here, there, healer.Range))
             {
-                HeroStep(healer, there, healer.Range);
+                HeroStep(healer, there, healer.Range, bold);
                 return true;
             }
             if (healer.ActReady > Ticks || Moving(healer)) return true;

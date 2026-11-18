@@ -193,7 +193,10 @@ namespace DungeonTycoon.Core
         /// so the same situation always ends in the same bids. A greedy hero always bids; worse armour still drops
         /// them from the roll. A generous hero passes when another standing hero bids validly and gains more. Who
         /// bids is judged on the first answers, so two generous heroes never both step back for each other.
-        /// Grumbling comes before all of it: a worn-out hero passes, greedy or not, whatever the AI said.
+        /// An appraiser bids exactly when the gain reaches <see cref="AppraiserGain"/>; a collector always bids on
+        /// rare armour; a hero who looks out for the weak passes when a standing ally with less armour bids validly,
+        /// judged on the same first answers. Grumbling comes before all of it: a worn-out hero passes, whatever the
+        /// trait or the AI said.
         /// </summary>
         private List<LootWish> TraitWishes(Equipment item, int index, IReadOnlyList<HeroRole> heroes,
             IReadOnlyList<HeroRole> grumbling, Func<HeroRole, LootWish> first)
@@ -203,28 +206,67 @@ namespace DungeonTycoon.Core
             {
                 var hero = party[(int)role];
                 var wish = first(role);
+                int gain = Gain(hero, item);
                 if (grumbling.Contains(role))
                     wish = new LootWish(role, index, false, DialogueLines.GrumblePass(hero.Voice));
                 else if (hero.Personality == PersonalityTrait.Greedy && !wish.Wants)
-                    wish = new LootWish(role, index, true, DialogueLines.GreedyBid(Gain(hero, item) > 0));
+                    wish = new LootWish(role, index, true, DialogueLines.GreedyBid(gain > 0));
+                else if (hero.Personality == PersonalityTrait.Appraiser && wish.Wants != gain >= AppraiserGain)
+                    wish = new LootWish(role, index, gain >= AppraiserGain, DialogueLines.AppraiserWish(gain, gain >= AppraiserGain));
+                else if (hero.Personality == PersonalityTrait.Collector && item.Grade == EquipmentGrade.Rare && !wish.Wants)
+                    wish = new LootWish(role, index, true, DialogueLines.CollectorBid(item.Name));
                 wishes.Add(wish);
             }
             var bids = wishes.ToArray();
+            bool ValidBid(int j) => bids[j].Wants && item.Power >= Equipment.PowerOf(party[(int)bids[j].Role].WornIn(item.Slot));
             for (int i = 0; i < bids.Length; i++)
             {
                 var hero = party[(int)bids[i].Role];
-                if (hero.Personality != PersonalityTrait.Generous || !bids[i].Wants) continue;
-                int own = Gain(hero, item);
-                HeroState better = null;
-                for (int j = 0; j < bids.Length; j++)
+                if (!bids[i].Wants) continue;
+                if (hero.Personality == PersonalityTrait.Generous)
                 {
-                    var ally = party[(int)bids[j].Role];
-                    if (j == i || !bids[j].Wants || item.Power < Equipment.PowerOf(ally.WornIn(item.Slot))) continue;
-                    if (Gain(ally, item) > own && (better == null || Gain(ally, item) > Gain(better, item))) better = ally;
+                    int own = Gain(hero, item);
+                    HeroState better = null;
+                    for (int j = 0; j < bids.Length; j++)
+                    {
+                        var ally = party[(int)bids[j].Role];
+                        if (j == i || !ValidBid(j)) continue;
+                        if (Gain(ally, item) > own && (better == null || Gain(ally, item) > Gain(better, item))) better = ally;
+                    }
+                    if (better != null) wishes[i] = new LootWish(hero.Role, index, false, DialogueLines.GenerousPass(better.Name));
                 }
-                if (better != null) wishes[i] = new LootWish(hero.Role, index, false, DialogueLines.GenerousPass(better.Name));
+                else if (hero.Personality == PersonalityTrait.Underdog)
+                {
+                    HeroState weaker = null;
+                    for (int j = 0; j < bids.Length; j++)
+                    {
+                        var ally = party[(int)bids[j].Role];
+                        if (j == i || !ValidBid(j) || ally.Armor >= hero.Armor) continue;
+                        if (weaker == null || ally.Armor < weaker.Armor) weaker = ally;
+                    }
+                    if (weaker != null) wishes[i] = new LootWish(hero.Role, index, false, DialogueLines.UnderdogPass(weaker.Name));
+                }
             }
             return wishes;
+        }
+
+        /// <summary>The least gain in power an appraiser bids for. Balance value.</summary>
+        public const int AppraiserGain = 5;
+
+        /// <summary>
+        /// Before candidates roll for the same armour, the first standing peacemaker who is not grumbling sums up what
+        /// each candidate gains and calls for the roll. Words only: the roll is the same.
+        /// </summary>
+        private void Mediate(LootDistribution loot, Equipment item, IReadOnlyList<HeroRole> candidates, List<DialogueBeat> scene)
+        {
+            var peacemaker = loot.Heroes.Select(role => party[(int)role])
+                .FirstOrDefault(hero => hero.Personality == PersonalityTrait.Peacemaker && hero.Hp > 0 && !loot.Grumbles(hero.Role));
+            if (peacemaker == null) return;
+            var gains = candidates.Select(role => (party[(int)role].Name, Gain(party[(int)role], item))).ToList();
+            string line = DialogueLines.PeacemakerCall(gains);
+            peacemaker.LastLine = line;
+            scene.Add(DialogueBeat.Line(peacemaker.Role, line));
+            log.Add($"중재 • {peacemaker.Name} “{line}”");
         }
 
         /// <summary>
@@ -274,6 +316,7 @@ namespace DungeonTycoon.Core
                     log.Add(text);
                 }
 
+                if (candidates.Count > 1) Mediate(loot, item, candidates, scene);
                 for (int round = 0; candidates.Count > 1; round++)
                 {
                     var rolls = candidates.Select(role => new DiceRoll(role, LootRollOverride?.Invoke() ?? lootDice.Next(1, 21), 0, "")).ToList();

@@ -7,7 +7,7 @@ namespace DungeonTycoon.Core
     public sealed class ForkOption
     {
         internal ForkOption(int index, string label, IReadOnlyList<TilePoint> path, HashSet<TilePoint> frontier,
-            int visibleMonsters, int depth)
+            int visibleMonsters, int depth, int markerDistance = -1)
         {
             Index = index;
             Label = label;
@@ -15,7 +15,14 @@ namespace DungeonTycoon.Core
             Frontier = frontier;
             VisibleMonsters = visibleMonsters;
             Depth = depth;
+            MarkerDistance = markerDistance;
         }
+
+        /// <summary>
+        /// Tiles (Chebyshev) from the edge that way to the boss-room marker the party remembers, or -1 when it has
+        /// seen none.
+        /// </summary>
+        public int MarkerDistance { get; }
 
         public int Index { get; }
         /// <summary>Direction from the party, e.g. "북쪽 길".</summary>

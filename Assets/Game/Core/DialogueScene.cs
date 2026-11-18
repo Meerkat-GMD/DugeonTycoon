@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DungeonTycoon.Core
 {
@@ -299,6 +300,24 @@ namespace DungeonTycoon.Core
         /// <summary>A generous hero steps back for an ally who gains more from the armour.</summary>
         public static string GenerousPass(string ally) => $"이번 건 {HeroTraits.Subject(ally)} 입는 게 더 낫겠어. 양보할게.";
 
+        /// <summary>An appraiser bids only when the armour is clearly worth it.</summary>
+        public static string AppraiserWish(int gain, bool wants) => wants
+            ? $"위력이 {gain}이나 오르네. 이건 입을 가치가 있어."
+            : gain > 0 ? $"고작 {gain} 오르는 건 갈아입을 가치가 없어." : "지금 것보다 못해. 감정 결과, 패스.";
+
+        /// <summary>A collector cannot let rare armour go.</summary>
+        public static string CollectorBid(string item) => $"희귀한 {HeroTraits.Particle(item, "을", "를")} 그냥 보낼 순 없지. 내가 입찰!";
+
+        /// <summary>A hero who looks out for the weak steps back for an ally with less armour.</summary>
+        public static string UnderdogPass(string ally) => $"{HeroTraits.Subject(ally)} 나보다 방어가 약해. 이건 {ally} 몫이야.";
+
+        /// <summary>
+        /// A peacemaker sums up what each candidate gains, then calls for the roll. <paramref name="gains"/> are names
+        /// with their gain in power.
+        /// </summary>
+        public static string PeacemakerCall(IReadOnlyList<(string Name, int Gain)> gains) =>
+            string.Join(", ", gains.Select(g => $"{g.Name} +{g.Gain}")) + ". 다들 필요한 건 알겠어. 판정대로 하자.";
+
         /// <summary>A hero's local answer when the party shares out armour.</summary>
         public static string LootWish(HeroRole role, bool wants)
         {
@@ -336,6 +355,28 @@ namespace DungeonTycoon.Core
                 default: return "숨이 다 바닥났어요… 신이시여, 저희를 잊지 않으셨죠?";
             }
         }
+
+        /// <summary>A cheerer the healer just pulled out of danger.</summary>
+        public static string CheerOwnRescue(string healer) => $"{healer}, 그 회복 덕에 버텼어! 고마워!";
+
+        /// <summary>A cheerer watching the healer pull an ally out of danger.</summary>
+        public static string CheerRescue(string healer, string patient) => $"나이스 {healer}! {HeroTraits.Subject(patient)} 살았어!";
+
+        /// <summary>A nagging hero after a telegraphed attack caught an ally: the floor for blasts, the line for beams and bolts.</summary>
+        public static string Nag(string ally, bool ground) => ground
+            ? $"{ally}, 바닥에 장판 뜬 거 못 봤어? 다음엔 바닥부터 봐!"
+            : $"{ally}, 사선 위에 서 있으면 어떡해! 조준선부터 봐!";
+
+        /// <summary>A devout hero praying for a desperate ally.</summary>
+        public static string DevoutPrayer(string ally) =>
+            $"신이시여, 저 말고 {HeroTraits.Particle(ally, "을", "를")} 굽어살펴 주소서. 제발 다시 일어서게 해 주세요.";
+
+        /// <summary>A devout hero praying for themselves.</summary>
+        public const string DevoutOwnPrayer = "신이시여, 끝까지 당신을 믿습니다. 부디 이 손을 잡아 주소서.";
+
+        /// <summary>The narrator as a devout hero kneels for someone else.</summary>
+        public static string PrayerOpeningFor(string name, string ally) =>
+            $"{HeroTraits.Subject(name)} {ally} 곁에 무릎을 꿇고 하늘을 올려다본다.";
 
         /// <summary>What a desperate hero says instead of praying. A skeptic has their own words.</summary>
         public static string PrayerRefusal(PersonalityTrait personality)

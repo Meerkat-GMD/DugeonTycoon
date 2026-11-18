@@ -57,6 +57,7 @@ namespace DungeonTycoon.Core
             PendingFork = null;
             ReachedBoss = false;
             Array.Clear(tactics, 0, tactics.Length);
+            ClearTraitState();
             SeenVersion++;
         }
 
@@ -284,6 +285,7 @@ namespace DungeonTycoon.Core
             var leader = LeaderTile;
             var fromEntrance = Map.Distances(Map.Entrance, Known);
             var labels = ways.Select(way => Describe(leader, way.Path)).ToList();
+            var marker = BossMarker;
             var options = new List<ForkOption>();
             for (int i = 0; i < ways.Count; i++)
             {
@@ -292,7 +294,9 @@ namespace DungeonTycoon.Core
                     : labels[i];
                 int seenMonsters = VisibleMonstersAlong(ways[i]);
                 fromEntrance.TryGetValue(ways[i].Path[ways[i].Path.Count - 1], out int depth);
-                options.Add(new ForkOption(i, label, ways[i].Path, ways[i].Tiles, seenMonsters, depth));
+                var end = ways[i].Path[ways[i].Path.Count - 1];
+                int markerDistance = marker.HasValue ? Math.Max(Math.Abs(end.X - marker.Value.X), Math.Abs(end.Y - marker.Value.Y)) : -1;
+                options.Add(new ForkOption(i, label, ways[i].Path, ways[i].Tiles, seenMonsters, depth, markerDistance));
             }
             log.Add((backtracking ? "막다른 길 • 어디로 되돌아갈지 논의합니다: " : "갈림길 • 용사들이 길을 논의합니다: ") +
                     string.Join(" / ", options.Select(option => option.Label)));
@@ -327,14 +331,42 @@ namespace DungeonTycoon.Core
             return count;
         }
 
-        private static string Describe(TilePoint from, IReadOnlyList<TilePoint> path)
+        private static string Describe(TilePoint from, IReadOnlyList<TilePoint> path) =>
+            Direction(from, path[path.Count - 1]) + "쪽 길";
+
+        /// <summary>The compass direction from one tile to another, north up: "동", "북동", ….</summary>
+        private static string Direction(TilePoint from, TilePoint to)
         {
-            var to = path[path.Count - 1];
             // Rows grow southward, so flip y to measure the angle with north up.
             double angle = Math.Atan2(-(to.Y - from.Y), to.X - from.X) * 180 / Math.PI;
             string[] names = { "동", "북동", "북", "북서", "서", "남서", "남", "남동" };
             int sector = (int)Math.Floor(((angle + 360 + 22.5) % 360) / 45);
-            return names[sector] + "쪽 길";
+            return names[sector];
+        }
+
+        /// <summary>
+        /// The boss-room marker the party remembers: of the boss-room floor it has seen this stage, the tile nearest
+        /// the leader (ties by row, then column). Null before it has seen any.
+        /// </summary>
+        public TilePoint? BossMarker
+        {
+            get
+            {
+                var leader = LeaderTile;
+                TilePoint? best = null;
+                int bestDistance = int.MaxValue;
+                for (int y = 0; y < Map.Height; y++)
+                for (int x = 0; x < Map.Width; x++)
+                {
+                    var tile = new TilePoint(x, y);
+                    if (!seen[x, y] || !Map.IsBossRoom(tile)) continue;
+                    int distance = Math.Max(Math.Abs(x - leader.X), Math.Abs(y - leader.Y));
+                    if (distance >= bestDistance) continue;
+                    best = tile;
+                    bestDistance = distance;
+                }
+                return best;
+            }
         }
 
         private bool PartyHurt()
@@ -367,6 +399,8 @@ namespace DungeonTycoon.Core
                     case Voice.Careful: score -= (hurt ? 6 : 3) * option.VisibleMonsters + .2 * option.Distance; break;
                     case Voice.Curious: score += .4 * option.Openness + .1 * option.Depth; break;
                 }
+                // The navigator heads for the marker they remember; with none seen they argue like anyone else.
+                if (hero.Personality == PersonalityTrait.Navigator && option.MarkerDistance >= 0) score -= 2 * option.MarkerDistance;
                 if (score <= bestScore) continue;
                 bestScore = score;
                 best = option.Index;
@@ -376,6 +410,10 @@ namespace DungeonTycoon.Core
             var fatigue = Fatigue;
             bool exhausted = fatigue == FatigueStage.Exhausted;
             if (grumbling) return new ForkOpinion(hero.Role, best, DialogueLines.GrumbleOpinion(hero.Voice, choice.Label, exhausted));
+            if (hero.Personality == PersonalityTrait.Navigator && choice.MarkerDistance >= 0)
+                return new ForkOpinion(hero.Role, best, fatigue == FatigueStage.Rested
+                    ? $"아까 본 보스방 표식, {choice.Label}로 이어져."
+                    : $"지쳐도 길은 기억해. 표식은 {choice.Label} 쪽이야.");
             string line;
             switch (hero.Voice)
             {
