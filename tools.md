@@ -59,7 +59,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Prototype/serve.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File Prototype/serve.ps1 -Port 8766 -Root .
 ```
 
-결정이 나면 프로토타입은 `prototype/<주제>` 브랜치에 커밋해 보관하고 main에서는 지운다. 결정 내용만 [게임 규칙](gamerules.md)에 남긴다. 보관 중인 브랜치는 `prototype/dialogue-dice`(대화 무대), `prototype/loot-oracle-fatigue`(전리품 분배·신탁·피로)다. 다시 보려면 해당 브랜치의 파일을 꺼내 위 명령으로 띄운다.
+결정이 나면 프로토타입은 `prototype/<주제>` 브랜치에 커밋해 보관하고 main에서는 지운다. 결정 내용만 [게임 규칙](gamerules.md)에 남긴다. 보관 중인 브랜치는 `prototype/dialogue-dice`(대화 무대), `prototype/loot-oracle-fatigue`(전리품 분배·신탁·피로), `prototype/prayer`(기도 장면)다. 다시 보려면 해당 브랜치의 파일을 꺼내 위 명령으로 띄운다.
 
 ## Unity 패키지를 추가하거나 복원이 실패할 때
 
