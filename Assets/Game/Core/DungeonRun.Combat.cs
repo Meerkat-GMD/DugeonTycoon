@@ -433,5 +433,29 @@ namespace DungeonTycoon.Core
             }
             return true;
         }
+
+        /// <summary>
+        /// The least confidence a decided target needs before the hero follows it; below it the local rules pick.
+        /// Balance value.
+        /// </summary>
+        public const double TacticConfidenceFloor = 0.5;
+
+        /// <summary>
+        /// Turns the targets a decision model picked for one hero into a tactic with a local battle line. A target
+        /// under <see cref="TacticConfidenceFloor"/>, or one that is gone, is left to the local rules (-1); with
+        /// neither target left the hero gets no tactic. <see cref="ApplyTactics"/> still checks the result.
+        /// </summary>
+        public HeroTactic DecidedTactic(HeroRole role, int focus, double focusConfidence, int protect, double protectConfidence)
+        {
+            var target = focus < 0 || focusConfidence < TacticConfidenceFloor
+                ? null
+                : monsters.FirstOrDefault(m => m.Id == focus && m.Alive && m.Mood == MonsterMood.Chasing);
+            var ward = protect < 0 || protect >= party.Length || protectConfidence < TacticConfidenceFloor || party[protect].Hp == 0
+                ? null
+                : party[protect];
+            if (target == null && ward == null) return null;
+            string line = DialogueLines.Tactic(role, target?.Name, target != null && target.IsBoss, ward?.Name, ward != null && ward.Role == role);
+            return new HeroTactic(role, target?.Id ?? -1, ward == null ? -1 : (int)ward.Role, line);
+        }
     }
 }

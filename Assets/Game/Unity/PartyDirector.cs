@@ -13,12 +13,14 @@ namespace DungeonTycoon.Unity
     public sealed class PartyDirector
     {
         private const string Endpoint = "https://api.openai.com/v1/responses";
+        // Combat tactics are pure choices, so they go to the Decisions API: it picks from the given options with a
+        // confidence and answers in a fraction of the time a written reply takes. The lines come from Core.
+        private const string DecisionsEndpoint = "https://api.openai.com/v1/decisions";
+        private const string DecisionsModel = "gpt-6-luna";
         private const int TimeoutSeconds = 6;
-        private const string CombatPrompt =
-            "던전 TRPG 용사들을 연기한다. 실시간 전투의 상황이 바뀌었다. 살아 있는 용사마다 다음 상황 변화까지 따를 작전을 정해 JSON으로 답하라. " +
-            "tactics 배열에 role(입력의 영문 역할 ID), focus(먼저 노릴 적의 번호 문자열, 없으면 \"-1\"), " +
-            "protect(먼저 지킬 동료의 영문 역할 ID, 없으면 빈 문자열), line(24자 이내의 짧은 한국어 전투 대사)을 넣어라. " +
-            "Tank는 주변 적을 도발해 공격을 받아내고, Healer는 protect 동료를 먼저 치료한다. 이동·공격·피해는 게임이 판정한다.";
+        private const string CombatContext =
+            "던전 TRPG 용사들의 실시간 전투다. 상황이 바뀌었고, 살아 있는 용사마다 다음 상황 변화까지 따를 작전을 정한다. " +
+            "Tank는 주변 적을 도발해 공격을 받아내고, Healer는 지킬 동료를 먼저 치료한다. 이동·공격·피해는 게임이 판정한다.";
         private const string TrialPrompt =
             "던전에서 낙석이 떨어진다. 살아 있는 용사 중 한 명을 골라 동료를 지킬 행동을 선언하라. " +
             "JSON 객체에 role(입력의 영문 역할 ID)과 line(40자 이내의 한국어 1인칭 대응 선언)을 넣어라. " +
@@ -50,6 +52,8 @@ namespace DungeonTycoon.Unity
         private readonly string apiKey;
         private readonly string model = "gpt-5.4-mini";
         private DateTime retryAfter;
+        // Kept apart so a Decisions outage does not silence the written requests, or the other way round.
+        private DateTime decisionsRetryAfter;
 
         public PartyDirector()
         {
@@ -67,37 +71,90 @@ namespace DungeonTycoon.Unity
         public string ModeLabel => Online ? "OpenAI" : "로컬 전술 AI";
 
         /// <summary>
-        /// Asks for each hero's plan for the current fight. Returns null offline or on failure; the rules then
-        /// keep fighting with local tactics. Entries that do not parse are dropped here; the run re-checks the rest.
+        /// Asks the decision model which monster each hero focuses and whom the healer keeps alive. Returns null
+        /// offline or on failure; the rules then keep fighting with local tactics. Core drops unsure or stale
+        /// targets and gives each tactic its line; the run re-checks the rest.
         /// </summary>
         public async UniTask<IReadOnlyList<HeroTactic>> TacticsAsync(DungeonRun run, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            if (!Online || run.Phase != RunPhase.Combat) return null;
-            var plan = await RequestAsync<CombatPlan>(run, CombatPrompt, token, DescribeFight(run));
-            if (plan?.tactics == null) return null;
-            var tactics = new List<HeroTactic>();
-            foreach (var entry in plan.tactics)
+            if (string.IsNullOrEmpty(apiKey) || DateTime.UtcNow < decisionsRetryAfter || run.Phase != RunPhase.Combat) return null;
+            var engaged = run.Engaged.ToList();
+            var living = run.Party.Where(h => h.Hp > 0).ToList();
+            if (engaged.Count == 0 || living.Count == 0) return null;
+
+            var foes = engaged.Select(m => new DecisionChoice { value = m.Id.ToString(), description = $"적 {m.Id} {m.Name}" })
+                .Append(new DecisionChoice { value = "-1", description = "따로 노릴 적 없음" }).ToArray();
+            var questions = new List<DecisionQuestion>();
+            foreach (var hero in living)
             {
-                if (entry == null || !TryRole(entry.role, out var role) || !int.TryParse(entry.focus, out int focus) ||
-                    string.IsNullOrWhiteSpace(entry.line)) continue;
-                int protect = -1;
-                if (!string.IsNullOrWhiteSpace(entry.protect))
+                questions.Add(new DecisionQuestion
                 {
-                    if (!TryRole(entry.protect, out var ward)) continue;
-                    protect = (int)ward;
-                }
-                tactics.Add(new HeroTactic(role, focus, protect, CleanLine(entry.line)));
+                    name = hero.Role + FocusSuffix,
+                    instructions = $"{hero.Role}({hero.Name})가 먼저 노릴 적은?",
+                    choices = foes
+                });
+                // Only the healer acts on a ward (it heals them first), so only the healer is asked.
+                if (hero.Role != HeroRole.Healer) continue;
+                questions.Add(new DecisionQuestion
+                {
+                    name = hero.Role + ProtectSuffix,
+                    instructions = $"{hero.Role}({hero.Name})가 먼저 치료해 지킬 동료는?",
+                    choices = living.Select(a => new DecisionChoice { value = a.Role.ToString(), description = $"{a.Role} {a.Name}" })
+                        .Append(new DecisionChoice { value = "none", description = "따로 지킬 동료 없음" }).ToArray()
+                });
+            }
+
+            var body = new DecisionsRequest
+            {
+                model = DecisionsModel,
+                input = new[]
+                {
+                    new DecisionMessage { role = "developer", content = new[] { new DecisionPart { text = CombatContext } } },
+                    new DecisionMessage { role = "user", content = new[] { new DecisionPart { text = DescribeFight(run) } } }
+                },
+                questions = questions.ToArray()
+            };
+            var reply = await DecideAsync(body, token);
+            if (reply?.answers == null) return null;
+
+            var picks = new Dictionary<HeroRole, (int Focus, double FocusSure, int Protect, double ProtectSure)>();
+            foreach (var hero in living) picks[hero.Role] = (-1, 0, -1, 0);
+            foreach (var answer in reply.answers)
+            {
+                // A refusal, or any answer that does not parse, leaves that part to the local rules.
+                if (answer?.type != "choice" || string.IsNullOrEmpty(answer.name) || string.IsNullOrEmpty(answer.choice)) continue;
+                bool focus = answer.name.EndsWith(FocusSuffix, StringComparison.Ordinal);
+                string id = answer.name.Substring(0, answer.name.Length - (focus ? FocusSuffix.Length : ProtectSuffix.Length));
+                if ((!focus && !answer.name.EndsWith(ProtectSuffix, StringComparison.Ordinal)) ||
+                    !TryRole(id, out var role) || !picks.TryGetValue(role, out var pick)) continue;
+                if (focus && int.TryParse(answer.choice, out int foe)) pick = (foe, answer.confidence, pick.Protect, pick.ProtectSure);
+                else if (!focus && TryRole(answer.choice, out var ward)) pick = (pick.Focus, pick.FocusSure, (int)ward, answer.confidence);
+                picks[role] = pick;
+            }
+
+            var tactics = new List<HeroTactic>();
+            foreach (var pair in picks)
+            {
+                var tactic = run.DecidedTactic(pair.Key, pair.Value.Focus, pair.Value.FocusSure, pair.Value.Protect, pair.Value.ProtectSure);
+                if (tactic != null) tactics.Add(tactic);
             }
             return tactics;
         }
+
+        private const string FocusSuffix = "_focus";
+        private const string ProtectSuffix = "_protect";
+
+        private static int Chebyshev(TilePoint a, TilePoint b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
 
         private static string DescribeFight(DungeonRun run)
         {
             var text = new StringBuilder();
             text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}{(run.FightingBoss ? ", 보스전" : "")}");
-            foreach (var monster in run.Engaged)
-                text.AppendLine($"적 {monster.Id}: {monster.Name} HP {monster.Hp}/{monster.MaxHp}, 방어 {monster.Armor}, 공격 {monster.Attack}");
+            var engaged = run.Engaged.ToList();
+            foreach (var monster in engaged)
+                text.AppendLine($"적 {monster.Id}: {monster.Name}{(monster.IsBoss ? "(보스)" : "")} HP {monster.Hp}/{monster.MaxHp}, " +
+                                $"방어 {monster.Armor}, 공격 {monster.Attack}");
             foreach (var hero in run.Party)
             {
                 if (hero.Hp == 0)
@@ -105,14 +162,52 @@ namespace DungeonTycoon.Unity
                     text.AppendLine($"{hero.Role} ({hero.Name}) 쓰러짐");
                     continue;
                 }
+                // Every engaged foe's distance, not just the nearest: a monster on a fragile ally is only visible this way.
                 var here = run.HeroTile(hero.Role);
-                var nearest = run.Engaged.OrderBy(m => Math.Max(Math.Abs(m.Tile.X - here.X), Math.Abs(m.Tile.Y - here.Y))).FirstOrDefault();
-                string near = nearest == null ? "" :
-                    $", 가장 가까운 적 {nearest.Id}까지 {Math.Max(Math.Abs(nearest.Tile.X - here.X), Math.Abs(nearest.Tile.Y - here.Y))}칸";
-                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 사거리 {hero.Range}{near}");
+                string gaps = string.Join(", ", engaged.Select(m => $"적 {m.Id} {Chebyshev(m.Tile, here)}칸"));
+                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 사거리 {hero.Range}, 거리: {gaps}");
             }
-            text.Append("각 용사의 작전을 JSON으로 작성해.");
-            return text.ToString();
+            return text.ToString().TrimEnd();
+        }
+
+        /// <summary>Sends one Decisions request. Null on failure, which also pauses Decisions requests for 30 s.</summary>
+        private async UniTask<DecisionsResponse> DecideAsync(DecisionsRequest body, CancellationToken token)
+        {
+            try
+            {
+                string text = await PostAsync(DecisionsEndpoint, JsonUtility.ToJson(body), token);
+                var response = JsonUtility.FromJson<DecisionsResponse>(text);
+                if (response?.answers != null) return response;
+                Debug.LogWarning($"OpenAI Decisions 응답에 answers가 없습니다 ({DecisionsModel}). 이번 작전은 로컬 전술로 진행합니다.");
+            }
+            catch (Exception exception) when (exception is OperationCanceledException || exception is UnityWebRequestException ||
+                                              exception is ArgumentException || exception is InvalidOperationException)
+            {
+                token.ThrowIfCancellationRequested();
+                decisionsRetryAfter = DateTime.UtcNow.AddSeconds(30);
+                string why = exception is OperationCanceledException ? $"{TimeoutSeconds}초 안에 응답 없음" : exception.Message;
+                Debug.LogWarning($"OpenAI Decisions 요청 실패 ({DecisionsModel}): {why}. 30초 동안 전투 작전은 로컬 전술로 진행합니다.");
+            }
+            return null;
+        }
+
+        /// <summary>Posts JSON with the key and the shared timeout; returns the response text or throws.</summary>
+        private async UniTask<string> PostAsync(string endpoint, string json, CancellationToken token)
+        {
+            using var request = new UnityWebRequest(endpoint, "POST")
+            {
+                timeout = TimeoutSeconds,
+                redirectLimit = 0,
+                uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json)),
+                downloadHandler = new DownloadHandlerBuffer()
+            };
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.SetRequestHeader("Authorization", "Bearer " + apiKey);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+            using var timer = deadline.CancelAfterSlim(TimeSpan.FromSeconds(TimeoutSeconds), DelayType.Realtime);
+            await request.SendWebRequest().WithCancellation(deadline.Token);
+            deadline.Token.ThrowIfCancellationRequested();
+            return request.downloadHandler.text;
         }
 
         public async UniTask<(HeroRole Role, string Line)> RespondAsync(DungeonRun run, CancellationToken token)
@@ -288,20 +383,7 @@ namespace DungeonTycoon.Unity
             payload.input = input ?? Describe(run);
             try
             {
-                using var request = new UnityWebRequest(Endpoint, "POST")
-                {
-                    timeout = TimeoutSeconds,
-                    redirectLimit = 0,
-                    uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(JsonUtility.ToJson(payload))),
-                    downloadHandler = new DownloadHandlerBuffer()
-                };
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.SetRequestHeader("Authorization", "Bearer " + apiKey);
-                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
-                using var timer = deadline.CancelAfterSlim(TimeSpan.FromSeconds(TimeoutSeconds), DelayType.Realtime);
-                await request.SendWebRequest().WithCancellation(deadline.Token);
-                deadline.Token.ThrowIfCancellationRequested();
-                var response = JsonUtility.FromJson<ResponseBody>(request.downloadHandler.text);
+                var response = JsonUtility.FromJson<ResponseBody>(await PostAsync(Endpoint, JsonUtility.ToJson(payload), token));
                 if (response?.status != "completed" || response.output == null)
                 {
                     string reason = response?.incomplete_details?.reason;
@@ -375,15 +457,22 @@ namespace DungeonTycoon.Unity
         [Serializable] private sealed class TextOptions { public OutputFormat format = new OutputFormat(); }
         [Serializable] private sealed class OutputFormat { public string type = "json_object"; }
 
+        [Serializable] private sealed class DecisionsRequest { public string model; public DecisionMessage[] input; public DecisionQuestion[] questions; }
+        [Serializable] private sealed class DecisionMessage { public string role; public DecisionPart[] content; }
+        [Serializable] private sealed class DecisionPart { public string type = "input_text"; public string text; }
+        [Serializable] private sealed class DecisionQuestion { public string type = "choice"; public string name, instructions; public DecisionChoice[] choices; }
+        [Serializable] private sealed class DecisionChoice { public string value, description; }
+
         // JsonUtility populates these fields from the wire response.
 #pragma warning disable CS0649
         [Serializable] private sealed class ResponseBody { public string status; public IncompleteDetails incomplete_details; public OutputItem[] output; }
         [Serializable] private sealed class IncompleteDetails { public string reason; }
         [Serializable] private sealed class OutputItem { public string type; public OutputPart[] content; }
         [Serializable] private sealed class OutputPart { public string type; public string text; }
-        [Serializable] private sealed class CombatPlan { public Move[] tactics; }
-        // Numbers stay strings so a missing field is not silently read as 0.
-        [Serializable] private sealed class Move { public string role, focus, protect, line; }
+        [Serializable] private sealed class DecisionsResponse { public DecisionAnswer[] answers; }
+        // choice stays a string so a missing field is not silently read as monster 0; a missing confidence reads as
+        // 0, under the floor, so that part goes to the local rules.
+        [Serializable] private sealed class DecisionAnswer { public string type, name, choice; public float confidence; }
         [Serializable] private sealed class TrialResponse { public string role, line; }
         [Serializable] private sealed class ForkPlan { public Vote[] opinions; }
         // option stays a string so a missing field is not silently read as path 0.

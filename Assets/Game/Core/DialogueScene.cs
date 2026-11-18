@@ -136,6 +136,30 @@ namespace DungeonTycoon.Core
 
         public static string Opening(ForkDiscussion fork) => fork.Backtracking ? BacktrackOpening : ForkOpening;
 
+        /// <summary>
+        /// A hero's short battle line for a decided tactic: the ally to keep alive comes first, then the monster to
+        /// focus. <paramref name="foe"/> and <paramref name="ward"/> are names, or null when the tactic has none.
+        /// </summary>
+        public static string Tactic(HeroRole role, string foe, bool foeIsBoss, string ward, bool wardIsSelf)
+        {
+            if (ward != null)
+            {
+                switch (role)
+                {
+                    case HeroRole.Healer: return wardIsSelf ? "제 상처부터 돌볼게요!" : $"{ward}부터 치료할게요!";
+                    case HeroRole.Tank: return wardIsSelf ? "아직 버틸 수 있다!" : $"{ward}, 내 뒤로 와!";
+                    default: return wardIsSelf ? "나부터 추슬러야겠어." : $"{ward}, 내가 엄호할게!";
+                }
+            }
+            switch (role)
+            {
+                case HeroRole.Tank: return foeIsBoss ? $"{foe}, 내가 상대다!" : $"{foe}, 이쪽을 봐라!";
+                case HeroRole.Healer: return $"{foe}, 물러나요!";
+                case HeroRole.MeleeDamage: return foeIsBoss ? $"{foe}의 목은 내 거다!" : $"{foe}부터 베어 주지!";
+                default: return foeIsBoss ? $"{foe}의 급소를 노린다." : $"{foe}, 조준했어.";
+            }
+        }
+
         public static string TrialTitle(string ability) => "역경 판정 — d20 + " + ability;
 
         /// <summary>What the hero whose opinion won says before the party sets off.</summary>

@@ -171,6 +171,32 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
+        public void DecidedTacticsDropUnsureOrMissingTargetsAndSpeakLocalLines()
+        {
+            var run = DungeonRunTests.RunInCombat(MonsterKind.Ogre);
+            var foe = run.Engaged.First();
+            double sure = DungeonRun.TacticConfidenceFloor, unsure = DungeonRun.TacticConfidenceFloor - 0.01;
+
+            var strike = run.DecidedTactic(HeroRole.MeleeDamage, foe.Id, sure, -1, 1);
+            Assert.That(strike.Focus, Is.EqualTo(foe.Id));
+            Assert.That(strike.Line, Does.Contain(foe.Name));
+
+            Assert.That(run.DecidedTactic(HeroRole.MeleeDamage, foe.Id, unsure, -1, 1), Is.Null, "an unsure target is left to the local rules");
+            Assert.That(run.DecidedTactic(HeroRole.MeleeDamage, 999, 1, -1, 1), Is.Null, "a target that is not in the fight is dropped");
+
+            // The healer keeps a sure ward even when the focus is unsure; the line names the ward.
+            var tank = run.Party[(int)HeroRole.Tank];
+            var heal = run.DecidedTactic(HeroRole.Healer, foe.Id, unsure, (int)HeroRole.Tank, sure);
+            Assert.That(heal.Focus, Is.EqualTo(-1));
+            Assert.That(heal.Protect, Is.EqualTo((int)HeroRole.Tank));
+            Assert.That(heal.Line, Does.Contain(tank.Name));
+
+            Assert.That(run.ApplyTactics(run.Situation, new[] { strike, heal }), Is.True);
+            Assert.That(run.TacticOf(HeroRole.MeleeDamage), Is.SameAs(strike));
+            Assert.That(run.Party[(int)HeroRole.Healer].LastLine, Is.EqualTo(heal.Line));
+        }
+
+        [Test]
         public void ADebateFreezesTheWholeDungeonUntilTheForkIsSettled()
         {
             var blind = new DungeonRun();
