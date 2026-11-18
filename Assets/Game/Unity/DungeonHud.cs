@@ -20,7 +20,12 @@ namespace DungeonTycoon.Unity
         private static readonly string[] RoleNames = { "탱커", "힐러", "근딜", "원딜" };
         private static readonly string[] RoleGlyphs = { "탱", "힐", "근", "원" };
 
-        // Layout, in GUI units. The GUI is scaled so the screen is at least 1000 x 640 units.
+        // Layout is written in GUI units; `scale` turns them into screen pixels at draw time. Rects are snapped to
+        // whole pixels and fonts are rasterised at their final pixel size, so the HUD stays sharp at any resolution.
+        // The scale follows the screen height against ReferenceHeight, never drops below ReadableScale unless the
+        // layout would not fit, and never lets the screen fall below MinWidth x MinHeight units.
+        private const float ReferenceHeight = 640, ReadableScale = .75f;
+        private const float MinWidth = 1000, MinHeight = 500;
         private const float Margin = 10;
         private const float CardWidth = 170, CardHeight = 50, CardGap = 10, Portrait = 46;
         private const float BossTop = 8, BossHeight = 38;
@@ -84,7 +89,8 @@ namespace DungeonTycoon.Unity
                     richText = false, padding = new RectOffset(), margin = new RectOffset()
                 };
             }
-            scale = Mathf.Min(Screen.width/1000f,Screen.height/640f);
+            scale = Mathf.Min(Screen.width/MinWidth,Screen.height/MinHeight,
+                Mathf.Max(Screen.height/ReferenceHeight,ReadableScale));
             if (scale <= 0) return;
             width = Screen.width/scale;
             height = Screen.height/scale;
@@ -101,9 +107,7 @@ namespace DungeonTycoon.Unity
                 if (run.Phase == RunPhase.Planning) game.Board.ShowWholeDungeon();
             }
 
-            var oldMatrix = GUI.matrix;
             var oldColor = GUI.color;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(scale,scale,1));
             GUI.color = Color.white;
             blocked = history;
             solid.Clear();
@@ -117,7 +121,6 @@ namespace DungeonTycoon.Unity
             BottomPanel(run,panelTop);
             BoardInput(run);
             if (history) History(run);
-            GUI.matrix = oldMatrix;
             GUI.color = oldColor;
         }
 
@@ -212,7 +215,7 @@ namespace DungeonTycoon.Unity
             Solid(card);
             bool picked = game.SelectedHero == index;
             bool pickable = Exploring(run) && !down;
-            bool hover = pickable && !blocked && card.Contains(Event.current.mousePosition);
+            bool hover = pickable && !blocked && card.Contains(Mouse);
             Fill(card,Fade(hover ? Card : Ink,.78f));
             if (picked) Frame(card,2,Gold);
             // Picking a hero chooses who the GM's help goes to; clicking again clears the choice.
@@ -239,8 +242,8 @@ namespace DungeonTycoon.Unity
             }
             if (down || string.IsNullOrWhiteSpace(line) || Time.unscaledTime-heardAt[index] > LineSeconds) return;
             ConfigureText(12,Ink,false,TextAnchor.UpperLeft,true);
-            float bubbleWidth = Mathf.Min(240,text.CalcSize(new GUIContent(line)).x+16);
-            float bubbleHeight = text.CalcHeight(new GUIContent(line),bubbleWidth-16)+10;
+            float bubbleWidth = Mathf.Min(240,Measure(line).x+16);
+            float bubbleHeight = MeasureHeight(line,bubbleWidth-16)+10;
             var bubble = new Rect(card.xMax+8,card.y+(card.height-bubbleHeight)*.5f,bubbleWidth,bubbleHeight);
             Fill(bubble,Fade(Paper,.92f));
             Fill(new Rect(bubble.x-4,bubble.center.y-3,4,6),Fade(Paper,.92f));
@@ -311,9 +314,9 @@ namespace DungeonTycoon.Unity
         private float Stat(float right,string title,string value,Color accent,float top)
         {
             ConfigureText(15,accent,true,TextAnchor.MiddleLeft,false);
-            float valueWidth = text.CalcSize(new GUIContent(value)).x;
+            float valueWidth = Measure(value).x;
             ConfigureText(11,Muted,false,TextAnchor.MiddleLeft,false);
-            float titleWidth = text.CalcSize(new GUIContent(title)).x;
+            float titleWidth = Measure(title).x;
             float x = right-valueWidth-titleWidth-6;
             Write(new Rect(x,top,titleWidth+2,TabHeight),title,11,Muted);
             Write(new Rect(x+titleWidth+6,top,valueWidth+2,TabHeight),value,15,accent,true);
@@ -421,18 +424,28 @@ namespace DungeonTycoon.Unity
         /// <summary>A square element card: glyph tile, title and one detail line. Returns true when clicked.</summary>
         private bool ElementCard(Rect r,string glyph,Color accent,string title,string detail,bool chosen,bool enabled)
         {
-            bool hover = !blocked && enabled && r.Contains(Event.current.mousePosition);
+            bool hover = !blocked && enabled && r.Contains(Mouse);
             Fill(r,chosen ? Hex(0x35534D) : hover ? Color.Lerp(Card,Paper,.1f) : Card);
             if (chosen) Frame(r,2,Teal);
             var icon = new Rect(r.x+(r.width-34)*.5f,r.y+9,34,34);
             Fill(icon,enabled ? accent : Edge);
             Write(icon,glyph,glyph.Length > 1 ? 13 : 17,Ink,true,TextAnchor.MiddleCenter);
             Write(new Rect(r.x+4,r.y+47,r.width-8,20),title,14,enabled ? (chosen ? Teal : Paper) : Muted,true,TextAnchor.MiddleCenter);
-            Write(new Rect(r.x+4,r.y+67,r.width-8,16),detail,11,enabled ? Muted : Edge,false,TextAnchor.MiddleCenter);
+            // Long details step the font down rather than being cut off at the card's edge.
+            int detailSize = 11;
+            for (; detailSize > 8; detailSize--)
+            {
+                ConfigureText(detailSize,Muted,false,TextAnchor.MiddleCenter,false);
+                if (Measure(detail).x <= r.width-8) break;
+            }
+            Write(new Rect(r.x+4,r.y+67,r.width-8,16),detail,detailSize,enabled ? Muted : Edge,false,TextAnchor.MiddleCenter);
             return enabled && Hit(r);
         }
 
         // ── Board input ──────────────────────────────────────────────────
+
+        /// <summary>The mouse in GUI units, the same space as the layout and the `solid` rects.</summary>
+        private Vector2 Mouse => Event.current.mousePosition/scale;
 
         private Vector2 ToScreen(Vector2 gui) => new Vector2(gui.x*scale,Screen.height-gui.y*scale);
 
@@ -446,7 +459,7 @@ namespace DungeonTycoon.Unity
         private void BoardInput(DungeonRun run)
         {
             var e = Event.current;
-            var mouse = e.mousePosition;
+            var mouse = Mouse;
             bool overBoard = !history && !OverHud(mouse) && game.Board.ContainsScreenPoint(ToScreen(mouse));
             bool editing = overBoard && run.Phase == RunPhase.Planning;
             TilePoint tile = default;
@@ -460,7 +473,7 @@ namespace DungeonTycoon.Unity
             else if (e.type == EventType.MouseDrag && panning)
             {
                 // A drag that started on the board keeps panning even when the cursor crosses the HUD.
-                game.Board.Pan(ToScreen(mouse-e.delta),ToScreen(mouse));
+                game.Board.Pan(ToScreen(mouse-e.delta/scale),ToScreen(mouse));
                 e.Use();
             }
             else if (panning && e.rawType == EventType.MouseUp && (e.button == 1 || e.button == 2))
@@ -538,12 +551,13 @@ namespace DungeonTycoon.Unity
             }
             for (int i=rowOffsets.Count-1;i<run.Log.Count;i++)
             {
-                float row = Mathf.Max(31,text.CalcHeight(new GUIContent(run.Log[i]),lineWidth-18)+15);
+                float row = Mathf.Max(31,MeasureHeight(run.Log[i],lineWidth-18)+15);
                 rowOffsets.Add(rowOffsets[i]+row);
             }
             float contentHeight = rowOffsets[rowOffsets.Count-1];
             scroll.y = Mathf.Clamp(scroll.y,0,Mathf.Max(0,contentHeight-area.height));
-            scroll = GUI.BeginScrollView(area,scroll,new Rect(0,0,lineWidth,contentHeight),false,true);
+            // The scroll view works in pixels; everything drawn inside it still goes through Px.
+            scroll = GUI.BeginScrollView(Px(area),scroll*scale,new Rect(0,0,lineWidth*scale,contentHeight*scale),false,true)/scale;
             int firstRow = rowOffsets.BinarySearch(scroll.y);
             if (firstRow < 0) firstRow = Mathf.Max(0,~firstRow-1);
             for (int i=firstRow;i<run.Log.Count && rowOffsets[i]<scroll.y+area.height;i++)
@@ -562,18 +576,18 @@ namespace DungeonTycoon.Unity
         /// <summary>Marks a drawn rectangle as HUD, so the board ignores clicks, drags and wheel over it.</summary>
         private void Solid(Rect r) => solid.Add(r);
 
-        private bool Hit(Rect r) => !blocked && GUI.Button(r,GUIContent.none,GUIStyle.none);
+        private bool Hit(Rect r) => !blocked && GUI.Button(Px(r),GUIContent.none,GUIStyle.none);
 
         private bool SmallButton(Rect r,string caption,Color background,Color ink,bool enabled = true)
         {
             Solid(r);
-            bool hover = !blocked && enabled && r.Contains(Event.current.mousePosition);
+            bool hover = !blocked && enabled && r.Contains(Mouse);
             Fill(r,enabled ? (hover ? Color.Lerp(background,Paper,.12f) : background) : Card);
             Write(r,caption,13,enabled ? ink : Hex(0x91A09E),true,TextAnchor.MiddleCenter);
             return enabled && Hit(r);
         }
 
-        private static void Meter(Rect r,float fraction,Color color)
+        private void Meter(Rect r,float fraction,Color color)
         {
             Fill(r,Fade(Ink,.9f));
             Fill(new Rect(r.x,r.y,r.width*Mathf.Clamp01(fraction),r.height),color);
@@ -589,19 +603,59 @@ namespace DungeonTycoon.Unity
             TextAnchor alignment = TextAnchor.MiddleLeft,bool wrap = false)
         {
             ConfigureText(size,color,bold,alignment,wrap);
-            GUI.Label(r,value,text);
+            var px = Px(r);
+            // Single lines get at least one full line of height, so rounding the font up never clips glyph bottoms.
+            float line = wrap ? 0 : LineHeight();
+            if (px.height < line)
+            {
+                float grow = Mathf.Ceil(line-px.height);
+                int row = (int)alignment/3;
+                px.yMin -= row == 0 ? 0 : row == 1 ? Mathf.Floor(grow*.5f) : grow;
+                px.yMax += row == 0 ? grow : row == 1 ? Mathf.Ceil(grow*.5f) : 0;
+            }
+            GUI.Label(px,value,text);
+        }
+
+        /// <summary>Snaps a rect in GUI units to whole screen pixels. Edges are rounded on their own so neighbouring
+        /// rects stay flush, and anything with a size keeps at least one pixel.</summary>
+        private Rect Px(Rect r)
+        {
+            float x0 = Mathf.Round(r.xMin*scale), y0 = Mathf.Round(r.yMin*scale);
+            float x1 = Mathf.Round(r.xMax*scale), y1 = Mathf.Round(r.yMax*scale);
+            if (r.width > 0 && x1-x0 < 1) x1 = x0+1;
+            if (r.height > 0 && y1-y0 < 1) y1 = y0+1;
+            return Rect.MinMaxRect(x0,y0,x1,y1);
+        }
+
+        /// <summary>Text size in GUI units for the current text settings.</summary>
+        private Vector2 Measure(string value) => text.CalcSize(new GUIContent(value))/scale;
+
+        private float MeasureHeight(string value,float width) => text.CalcHeight(new GUIContent(value),width*scale)/scale;
+
+        private readonly Dictionary<int,float> lineHeights = new Dictionary<int,float>();
+
+        private float LineHeight()
+        {
+            int key = text.fontSize*2+(text.fontStyle == FontStyle.Bold ? 1 : 0);
+            if (lineHeights.TryGetValue(key,out float line)) return line;
+            bool wrap = text.wordWrap;
+            text.wordWrap = false;
+            line = Mathf.Ceil(text.CalcSize(new GUIContent("가Hg")).y);
+            text.wordWrap = wrap;
+            lineHeights[key] = line;
+            return line;
         }
 
         private void ConfigureText(int size,Color color,bool bold,TextAnchor alignment,bool wrap)
         {
-            text.fontSize = size;
+            text.fontSize = Mathf.Max(1,Mathf.RoundToInt(size*scale));
             text.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
             text.normal.textColor = color;
             text.alignment = alignment;
             text.wordWrap = wrap;
         }
 
-        private static void Frame(Rect r,float thickness,Color color)
+        private void Frame(Rect r,float thickness,Color color)
         {
             Fill(new Rect(r.x,r.y,r.width,thickness),color);
             Fill(new Rect(r.x,r.yMax-thickness,r.width,thickness),color);
@@ -609,11 +663,11 @@ namespace DungeonTycoon.Unity
             Fill(new Rect(r.xMax-thickness,r.y,thickness,r.height),color);
         }
 
-        private static void Fill(Rect r,Color color)
+        private void Fill(Rect r,Color color)
         {
             var previous = GUI.color;
             GUI.color = color;
-            GUI.DrawTexture(r,Texture2D.whiteTexture);
+            GUI.DrawTexture(Px(r),Texture2D.whiteTexture);
             GUI.color = previous;
         }
 

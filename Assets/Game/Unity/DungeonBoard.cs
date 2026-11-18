@@ -10,7 +10,11 @@ namespace DungeonTycoon.Unity
     {
         public const float Tile = 1.25f;
         private const float CameraPitch = 58f;
-        private const float CameraDistance = 45f;
+        // Orthographic view depth only matters for clipping and shadows, so the camera sits just far enough
+        // back to keep figures and walls in front of it. URP caps shadow distance at the far plane, which
+        // keeps the shadow map spent on the floor the camera can actually see.
+        private const float CameraClearance = 4f;
+        private const float FarSlack = 2f;
         private const float MinZoom = 2.6f;
         private const float ZoomStep = 1.13f;
         private const float FollowZoom = 5.2f;
@@ -128,7 +132,6 @@ namespace DungeonTycoon.Unity
             boardCamera.clearFlags = CameraClearFlags.SolidColor;
             boardCamera.backgroundColor = new Color32(14,17,21,255);
             boardCamera.nearClipPlane = .1f;
-            boardCamera.farClipPlane = 140;
             ConfigureLight();
 
             hoverAllowed = Draw("놓을 수 있는 칸", DungeonScenery.TileMarker(Tile, Finish.Mint), meshes);
@@ -437,7 +440,13 @@ namespace DungeonTycoon.Unity
             // Shift the camera so focus lands on the centre of the uncovered area, not the screen centre.
             float shiftX = (.5f-clearArea.center.x)*2*zoom*aspect;
             float shiftY = (.5f-clearArea.center.y)*2*zoom;
-            view.position = transform.TransformPoint(focus) - view.forward*CameraDistance + view.right*shiftX + view.up*shiftY;
+            // A floor point that sits u above the focus on screen lies u/tan(pitch) further along the view axis.
+            // The view's bottom edge is at shiftY - zoom and its top edge at shiftY + zoom, so the nearest floor
+            // keeps CameraClearance in front of the camera and the far plane stops just past the farthest floor.
+            float tan = Mathf.Tan(CameraPitch*Mathf.Deg2Rad);
+            float distance = (zoom-shiftY)/tan + CameraClearance;
+            boardCamera.farClipPlane = distance + (zoom+shiftY)/tan + FarSlack;
+            view.position = transform.TransformPoint(focus) - view.forward*distance + view.right*shiftX + view.up*shiftY;
         }
 
         private bool TryFloorPoint(Vector2 screenPosition, out Vector3 local)
