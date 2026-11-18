@@ -63,7 +63,8 @@ namespace DungeonTycoon.Unity
         private float adversityStarted = -1000;
         private bool blessing;
         private Camera boardCamera;
-        private Rect viewport = new Rect(0,0,1,1);
+        // The part of the screen the HUD leaves uncovered, as a fraction of the screen (origin bottom-left).
+        private Rect clearArea = new Rect(0,0,1,1);
         private Vector3 focus;
         private float zoom = 8;
         private int lastWidth, lastHeight;
@@ -324,10 +325,20 @@ namespace DungeonTycoon.Unity
 
         // ── Camera ───────────────────────────────────────────────────────
 
-        public void SetViewport(Rect normalizedRect)
+        /// <summary>
+        /// The camera always draws the whole screen and the HUD floats on top. This names the part of the
+        /// screen the HUD leaves uncovered, so focus, follow, full zoom-out and pan limits use that area.
+        /// The view does not jump when the area changes.
+        /// </summary>
+        public void SetClearArea(Rect normalizedRect)
         {
-            if (normalizedRect.width <= 0 || normalizedRect.height <= 0 || viewport == normalizedRect) return;
-            viewport = normalizedRect;
+            normalizedRect = Rect.MinMaxRect(Mathf.Clamp01(normalizedRect.xMin), Mathf.Clamp01(normalizedRect.yMin),
+                Mathf.Clamp01(normalizedRect.xMax), Mathf.Clamp01(normalizedRect.yMax));
+            if (normalizedRect.width < .05f || normalizedRect.height < .05f || clearArea == normalizedRect) return;
+            if (boardCamera && !FollowParty && TryFloorPoint(
+                    new Vector2(normalizedRect.center.x*Screen.width, normalizedRect.center.y*Screen.height), out var kept))
+                focus = kept;
+            clearArea = normalizedRect;
             if (boardCamera) ApplyCamera();
         }
 
@@ -366,31 +377,37 @@ namespace DungeonTycoon.Unity
             float aspect = (float)Math.Max(1,boardCamera.pixelWidth)/Math.Max(1,boardCamera.pixelHeight);
             float width = (map.Width+1)*Tile, depth = (map.Height+1)*Tile;
             float sin = Mathf.Sin(CameraPitch*Mathf.Deg2Rad);
-            // Walls add a little height at the far edge of the board.
-            return Mathf.Max(MinZoom, width/(2*aspect), (depth*sin + DungeonScenery.WallHeight*Mathf.Cos(CameraPitch*Mathf.Deg2Rad))*.5f);
+            // Fully zoomed out, the whole dungeon fits the uncovered area. Walls add a little height at the far edge.
+            return Mathf.Max(MinZoom, width/(2*aspect*clearArea.width),
+                (depth*sin + DungeonScenery.WallHeight*Mathf.Cos(CameraPitch*Mathf.Deg2Rad))*.5f/clearArea.height);
         }
 
         private void ApplyCamera()
         {
             lastWidth = Screen.width;
             lastHeight = Screen.height;
-            boardCamera.rect = viewport;
+            boardCamera.rect = new Rect(0,0,1,1);
             zoom = Mathf.Clamp(zoom, MinZoom, MaxZoom());
+            float aspect = (float)Math.Max(1,boardCamera.pixelWidth)/Math.Max(1,boardCamera.pixelHeight);
             if (map != null)
             {
-                float aspect = (float)Math.Max(1,boardCamera.pixelWidth)/Math.Max(1,boardCamera.pixelHeight);
                 float sin = Mathf.Sin(CameraPitch*Mathf.Deg2Rad);
-                // Keep the view over the dungeon, with a little slack past each edge.
+                // focus sits at the centre of the uncovered area. Every edge of the dungeon can be brought
+                // into that area, with a little slack, so no part of it stays trapped under the HUD.
                 float slack = Tile*2;
-                float spanX = Mathf.Max(0, map.Width*Tile*.5f - zoom*aspect + slack);
-                float spanZ = Mathf.Max(0, map.Height*Tile*.5f - zoom/sin + slack);
+                float spanX = Mathf.Max(0, map.Width*Tile*.5f - zoom*aspect*clearArea.width + slack);
+                float spanZ = Mathf.Max(0, map.Height*Tile*.5f - zoom*clearArea.height/sin + slack);
                 focus.x = Mathf.Clamp(focus.x,-spanX,spanX);
                 focus.z = Mathf.Clamp(focus.z,-spanZ,spanZ);
             }
             focus.y = 0;
             boardCamera.orthographicSize = zoom;
-            boardCamera.transform.rotation = transform.rotation*Quaternion.Euler(CameraPitch,0,0);
-            boardCamera.transform.position = transform.TransformPoint(focus) - boardCamera.transform.forward*CameraDistance;
+            var view = boardCamera.transform;
+            view.rotation = transform.rotation*Quaternion.Euler(CameraPitch,0,0);
+            // Shift the camera so focus lands on the centre of the uncovered area, not the screen centre.
+            float shiftX = (.5f-clearArea.center.x)*2*zoom*aspect;
+            float shiftY = (.5f-clearArea.center.y)*2*zoom;
+            view.position = transform.TransformPoint(focus) - view.forward*CameraDistance + view.right*shiftX + view.up*shiftY;
         }
 
         private bool TryFloorPoint(Vector2 screenPosition, out Vector3 local)

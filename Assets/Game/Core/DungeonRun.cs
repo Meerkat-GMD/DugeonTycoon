@@ -55,7 +55,14 @@ namespace DungeonTycoon.Core
         public int Faith { get; private set; } = 1;
         public int TrialsLeft { get; private set; } = 2;
         public int Experience { get; private set; }
-        public int Level => 1 + Experience / 5;
+        /// <summary>Experience per party level. Balance value.</summary>
+        public const int ExperiencePerLevel = 5;
+        public int Level => 1 + Experience / ExperiencePerLevel;
+        /// <summary>Experience gathered toward the next level, from 0 up to ExperiencePerLevel - 1.</summary>
+        public int ExperienceIntoLevel => Experience % ExperiencePerLevel;
+        /// <summary>This stage's boss as it waits in its room. Before departure there is no live Boss yet.</summary>
+        public string BossName => Boss?.Name ?? CreateBoss().Name;
+        public int BossMaxHp => Boss?.MaxHp ?? CreateBoss().MaxHp;
         public bool PendingAdversity => pendingTrial != 0;
         public int TrialDifficulty => Stage == 1 ? 13 : 15;
         public string LastTrial { get; private set; } = "";
