@@ -102,9 +102,9 @@ namespace DungeonTycoon.Core.Tests
         public void ALockedSkillNeverFires()
         {
             var run = Arena(2);
-            Put(run, HeroRole.MeleeDamage, 24, 4);
-            Put(Goblin(run, 0), 25, 4);
-            Put(Goblin(run, 1), 23, 4);
+            Put(run, HeroRole.MeleeDamage, 35, 4);
+            Put(Goblin(run, 0), 36, 4);
+            Put(Goblin(run, 1), 34, 4);
             Ready(Hero(run, HeroRole.MeleeDamage), 1);
             run.Tick();
             var events = run.TakeEvents();
@@ -117,9 +117,9 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = Arena(2);
             var tank = Hero(run, HeroRole.Tank);
-            Put(run, HeroRole.Tank, 24, 4);
-            Put(Goblin(run, 0), 26, 4);
-            Put(Goblin(run, 1), 24, 6);
+            Put(run, HeroRole.Tank, 35, 4);
+            Put(Goblin(run, 0), 37, 4);
+            Put(Goblin(run, 1), 35, 6);
             tank.SkillReady[0] = 0;
             run.Tick();
             var events = run.TakeEvents();
@@ -142,8 +142,8 @@ namespace DungeonTycoon.Core.Tests
             var melee = Hero(run, HeroRole.MeleeDamage);
             var goblin = Goblin(run, 0);
             goblin.Hp = 10000;
-            Put(run, HeroRole.MeleeDamage, 24, 4);
-            Put(goblin, 25, 4);
+            Put(run, HeroRole.MeleeDamage, 35, 4);
+            Put(goblin, 36, 4);
             Ready(melee, 0);
             run.Tick();
             var first = run.TakeEvents();
@@ -164,10 +164,10 @@ namespace DungeonTycoon.Core.Tests
         public void WhirlwindHitsEveryAdjacentMonsterAndNoOneFurther()
         {
             var run = Arena(3, HeroSkills.UnlockLevel);
-            Put(run, HeroRole.MeleeDamage, 24, 4);
-            Put(Goblin(run, 0), 25, 4);
-            Put(Goblin(run, 1), 23, 5);
-            Put(Goblin(run, 2), 24, 6);
+            Put(run, HeroRole.MeleeDamage, 35, 4);
+            Put(Goblin(run, 0), 36, 4);
+            Put(Goblin(run, 1), 34, 5);
+            Put(Goblin(run, 2), 35, 6);
             Ready(Hero(run, HeroRole.MeleeDamage), 1);
             run.Tick();
             var events = run.TakeEvents();
@@ -180,10 +180,10 @@ namespace DungeonTycoon.Core.Tests
         public void APiercingShotAlsoHitsTheMonsterBehindTheTarget()
         {
             var run = Arena(3);
-            Put(run, HeroRole.RangedDamage, 22, 4);
-            Put(Goblin(run, 0), 24, 4);
-            Put(Goblin(run, 1), 26, 4);
-            Put(Goblin(run, 2), 23, 6);
+            Put(run, HeroRole.RangedDamage, 33, 4);
+            Put(Goblin(run, 0), 35, 4);
+            Put(Goblin(run, 1), 37, 4);
+            Put(Goblin(run, 2), 34, 6);
             Ready(Hero(run, HeroRole.RangedDamage), 0);
             run.Tick();
             var events = run.TakeEvents();
@@ -197,10 +197,10 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = Arena(3);
             var ranged = Hero(run, HeroRole.RangedDamage);
-            Put(run, HeroRole.RangedDamage, 22, 4);
-            Put(Goblin(run, 0), 24, 4);
-            Put(Goblin(run, 1), 26, 4);
-            Put(Goblin(run, 2), 23, 6);
+            Put(run, HeroRole.RangedDamage, 33, 4);
+            Put(Goblin(run, 0), 35, 4);
+            Put(Goblin(run, 1), 37, 4);
+            Put(Goblin(run, 2), 34, 6);
             Assert.That(run.ApplyTactics(run.Situation, new[] { new HeroTactic(HeroRole.RangedDamage, 2, -1, "저놈부터!") }), Is.True);
             Ready(ranged, 0);
             run.Tick();
@@ -216,8 +216,8 @@ namespace DungeonTycoon.Core.Tests
             var ranged = Hero(run, HeroRole.RangedDamage);
             var goblin = Goblin(run, 0);
             goblin.Hp = 10000;
-            Put(run, HeroRole.RangedDamage, 22, 4);
-            Put(goblin, 25, 4);
+            Put(run, HeroRole.RangedDamage, 33, 4);
+            Put(goblin, 36, 4);
             Ready(ranged, 1);
             var shots = new List<int>();
             for (int i = 0; i < DungeonRun.RapidFireTicks + 3 * ranged.AttackTicks; i++)
@@ -239,11 +239,11 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = Arena(1);
             var healer = Hero(run, HeroRole.Healer);
-            Put(run, HeroRole.Healer, 23, 3);
-            Put(run, HeroRole.Tank, 24, 3);
-            Put(run, HeroRole.MeleeDamage, 23, 4);
-            Put(run, HeroRole.RangedDamage, 27, 7);
-            Put(Goblin(run, 0), 27, 2);
+            Put(run, HeroRole.Healer, 34, 3);
+            Put(run, HeroRole.Tank, 35, 3);
+            Put(run, HeroRole.MeleeDamage, 34, 4);
+            Put(run, HeroRole.RangedDamage, 38, 7);
+            Put(Goblin(run, 0), 38, 2);
             foreach (var role in new[] { HeroRole.Tank, HeroRole.MeleeDamage, HeroRole.RangedDamage })
                 Hero(run, role).Hp -= 10;
             Ready(healer, 0);
@@ -263,13 +263,13 @@ namespace DungeonTycoon.Core.Tests
             int[] Blows(int level)
             {
                 var run = Arena(2, level);
-                Put(run, HeroRole.Tank, 24, 4);
-                Put(run, HeroRole.MeleeDamage, 25, 4);
-                Put(run, HeroRole.Healer, 22, 7);
-                Put(run, HeroRole.RangedDamage, 22, 2);
+                Put(run, HeroRole.Tank, 35, 4);
+                Put(run, HeroRole.MeleeDamage, 36, 4);
+                Put(run, HeroRole.Healer, 33, 7);
+                Put(run, HeroRole.RangedDamage, 33, 2);
                 // One goblin goes for the tank, the other for the melee hero next to it.
-                Put(Goblin(run, 0), 23, 4);
-                Put(Goblin(run, 1), 26, 4);
+                Put(Goblin(run, 0), 34, 4);
+                Put(Goblin(run, 1), 37, 4);
                 foreach (var goblin in run.Monsters.Where(m => !m.IsBoss)) goblin.AttackReady = 0;
                 Hero(run, HeroRole.Tank).SkillReady[1] = 0;
                 run.Tick();
@@ -294,11 +294,11 @@ namespace DungeonTycoon.Core.Tests
             var run = Arena(1, HeroSkills.UnlockLevel);
             var healer = Hero(run, HeroRole.Healer);
             var melee = Hero(run, HeroRole.MeleeDamage);
-            Put(run, HeroRole.MeleeDamage, 22, 2);
-            Put(run, HeroRole.Healer, 27, 7);
-            Put(run, HeroRole.Tank, 25, 3);
-            Put(run, HeroRole.RangedDamage, 27, 6);
-            Put(Goblin(run, 0), 27, 2);
+            Put(run, HeroRole.MeleeDamage, 33, 2);
+            Put(run, HeroRole.Healer, 38, 7);
+            Put(run, HeroRole.Tank, 36, 3);
+            Put(run, HeroRole.RangedDamage, 38, 6);
+            Put(Goblin(run, 0), 38, 2);
             Goblin(run, 0).Hp = 10000;
             melee.Hp = 0;
             Ready(healer, 1);
@@ -315,11 +315,11 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(skill.ToHero, Is.True);
             Assert.That(skill.Target, Is.EqualTo((int)HeroRole.MeleeDamage));
             Assert.That(run.Log.Any(l => l.StartsWith($"{healer.Name} • 부활!")), Is.True);
-            Assert.That(run.HeroTile(HeroRole.Healer), Is.Not.EqualTo(new TilePoint(27, 7)), "the healer walked over");
+            Assert.That(run.HeroTile(HeroRole.Healer), Is.Not.EqualTo(new TilePoint(38, 7)), "the healer walked over");
 
             // The revived hero fights again.
             melee.ActReady = 0;
-            Put(Goblin(run, 0), 23, 2);
+            Put(Goblin(run, 0), 34, 2);
             run.Tick();
             Assert.That(HitsBy(run.TakeEvents(), HeroRole.MeleeDamage), Is.Not.Empty);
 
@@ -334,7 +334,7 @@ namespace DungeonTycoon.Core.Tests
             var boss = run.Boss;
             boss.Mood = MonsterMood.Chasing;
             boss.Hp = 1;
-            Put(boss, 24, 3);
+            Put(boss, 35, 3);
             Hero(run, HeroRole.Tank).ActReady = 0;
             run.Tick();
             Assert.That(run.Stage, Is.EqualTo(2));
@@ -347,8 +347,8 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = Arena(1, HeroSkills.UnlockLevel);
             var melee = Hero(run, HeroRole.MeleeDamage);
-            Put(run, HeroRole.MeleeDamage, 24, 4);
-            Put(run, HeroRole.Healer, 25, 5);
+            Put(run, HeroRole.MeleeDamage, 35, 4);
+            Put(run, HeroRole.Healer, 36, 5);
             melee.Hp = 0;
             Goblin(run, 0).Mood = MonsterMood.Defeated;
             Ready(Hero(run, HeroRole.Healer), 1);
@@ -359,8 +359,10 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.ReviveUsed, Is.True);
             Assert.That(run.StepsTaken, Is.EqualTo(steps), "the party waited for the revive");
             foreach (var hero in run.Party) hero.MoveReady = hero.ActReady = 0;
-            DungeonRunTests.Drive(run, () => run.StepsTaken > steps + 3);
-            Assert.That(run.StepsTaken, Is.GreaterThan(steps + 3), "and then marches on with the raised hero");
+            // The fight may end a few tiles from the boss, so a short march is enough to show the party moves on.
+            DungeonRunTests.Drive(run, () => run.StepsTaken > steps);
+            Assert.That(run.StepsTaken, Is.GreaterThan(steps), "and then marches on with the raised hero");
+            Assert.That(melee.Hp, Is.Positive);
         }
     }
 }

@@ -11,7 +11,7 @@ namespace DungeonTycoon.Core
         /// How far each hero sees, in tiles. Wider than a monster's notice so the party can spot danger and
         /// argue about it before the monster reacts. Balance value.
         /// </summary>
-        public const int VisionRadius = 6;
+        public const int VisionRadius = 8;
         /// <summary>Unexplored edges this close are checked without a discussion. Balance value.</summary>
         public const int PeekDistance = 2;
         /// <summary>Ticks a hero needs to cross one tile. Balance value.</summary>

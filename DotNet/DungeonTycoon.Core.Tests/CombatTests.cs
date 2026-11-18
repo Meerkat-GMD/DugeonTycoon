@@ -12,9 +12,9 @@ namespace DungeonTycoon.Core.Tests
         private static DungeonRun Crowded(int seed = 11)
         {
             var run = new DungeonRun(seed);
-            foreach (var tile in new[] { new TilePoint(16, 15), new TilePoint(5, 7), new TilePoint(17, 6) })
+            foreach (var tile in new[] { new TilePoint(21, 23), new TilePoint(6, 11), new TilePoint(22, 7) })
                 run.Place(tile, MonsterKind.Goblin);
-            run.Place(new TilePoint(19, 8), MonsterKind.Ogre);
+            run.Place(new TilePoint(25, 9), MonsterKind.Ogre);
             run.Start();
             return run;
         }

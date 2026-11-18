@@ -41,7 +41,7 @@ namespace DungeonTycoon.Core.Tests
                 Assert.That(run.Map.HasLineOfSight(eye, tile), Is.True, tile.ToString());
             }
             // Stage 1: the corridor north of the entrance room lies behind the room's top wall.
-            Assert.That(run.Map.HasLineOfSight(new TilePoint(2, 17), new TilePoint(4, 11)), Is.False);
+            Assert.That(run.Map.HasLineOfSight(new TilePoint(2, 26), new TilePoint(5, 17)), Is.False);
         }
 
         [TestCase(1)]

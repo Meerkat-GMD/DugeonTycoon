@@ -255,8 +255,8 @@ namespace DungeonTycoon.Core.Tests
         // Monsters on the first goblin-friendly tiles of each main room; the party meets most of them.
         private static readonly TilePoint[][] TrainingGrounds =
         {
-            new[] { new TilePoint(16, 15), new TilePoint(5, 7), new TilePoint(17, 6), new TilePoint(19, 8) },
-            new[] { new TilePoint(17, 11), new TilePoint(5, 9), new TilePoint(30, 19), new TilePoint(29, 5), new TilePoint(15, 12) }
+            new[] { new TilePoint(21, 23), new TilePoint(6, 11), new TilePoint(22, 7), new TilePoint(25, 9) },
+            new[] { new TilePoint(26, 15), new TilePoint(6, 13), new TilePoint(45, 30), new TilePoint(44, 6), new TilePoint(22, 18) }
         };
 
         [Test]

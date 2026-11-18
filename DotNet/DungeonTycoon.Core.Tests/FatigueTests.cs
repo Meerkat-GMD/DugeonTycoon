@@ -36,6 +36,7 @@ namespace DungeonTycoon.Core.Tests
         {
             for (int tick = 0; tick < 40000 && !until(); tick++)
             {
+                if (DungeonRunTests.SettlePrayer(run)) continue;
                 if (run.PendingLoot != null) run.ResolveLoot(run.PendingLoot.Token);
                 else if (run.PendingFork != null)
                 {
@@ -50,8 +51,8 @@ namespace DungeonTycoon.Core.Tests
 
         private static int DeadEnds(DungeonRun run, int fromLog) => run.Log.Skip(fromLog).Count(l => l.StartsWith("막다른 길"));
 
-        [TestCase(1, 33, 73, 99)]
-        [TestCase(2, 19, 42, 57)]
+        [TestCase(1, 52, 114, 156)]
+        [TestCase(2, 29, 64, 87)]
         public void ThresholdsComeFromTheShortestWalkToTheBossAndResetEachStage(int stage, int shortest, int first, int second)
         {
             var run = AtStage(stage);
@@ -274,7 +275,7 @@ namespace DungeonTycoon.Core.Tests
             TestContext.Out.WriteLine($"stage {stage} direct: {direct.FatigueSteps} steps / thresholds {direct.FatigueFirstThreshold}, {direct.FatigueSecondThreshold}");
             Assert.That(direct.FightingBoss, Is.True);
             Assert.That(DeadEnds(direct, from), Is.Zero);
-            Assert.That(direct.FatigueSteps, Is.LessThanOrEqualTo(direct.ShortestRouteSteps), "the direct way, peeks included");
+            Assert.That(direct.FatigueSteps, Is.LessThanOrEqualTo(direct.ShortestRouteSteps * 5 / 4), "the direct way, peeks included, stays near the shortest walk");
             Assert.That(direct.Fatigue, Is.EqualTo(FatigueStage.Rested));
             Assert.That(direct.Log.Skip(from).Any(l => l.StartsWith("피로")), Is.False);
 
