@@ -26,7 +26,7 @@ namespace DungeonTycoon.Unity
         private DungeonGame game;
         private UIDocument document;
         private PanelSettings panel;
-        private VisualElement hud, bossBar, bossFill, party, bottom, history;
+        private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
         private VisualElement planningPage, interventionPage, resultPage, speedGroup, info, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label category, hint, budget, faith, trials, summaryTitle, summaryDetail;
@@ -100,6 +100,17 @@ namespace DungeonTycoon.Unity
         {
             root.pickingMode = PickingMode.Ignore;
             hud = root.Q("hud");
+            hud.style.display = DisplayStyle.None;
+            titleScreen = root.Q("title-screen");
+            var newGame = titleScreen.Q<Button>("title-new");
+            newGame.clicked += () => {
+                titleScreen.RemoveFromHierarchy();
+                titleScreen = null;
+                hud.style.display = DisplayStyle.Flex;
+            };
+            newGame.schedule.Execute(() => newGame.Focus());
+            titleScreen.Q<Button>("title-continue").SetEnabled(false);
+            titleScreen.Q<Button>("title-quit").clicked += QuitGame;
             stageNumber = root.Q<Label>("stage-number");
             stageName = root.Q<Label>("stage-name");
             bossBar = root.Q("boss-bar");
@@ -209,16 +220,25 @@ namespace DungeonTycoon.Unity
 
         // ── Frame ────────────────────────────────────────────────────────
 
+        private static void QuitGame()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
         private void Update()
         {
             if (!game || game.Run == null || !game.Board || hud == null) return;
-            var run = game.Run;
-            if (!ReferenceEquals(knownRun,run) || knownStage != run.Stage) ResetForStage(run);
-
             float scale = Mathf.Min(Screen.width/MinWidth,Screen.height/MinHeight,
                 Mathf.Max(Screen.height/ReferenceHeight,ReadableScale));
             if (scale > 0 && !Mathf.Approximately(panel.scale,scale)) panel.scale = scale;
 
+            if (titleScreen != null) return;
+            var run = game.Run;
+            if (!ReferenceEquals(knownRun,run) || knownStage != run.Stage) ResetForStage(run);
             Keys(run);
             Refresh(run);
             RefreshSpoils(run);

@@ -952,3 +952,57 @@
 .hud .log-row.shaded {
     background-color: var(--card);
 }
+
+.title-screen {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: #102b25;
+    background-image: url("TitleLandscape.png");
+    background-size: cover;
+    background-position: center;
+    align-items: flex-end;
+    justify-content: center;
+    -unity-font-definition: url("/Assets/Art/Fonts/Mona10/Mona10-SDF.asset");
+}
+.title-menu {
+    width: 26%;
+    margin-right: 6%;
+}
+.title-name {
+    color: #ffe9b8;
+    font-size: 48px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-bottom: 28px;
+}
+.title-menu .title-action {
+    align-self: center;
+    height: 51px;
+    margin: 5px 0;
+    padding: 0 6px;
+    border-width: 0;
+    background-image: none;
+    background-color: transparent;
+    color: #f4ead7;
+    font-size: 20px;
+    scale: 1 1;
+    transition-property: scale;
+    transition-duration: 150ms;
+    transition-timing-function: ease-in-out;
+}
+.title-menu .title-primary {
+    color: #eed69b;
+}
+.title-menu .title-action:hover:enabled {
+    scale: 1.08 1.08;
+}
+.title-menu .title-action:focus {
+    color: #fff1ca;
+    -unity-font-style: bold;
+}
+.title-menu .title-action:disabled {
+    color: #9ba99c;
+}
