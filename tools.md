@@ -24,6 +24,21 @@ Unity를 열지 않고 `Assets/Game/Core`의 실제 소스를 컴파일해 NUnit
 dotnet test DotNet/DungeonTycoon.Core.Tests/DungeonTycoon.Core.Tests.csproj --filter FullyQualifiedName~D20CheckTests
 ```
 
+## 밸런스 수치를 바꿀 때
+
+몬스터·보스 능력치, 경험치와 레벨 성장, 위협 예산, 역경 난이도, 상자 희귀 확률, 샘물 회복량은 [balance.json](Assets/Game/Unity/Resources/Balance/balance.json) 한 파일에 있다. 값을 바꾸고 아래 명령으로 결과를 본다.
+
+```powershell
+.\scripts\harness.ps1 balance
+```
+
+10~20초 안에 표 두 개가 나온다. 첫 표는 빈 던전과 길목 배치의 원정 승률, 최종 보스 앞 레벨, 최종 보스전 시간이다. 둘째 표는 스테이지마다 예산을 다 쓴 배치에서 가장 약해진 용사의 체력과 쓰러짐·전멸 수다. 시드를 늘려 더 안정된 숫자를 보려면 `-Seeds 12`를 붙인다. 시드별 자세한 기록은 `BalanceProbe`의 `PrintExpeditions`, `PrintFullBudgetFights`를 필터로 실행해 본다.
+
+- 키 이름은 [BalanceTable](Assets/Game/Core/BalanceTable.cs)의 필드 이름이다. 스테이지별 목록은 1·2·3스테이지 순서다. Unity의 JsonUtility가 주석을 읽지 못하므로 파일에 주석을 넣지 않는다.
+- 게임은 새 원정을 시작할 때마다 파일을 다시 읽는다. 에디터에서 파일을 고친 뒤 Unity가 다시 임포트하면 다음 원정부터 적용된다. 파일이 없거나 값이 잘못되면 콘솔에 이유를 남기고 코드의 기본값을 쓴다.
+- Core 테스트도 같은 파일을 읽는다. 값을 바꾸면 `.\scripts\harness.ps1 test`로 규칙 검증(빈 던전 패배·길목 배치 승리 등)을 다시 확인한다. 파일에 빠진 키나 오타가 있으면 `BalanceFileTests`가 실패한다.
+- 수치를 확정하면 [게임 규칙의 조정할 값](gamerules.md#조정할-값)에 지금 값과 측정 결과를 옮긴다.
+
 ## 씬·프리팹·Unity 연동을 확인할 때
 
 1. 프로젝트 루트에서 `unity pipeline editors`로 경로가 일치하는 실행 중인 에디터를 확인한다. 공식 Unity CLI가 필요하면 Windows에서 `winget install --id Unity.CLI --exact`로 설치한다. 프로젝트에 Pipeline이 없으면 `unity pipeline install`로 연결 패키지를 준비한다. [Unity 공식 연결 안내](https://docs.unity.com/en-us/unity-cli/reference/editor-project-commands)

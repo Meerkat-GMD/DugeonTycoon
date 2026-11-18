@@ -74,12 +74,12 @@ namespace DungeonTycoon.Core
         public int Faith { get; private set; } = 1;
         public int TrialsLeft { get; private set; } = 2;
         public int Experience { get; private set; }
-        /// <summary>Experience per party level. Balance value.</summary>
-        public const int ExperiencePerLevel = 10;
-        /// <summary>Attack every hero gains per party level. Balance value.</summary>
-        public const int LevelAttackGain = 3;
-        /// <summary>Maximum health every hero gains per party level. Balance value.</summary>
-        public const int LevelHpGain = 5;
+        /// <summary>Experience per party level. From <see cref="BalanceTable"/>.</summary>
+        public static int ExperiencePerLevel => BalanceTable.Current.experiencePerLevel;
+        /// <summary>Attack every hero gains per party level. From <see cref="BalanceTable"/>.</summary>
+        public static int LevelAttackGain => BalanceTable.Current.levelAttackGain;
+        /// <summary>Maximum health every hero gains per party level. From <see cref="BalanceTable"/>.</summary>
+        public static int LevelHpGain => BalanceTable.Current.levelHpGain;
         public int Level => 1 + Experience / ExperiencePerLevel;
         /// <summary>Experience gathered toward the next level, from 0 up to ExperiencePerLevel - 1.</summary>
         public int ExperienceIntoLevel => Experience % ExperiencePerLevel;
@@ -87,8 +87,8 @@ namespace DungeonTycoon.Core
         public string BossName => Boss?.Name ?? CreateBoss().Name;
         public int BossMaxHp => Boss?.MaxHp ?? CreateBoss().MaxHp;
         public bool PendingAdversity => pendingTrial != 0;
-        /// <summary>Adversity difficulty: 13, 14, 15 on stages 1 to 3. Balance value.</summary>
-        public int TrialDifficulty => 12 + Stage;
+        /// <summary>This stage's adversity difficulty. From <see cref="BalanceTable"/>.</summary>
+        public int TrialDifficulty => BalanceTable.ForStage(BalanceTable.Current.trialDifficulty, Stage);
         public string LastTrial { get; private set; } = "";
         public IReadOnlyList<HeroState> Party { get; }
         public IReadOnlyList<string> Log { get; }
@@ -97,15 +97,7 @@ namespace DungeonTycoon.Core
 
         public static int Cost(MonsterKind kind)
         {
-            switch (kind)
-            {
-                case MonsterKind.None: return 0;
-                case MonsterKind.Skeleton: return 1;
-                case MonsterKind.Ghost: return 2;
-                case MonsterKind.Zombie: return 3;
-                case MonsterKind.Archer: return 2;
-                default: throw new ArgumentOutOfRangeException(nameof(kind));
-            }
+            return kind == MonsterKind.None ? 0 : BalanceTable.Current.Of(kind).cost;
         }
 
         public static string MonsterName(MonsterKind kind)

@@ -38,58 +38,48 @@ namespace DungeonTycoon.Core
             return taken;
         }
 
-        /// <summary>Tiles from which a skeleton archer shoots. Balance value.</summary>
-        public const int ArcherRange = 4;
+        /// <summary>Tiles from which a skeleton archer shoots. From <see cref="BalanceTable"/>.</summary>
+        public static int ArcherRange => BalanceTable.Current.archer.range;
 
         /// <summary>
-        /// Health, attack and armour of a monster kind on a stage. Each stage is tuned for the party that should arrive
-        /// there: no gear on stage 1, common weapons and some armour with one rare piece on stage 2, a full common set
-        /// and two or more rare pieces on stage 3. Balance values.
+        /// Health, attack and armour of a monster kind on a stage, from <see cref="BalanceTable"/>. Each stage is tuned for
+        /// the party that should arrive there: no gear on stage 1, common weapons and some armour with one rare piece on
+        /// stage 2, a full common set and two or more rare pieces on stage 3.
         /// </summary>
         public static (int Hp, int Attack, int Armor) MonsterStats(MonsterKind kind, int stage)
         {
-            int s = Math.Max(1, Math.Min(FinalStage, stage)) - 1;
-            switch (kind)
-            {
-                case MonsterKind.Skeleton: return (new[] { 60, 85, 110 }[s], new[] { 15, 19, 23 }[s], new[] { 2, 4, 5 }[s]);
-                case MonsterKind.Ghost: return (new[] { 40, 55, 70 }[s], new[] { 13, 17, 21 }[s], new[] { 0, 2, 3 }[s]);
-                case MonsterKind.Zombie: return (new[] { 110, 150, 190 }[s], new[] { 18, 22, 26 }[s], new[] { 4, 6, 8 }[s]);
-                case MonsterKind.Archer: return (new[] { 45, 55, 65 }[s], new[] { 14, 17, 20 }[s], new[] { 0, 1, 2 }[s]);
-                default: throw new ArgumentOutOfRangeException(nameof(kind));
-            }
+            var numbers = BalanceTable.Current.Of(kind);
+            return (BalanceTable.ForStage(numbers.hp, stage), BalanceTable.ForStage(numbers.attack, stage),
+                BalanceTable.ForStage(numbers.armor, stage));
         }
 
         private MonsterState CreateMonster(int id, MonsterKind kind, TilePoint tile)
         {
             var (hp, attack, armor) = MonsterStats(kind, Stage);
+            var n = BalanceTable.Current.Of(kind);
+            MonsterState Make(string name, params MonsterPattern[] patterns) =>
+                new MonsterState(id, kind, false, name, hp, attack, armor, n.experience, n.moveTicks, n.attackTicks, tile, patterns) { Range = n.range };
             switch (kind)
             {
-                case MonsterKind.Zombie:
-                    return new MonsterState(id, kind, false, "좀비", hp, attack, armor, 6, 5, 18, tile, MonsterPattern.Slam);
-                case MonsterKind.Ghost:
-                    return new MonsterState(id, kind, false, "유령", hp, attack, armor, 4, 2, 15, tile, MonsterPattern.SoulBolt);
-                case MonsterKind.Archer:
-                    return new MonsterState(id, kind, false, "해골 궁수", hp, attack, armor, 4, 3, 18, tile) { Range = ArcherRange };
-                default:
-                    return new MonsterState(id, kind, false, "해골", hp, attack, armor, 3, 3, 15, tile);
+                case MonsterKind.Zombie: return Make("좀비", MonsterPattern.Slam);
+                case MonsterKind.Ghost: return Make("유령", MonsterPattern.SoulBolt);
+                case MonsterKind.Archer: return Make("해골 궁수");
+                default: return Make("해골");
             }
         }
 
-        /// <summary>This stage's boss. Balance values.</summary>
+        /// <summary>This stage's boss, with numbers from <see cref="BalanceTable"/>.</summary>
         private MonsterState CreateBoss()
         {
-            int id = BossIndex;
+            var n = BalanceTable.Current.BossOf(Stage);
+            MonsterState Make(string name, params MonsterPattern[] patterns) =>
+                new MonsterState(BossIndex, MonsterKind.None, true, name, n.hp, n.attack, n.armor, n.experience, n.moveTicks, n.attackTicks,
+                    Map.BossTile, patterns);
             switch (Stage)
             {
-                case 1:
-                    return new MonsterState(id, MonsterKind.None, true, "무덤 기사", 450, 22, 4, 2, 4, 15, Map.BossTile,
-                        MonsterPattern.Slam, MonsterPattern.TrackingBeam);
-                case 2:
-                    return new MonsterState(id, MonsterKind.None, true, "납골당 사제", 900, 28, 6, 3, 4, 15, Map.BossTile,
-                        MonsterPattern.Slam, MonsterPattern.Meteor);
-                default:
-                    return new MonsterState(id, MonsterKind.None, true, "네크로맨서", 2600, 38, 8, 0, 4, 15, Map.BossTile,
-                        MonsterPattern.Slam, MonsterPattern.TrackingBeam, MonsterPattern.Meteor);
+                case 1: return Make("무덤 기사", MonsterPattern.Slam, MonsterPattern.TrackingBeam);
+                case 2: return Make("납골당 사제", MonsterPattern.Slam, MonsterPattern.Meteor);
+                default: return Make("네크로맨서", MonsterPattern.Slam, MonsterPattern.TrackingBeam, MonsterPattern.Meteor);
             }
         }
 

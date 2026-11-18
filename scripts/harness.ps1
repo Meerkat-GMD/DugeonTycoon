@@ -1,8 +1,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory, Position = 0)]
-    [ValidateSet('doctor', 'test')]
-    [string] $Command
+    [ValidateSet('doctor', 'test', 'balance')]
+    [string] $Command,
+    # balance only: seeds per line (more is slower but steadier).
+    [int] $Seeds = 6
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,6 +19,18 @@ try {
         if (-not $dotnet) { throw 'Install the .NET SDK and add dotnet to PATH to run the Core tests.' }
         & $dotnet.Source test $testProject
         exit $LASTEXITCODE
+    }
+    if ($Command -eq 'balance') {
+        # Plays expeditions on Assets/Game/Unity/Resources/Balance/balance.json and prints only the summary table.
+        if (-not $dotnet) { throw 'Install the .NET SDK and add dotnet to PATH to run the balance summary.' }
+        $env:BALANCE_SEEDS = "$Seeds"
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $output = & $dotnet.Source test $testProject --filter 'Name=Summary' --logger 'console;verbosity=detailed' 2>&1
+        $code = $LASTEXITCODE
+        # The summary marks its own lines with '| '; NUnit echoes them a second time with a leading space.
+        $table = $output | ForEach-Object { "$_" } | Where-Object { $_ -match '^\| ' } | ForEach-Object { $_.Substring(2) }
+        if ($table) { $table } else { $output }
+        exit $code
     }
 
     $issues = @()

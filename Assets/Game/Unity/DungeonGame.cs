@@ -55,6 +55,7 @@ namespace DungeonTycoon.Unity
         {
             lifetime = destroyCancellationToken;
             director = new PartyDirector();
+            BalanceFile.Load();
             Run = new DungeonRun(Environment.TickCount);
             Board = gameObject.AddComponent<DungeonBoard>();
             Board.Initialize();
@@ -388,6 +389,8 @@ namespace DungeonTycoon.Unity
         public void Restart(bool keepPlan = false, bool sameSeed = false)
         {
             if (Run.Phase != RunPhase.Victory && Run.Phase != RunPhase.Defeat) return;
+            // A balance file edited since the last expedition applies from this one.
+            BalanceFile.Load();
             Run = keepPlan ? Run.Rematch(sameSeed ? Run.Seed : Environment.TickCount) : new DungeonRun(Environment.TickCount);
             sharedLoot = 0;
             heardPrayer = 0;

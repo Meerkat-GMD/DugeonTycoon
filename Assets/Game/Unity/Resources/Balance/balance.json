@@ -1,0 +1,23 @@
+{
+    "experiencePerLevel": 10,
+    "levelAttackGain": 3,
+    "levelHpGain": 5,
+    "budget": [6, 8, 10],
+    "trialDifficulty": [13, 14, 15],
+
+    "skeleton": { "cost": 1, "experience": 4, "moveTicks": 3, "attackTicks": 15, "range": 1,
+                  "hp": [85, 120, 150], "attack": [17, 21, 25], "armor": [2, 4, 5] },
+    "ghost":    { "cost": 2, "experience": 5, "moveTicks": 2, "attackTicks": 15, "range": 1,
+                  "hp": [80, 100, 120], "attack": [18, 22, 26], "armor": [0, 2, 3] },
+    "zombie":   { "cost": 3, "experience": 8, "moveTicks": 5, "attackTicks": 18, "range": 1,
+                  "hp": [160, 200, 250], "attack": [22, 25, 30], "armor": [4, 6, 8] },
+    "archer":   { "cost": 2, "experience": 5, "moveTicks": 3, "attackTicks": 18, "range": 4,
+                  "hp": [70, 80, 90], "attack": [18, 21, 24], "armor": [0, 1, 2] },
+
+    "graveKnight": { "hp": 450, "attack": 22, "armor": 4, "experience": 2, "moveTicks": 4, "attackTicks": 15 },
+    "cryptPriest": { "hp": 900, "attack": 28, "armor": 6, "experience": 3, "moveTicks": 4, "attackTicks": 15 },
+    "necromancer": { "hp": 3300, "attack": 42, "armor": 8, "experience": 0, "moveTicks": 4, "attackTicks": 15 },
+
+    "chestRarePercent": [15, 30, 50],
+    "springRelief": 40
+}
