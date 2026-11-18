@@ -1,0 +1,166 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using NUnit.Framework;
+
+namespace DungeonTycoon.Core.Tests
+{
+    public class CombatTests
+    {
+        private static int Chebyshev(TilePoint a, TilePoint b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
+
+        private static DungeonRun Crowded(int seed = 11)
+        {
+            var run = new DungeonRun(seed);
+            foreach (var tile in new[] { new TilePoint(16, 15), new TilePoint(5, 7), new TilePoint(17, 6) })
+                run.Place(tile, MonsterKind.Goblin);
+            run.Place(new TilePoint(19, 8), MonsterKind.Ogre);
+            run.Start();
+            return run;
+        }
+
+        [Test]
+        public void IdleMonstersWanderNearTheirPostAndTheBossNeverLeavesItsRoom()
+        {
+            var run = Crowded();
+            bool roamed = false;
+            DungeonRunTests.Drive(run, () =>
+            {
+                foreach (var monster in run.Monsters)
+                {
+                    if (!monster.Alive) continue;
+                    if (!monster.IsBoss && monster.Mood == MonsterMood.Wandering && monster.Tile != monster.Home) roamed = true;
+                    if (monster.IsBoss) Assert.That(run.Map.IsBossRoom(monster.Tile), Is.True, "boss left its room");
+                    if (monster.Mood == MonsterMood.Wandering)
+                    {
+                        var within = run.Map.Distances(monster.Home, run.Map.IsFloor, DungeonRun.WanderRadius);
+                        Assert.That(within.ContainsKey(monster.Tile), Is.True, $"{monster.Name} strayed to {monster.Tile}");
+                    }
+                }
+                return !DungeonRunTests.InDungeon(run);
+            });
+            Assert.That(roamed, Is.True, "idle monsters should move around their post");
+        }
+
+        [Test]
+        public void SpottingAHeroStartsAFightThatStopsExplorationUntilEveryChaserIsDown()
+        {
+            var run = DungeonRunTests.RunInCombat();
+            Assert.That(run.Engaged.Count(), Is.Positive);
+            Assert.That(run.PendingFork, Is.Null);
+            Assert.That(run.Log.Any(l => l.StartsWith("교전")), Is.True);
+            int steps = run.StepsTaken;
+            DungeonRunTests.Drive(run, () => run.Phase != RunPhase.Combat);
+            Assert.That(run.StepsTaken, Is.EqualTo(steps), "the party does not explore while fighting");
+            Assert.That(run.Engaged, Is.Empty);
+            Assert.That(run.Log.Any(l => l.StartsWith("전투 종료") || l.StartsWith("야영") || l.StartsWith("파티 전멸")), Is.True);
+        }
+
+        [Test]
+        public void RolesFightFromTheirOwnPositionsAndTheHealerHeals()
+        {
+            var run = Crowded();
+            var gaps = new Dictionary<HeroRole, List<int>>();
+            foreach (HeroRole role in Enum.GetValues(typeof(HeroRole))) gaps[role] = new List<int>();
+            var seen = new List<CombatEvent>();
+            DungeonRunTests.Drive(run, () =>
+            {
+                seen.AddRange(run.TakeEvents());
+                if (run.Phase == RunPhase.Combat)
+                    foreach (var hero in run.Party.Where(h => h.Hp > 0))
+                        gaps[hero.Role].Add(run.Engaged.Min(m => Chebyshev(m.Tile, run.HeroTile(hero.Role))));
+                return run.Stage == 2 || !DungeonRunTests.InDungeon(run);
+            });
+            Assert.That(gaps[HeroRole.RangedDamage].Average(), Is.GreaterThan(gaps[HeroRole.MeleeDamage].Average()));
+            Assert.That(gaps[HeroRole.Healer].Average(), Is.GreaterThan(gaps[HeroRole.Tank].Average()));
+            Assert.That(seen.Any(e => e.Kind == CombatEventKind.Heal && e.FromHero && e.Source == (int)HeroRole.Healer), Is.True);
+            Assert.That(seen.Any(e => e.Kind == CombatEventKind.Attack && e.FromHero && e.Source == (int)HeroRole.RangedDamage), Is.True);
+        }
+
+        [Test]
+        public void TauntedMonstersHitOnlyTheTankUntilTheTauntWearsOff()
+        {
+            int tauntCount = 0, violations = 0, checkedHits = 0;
+            for (int seed = 1; seed <= 4; seed++)
+            {
+                var run = Crowded(seed);
+                var taunts = new Dictionary<int, int>();
+                DungeonRunTests.Drive(run, () =>
+                {
+                    foreach (var e in run.TakeEvents())
+                    {
+                        if (e.Kind == CombatEventKind.Taunt)
+                        {
+                            taunts[e.Target] = run.Ticks + DungeonRun.TauntTicks;
+                            tauntCount++;
+                        }
+                        if (e.Kind == CombatEventKind.Attack && !e.FromHero && taunts.TryGetValue(e.Source, out int until) &&
+                            run.Ticks < until && run.Party[(int)HeroRole.Tank].Hp > 0)
+                        {
+                            checkedHits++;
+                            if (e.Target != (int)HeroRole.Tank) violations++;
+                        }
+                    }
+                    return run.Stage == 2 || !DungeonRunTests.InDungeon(run);
+                });
+            }
+            Assert.That(tauntCount, Is.Positive, "the tank should taunt when monsters gather");
+            Assert.That(checkedHits, Is.Positive);
+            Assert.That(violations, Is.Zero);
+        }
+
+        [Test]
+        public void TacticsAnswerOnlyTheirSituationAndInvalidEntriesAreIgnored()
+        {
+            var run = DungeonRunTests.RunInCombat(MonsterKind.Ogre);
+            int situation = run.Situation;
+            var foe = run.Engaged.First();
+            Assert.That(run.ApplyTactics(situation - 1, new[] { new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "늦은 작전") }), Is.False);
+
+            string before = run.Party[(int)HeroRole.MeleeDamage].LastLine;
+            Assert.That(run.ApplyTactics(situation, new[]
+            {
+                new HeroTactic(HeroRole.RangedDamage, foe.Id, -1, "오우거부터 노린다!"),
+                new HeroTactic(HeroRole.MeleeDamage, 999, -1, "없는 적"),
+                new HeroTactic(HeroRole.Healer, -1, (int)HeroRole.Tank, "가론은 내가 지킬게요.")
+            }), Is.True);
+            Assert.That(run.TacticOf(HeroRole.RangedDamage).Focus, Is.EqualTo(foe.Id));
+            Assert.That(run.Party[(int)HeroRole.RangedDamage].LastLine, Is.EqualTo("오우거부터 노린다!"));
+            Assert.That(run.TacticOf(HeroRole.MeleeDamage), Is.Null);
+            Assert.That(run.Party[(int)HeroRole.MeleeDamage].LastLine, Is.EqualTo(before));
+            Assert.That(run.TacticOf(HeroRole.Healer).Protect, Is.EqualTo((int)HeroRole.Tank));
+
+            // While the focus target is engaged, the ranged hero's shots go to it.
+            run.TakeEvents();
+            for (int i = 0; i < 60 && run.Situation == situation && foe.Alive; i++) run.Tick();
+            var shots = run.TakeEvents().Where(e => e.Kind == CombatEventKind.Attack && e.FromHero && e.Source == (int)HeroRole.RangedDamage).ToList();
+            Assert.That(shots.All(e => e.Target == foe.Id), Is.True);
+        }
+
+        [Test]
+        public void AFightCancelsAForkThatIsStillBeingDiscussed()
+        {
+            var blind = new DungeonRun();
+            blind.Start();
+            Assert.That(ExplorationTests.TickToFirstFork(blind), Is.True);
+            var leader = blind.LeaderTile;
+            var candidates = DungeonRunTests.PlaceableTiles(blind)
+                .Where(t => Chebyshev(t, leader) > DungeonRun.DetectRadius && Chebyshev(t, leader) <= DungeonRun.DetectRadius + DungeonRun.WanderRadius)
+                .ToList();
+            foreach (var spot in candidates)
+            {
+                var probe = new DungeonRun();
+                probe.Place(spot, MonsterKind.Goblin);
+                probe.Start();
+                if (!ExplorationTests.TickToFirstFork(probe)) continue;
+                // Leave the party arguing; a wandering goblin may walk into sight.
+                for (int i = 0; i < 400 && probe.PendingFork != null; i++) probe.Tick();
+                if (probe.Phase != RunPhase.Combat) continue;
+                Assert.That(probe.PendingFork, Is.Null);
+                Assert.That(probe.Log.Any(l => l.StartsWith("논의 중단")), Is.True);
+                return;
+            }
+            Assert.Fail("no wandering goblin interrupted the first fork");
+        }
+    }
+}

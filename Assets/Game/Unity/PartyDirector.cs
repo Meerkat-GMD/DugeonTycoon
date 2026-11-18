@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -14,11 +15,10 @@ namespace DungeonTycoon.Unity
         private const string Endpoint = "https://api.openai.com/v1/responses";
         private const int TimeoutSeconds = 6;
         private const string CombatPrompt =
-            "던전 TRPG 용사들을 연기한다. 살아 있는 용사마다 한 행동을 골라 JSON으로 답하라. " +
-            "모든 용사는 Attack으로 현재 적을 공격할 수 있다. Tank는 Guard로 파티를 보호하고, " +
-            "Healer는 Heal로 다친 생존자 한 명을 치료할 수도 있다. " +
-            "actions 배열에 각자의 role, action, target, line을 넣어라. role과 target은 입력의 영문 역할 ID다. " +
-            "Attack이나 Guard의 target에는 자기 ID를 넣어라. line은 24자 이내의 짧은 한국어 전투 대사다.";
+            "던전 TRPG 용사들을 연기한다. 실시간 전투의 상황이 바뀌었다. 살아 있는 용사마다 다음 상황 변화까지 따를 작전을 정해 JSON으로 답하라. " +
+            "tactics 배열에 role(입력의 영문 역할 ID), focus(먼저 노릴 적의 번호 문자열, 없으면 \"-1\"), " +
+            "protect(먼저 지킬 동료의 영문 역할 ID, 없으면 빈 문자열), line(24자 이내의 짧은 한국어 전투 대사)을 넣어라. " +
+            "Tank는 주변 적을 도발해 공격을 받아내고, Healer는 protect 동료를 먼저 치료한다. 이동·공격·피해는 게임이 판정한다.";
         private const string TrialPrompt =
             "던전에서 낙석이 떨어진다. 살아 있는 용사 중 한 명을 골라 동료를 지킬 행동을 선언하라. " +
             "JSON 객체에 role(입력의 영문 역할 ID)과 line(40자 이내의 한국어 1인칭 대응 선언)을 넣어라. " +
@@ -49,30 +49,53 @@ namespace DungeonTycoon.Unity
         private bool Online => !string.IsNullOrEmpty(apiKey) && DateTime.UtcNow >= retryAfter;
         public string ModeLabel => Online ? "OpenAI" : "로컬 전술 AI";
 
-        public async UniTask<IReadOnlyList<HeroDecision>> DecideAsync(DungeonRun run, CancellationToken token)
+        /// <summary>
+        /// Asks for each hero's plan for the current fight. Returns null offline or on failure; the rules then
+        /// keep fighting with local tactics. Entries that do not parse are dropped here; the run re-checks the rest.
+        /// </summary>
+        public async UniTask<IReadOnlyList<HeroTactic>> TacticsAsync(DungeonRun run, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            if (!Online || run.Enemy == null) return null;
-
-            var plan = await RequestAsync<CombatPlan>(run, CombatPrompt, token);
-            if (plan?.actions == null || plan.actions.Length > run.Party.Count) return null;
-
-            var decisions = new List<HeroDecision>(plan.actions.Length);
-            var assigned = new HashSet<HeroRole>();
-            foreach (var move in plan.actions)
+            if (!Online || run.Phase != RunPhase.Combat) return null;
+            var plan = await RequestAsync<CombatPlan>(run, CombatPrompt, token, DescribeFight(run));
+            if (plan?.tactics == null) return null;
+            var tactics = new List<HeroTactic>();
+            foreach (var entry in plan.tactics)
             {
-                if (move == null || !TryRole(move.role, out var actor) || !IsAlive(run, actor) ||
-                    !assigned.Add(actor) || !TryRole(move.target, out var target) ||
-                    !Enum.TryParse<HeroAction>(move.action, out var action) ||
-                    !Enum.IsDefined(typeof(HeroAction), action) || action.ToString() != move.action ||
-                    string.IsNullOrWhiteSpace(move.line)) return null;
-
-                decisions.Add(new HeroDecision(actor, action, target, CleanLine(move.line)));
+                if (entry == null || !TryRole(entry.role, out var role) || !int.TryParse(entry.focus, out int focus) ||
+                    string.IsNullOrWhiteSpace(entry.line)) continue;
+                int protect = -1;
+                if (!string.IsNullOrWhiteSpace(entry.protect))
+                {
+                    if (!TryRole(entry.protect, out var ward)) continue;
+                    protect = (int)ward;
+                }
+                tactics.Add(new HeroTactic(role, focus, protect, CleanLine(entry.line)));
             }
+            return tactics;
+        }
 
+        private static string DescribeFight(DungeonRun run)
+        {
+            var text = new StringBuilder();
+            text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}{(run.FightingBoss ? ", 보스전" : "")}");
+            foreach (var monster in run.Engaged)
+                text.AppendLine($"적 {monster.Id}: {monster.Name} HP {monster.Hp}/{monster.MaxHp}, 방어 {monster.Armor}, 공격 {monster.Attack}");
             foreach (var hero in run.Party)
-                if (hero.Hp > 0 && !assigned.Contains(hero.Role)) return null;
-            return decisions;
+            {
+                if (hero.Hp == 0)
+                {
+                    text.AppendLine($"{hero.Role} ({hero.Name}) 쓰러짐");
+                    continue;
+                }
+                var here = run.HeroTile(hero.Role);
+                var nearest = run.Engaged.OrderBy(m => Math.Max(Math.Abs(m.Tile.X - here.X), Math.Abs(m.Tile.Y - here.Y))).FirstOrDefault();
+                string near = nearest == null ? "" :
+                    $", 가장 가까운 적 {nearest.Id}까지 {Math.Max(Math.Abs(nearest.Tile.X - here.X), Math.Abs(nearest.Tile.Y - here.Y))}칸";
+                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 사거리 {hero.Range}{near}");
+            }
+            text.Append("각 용사의 작전을 JSON으로 작성해.");
+            return text.ToString();
         }
 
         public async UniTask<(HeroRole Role, string Line)> RespondAsync(DungeonRun run, CancellationToken token)
@@ -194,8 +217,8 @@ namespace DungeonTycoon.Unity
             text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}{(run.FightingBoss ? ", 보스전" : "")}");
             foreach (var hero in run.Party)
                 text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}");
-            if (run.Enemy != null)
-                text.AppendLine($"적 {run.Enemy.Name} HP {run.Enemy.Hp}/{run.Enemy.MaxHp}");
+            foreach (var monster in run.Engaged)
+                text.AppendLine($"적 {monster.Name} HP {monster.Hp}/{monster.MaxHp}");
             text.Append("행동 선언을 JSON으로 작성해.");
             return text.ToString();
         }
@@ -233,8 +256,9 @@ namespace DungeonTycoon.Unity
         [Serializable] private sealed class ResponseBody { public string status; public OutputItem[] output; }
         [Serializable] private sealed class OutputItem { public string type; public OutputPart[] content; }
         [Serializable] private sealed class OutputPart { public string type; public string text; }
-        [Serializable] private sealed class CombatPlan { public Move[] actions; }
-        [Serializable] private sealed class Move { public string role, action, target, line; }
+        [Serializable] private sealed class CombatPlan { public Move[] tactics; }
+        // Numbers stay strings so a missing field is not silently read as 0.
+        [Serializable] private sealed class Move { public string role, focus, protect, line; }
         [Serializable] private sealed class TrialResponse { public string role, line; }
         [Serializable] private sealed class ForkPlan { public Vote[] opinions; }
         // option stays a string so a missing field is not silently read as path 0.

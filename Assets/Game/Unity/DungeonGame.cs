@@ -9,19 +9,23 @@ namespace DungeonTycoon.Unity
     [DisallowMultipleComponent]
     public sealed class DungeonGame : MonoBehaviour
     {
-        /// <summary>Seconds per exploration step; the party crosses one tile per step.</summary>
-        private const float StepSeconds = .32f;
+        private const float TickSeconds = (float)DungeonRun.TickSeconds;
+        private const int MaxTicksPerFrame = 5;
         private const float SpotlightSeconds = 7f;
         private readonly bool[] living = new bool[4];
         private readonly TilePoint[] heroTiles = new TilePoint[4];
         private PartyDirector director;
         private CancellationToken lifetime;
         private int fogVersion = -1;
+        private float accumulator;
+        private int discussedFork;
+        private int plannedSituation;
+        private int thinkers;
 
         public DungeonRun Run { get; private set; }
         public DungeonBoard Board { get; private set; }
         public string AiMode => director.ModeLabel;
-        public bool Thinking { get; private set; }
+        public bool Thinking => thinkers > 0;
         public int LastRoll { get; private set; }
         public string TrialAnnouncement { get; private set; } = "";
         /// <summary>The latest fork result or adversity, shown for a few seconds in the intervention panel.</summary>
@@ -36,7 +40,7 @@ namespace DungeonTycoon.Unity
             Run = new DungeonRun(Environment.TickCount);
             Board = gameObject.AddComponent<DungeonBoard>();
             Board.Initialize();
-            Board.WalkSpeed = DungeonBoard.Tile/StepSeconds;
+            Board.WalkSpeed = DungeonBoard.Tile/(TickSeconds*DungeonRun.HeroMoveTicks);
             RefreshLayout();
             gameObject.AddComponent<DungeonHud>();
         }
@@ -54,90 +58,90 @@ namespace DungeonTycoon.Unity
         public void Depart()
         {
             if (!Run.Start()) return;
+            accumulator = 0;
+            discussedFork = 0;
+            plannedSituation = Run.Situation;
             RefreshLayout();
             Board.SetFollowParty(true);
-            ExploreAsync(Run, lifetime).Forget();
         }
 
         private static bool InDungeon(DungeonRun run) => run.Phase == RunPhase.Travel || run.Phase == RunPhase.Combat;
 
-        private async UniTask ExploreAsync(DungeonRun expedition, CancellationToken token)
+        /// <summary>Feeds fixed ticks to the run in real time; an adversity freezes the clock.</summary>
+        private void Update()
         {
-            int stage = expedition.Stage;
-            while (Run == expedition && expedition.Stage == stage && InDungeon(expedition))
+            var run = Run;
+            if (run == null || !InDungeon(run)) return;
+            if (run.PendingAdversity)
             {
-                await WaitForTrialAsync(expedition, token);
-                if (Run != expedition || !InDungeon(expedition)) return;
+                accumulator = 0;
+                return;
+            }
+            accumulator += Time.deltaTime;
+            int stage = run.Stage;
+            for (int i = 0; i < MaxTicksPerFrame && accumulator >= TickSeconds; i++)
+            {
+                accumulator -= TickSeconds;
+                run.Tick();
+                if (!InDungeon(run) || run.Stage != stage || run.PendingAdversity) break;
+            }
+            if (accumulator > TickSeconds*MaxTicksPerFrame) accumulator = 0;
 
-                if (expedition.PendingFork != null)
-                {
-                    await DiscussAsync(expedition, token);
-                    continue;
-                }
+            if (run.Stage != stage)
+            {
+                ClearTrialDisplay();
+                RefreshLayout();
+                return;
+            }
+            RefreshParty();
+            Board.SetMonsters(run.Monsters);
+            Board.PlayEvents(run.TakeEvents());
 
-                if (expedition.Phase == RunPhase.Travel)
-                {
-                    expedition.Step();
-                    RefreshParty();
-                    if (expedition.Phase == RunPhase.Combat)
-                    {
-                        Board.SetEnemyHealth(expedition.FoeIndex, 1f);
-                        await UniTask.Delay(TimeSpan.FromSeconds(.9), cancellationToken: token);
-                    }
-                    else await UniTask.Delay(TimeSpan.FromSeconds(StepSeconds), cancellationToken: token);
-                    continue;
-                }
-
-                // A pace between decisions gives the GM time to read and intervene, even offline.
-                await UniTask.Delay(TimeSpan.FromSeconds(1.0), cancellationToken: token);
-                await WaitForTrialAsync(expedition, token);
-                if (Run != expedition || expedition.Phase != RunPhase.Combat) continue;
-                int round = expedition.RoundToken;
-                int foe = expedition.FoeIndex;
-                var enemy = expedition.Enemy;
-                Thinking = true;
-                var decisions = await director.DecideAsync(expedition, token);
-                if (Run != expedition) return;
-                Thinking = false;
-                await WaitForTrialAsync(expedition, token);
-                if (Run != expedition || expedition.Phase != RunPhase.Combat) continue;
-                Board.PlayRound(foe);
-                await UniTask.Delay(TimeSpan.FromSeconds(.8), cancellationToken: token);
-                await WaitForTrialAsync(expedition, token);
-                if (Run != expedition) return;
-                if (expedition.ResolveRound(round, decisions))
-                {
-                    Board.SetEnemyHealth(foe, (float)enemy.Hp / enemy.MaxHp);
-                    if (expedition.Stage != stage)
-                    {
-                        ClearTrialDisplay();
-                        RefreshLayout();
-                    }
-                    else RefreshParty();
-                }
+            var fork = run.PendingFork;
+            if (fork != null && fork.Token != discussedFork)
+            {
+                discussedFork = fork.Token;
+                DiscussAsync(run, fork, lifetime).Forget();
+            }
+            if (run.Phase == RunPhase.Combat && run.Situation != plannedSituation)
+            {
+                plannedSituation = run.Situation;
+                PlanAsync(run, run.Situation, lifetime).Forget();
             }
         }
 
-        private async UniTask DiscussAsync(DungeonRun expedition, CancellationToken token)
+        private async UniTask DiscussAsync(DungeonRun expedition, ForkDiscussion fork, CancellationToken token)
         {
-            var fork = expedition.PendingFork;
-            Thinking = true;
-            // Give the GM a moment to read the options even when the answer is local and instant.
-            var discussion = director.DiscussAsync(expedition, fork, token);
-            await UniTask.Delay(TimeSpan.FromSeconds(1.2), cancellationToken: token);
-            var proposals = await discussion;
-            Thinking = false;
-            if (Run != expedition) return;
-            await WaitForTrialAsync(expedition, token);
-            if (Run != expedition || !expedition.ResolveFork(fork.Token, proposals)) return;
-            Spotlight(fork.Backtracking ? "막다른 길 · 결정" : "갈림길 · 결정", expedition.LastFork);
-            RefreshParty();
-            await UniTask.Delay(TimeSpan.FromSeconds(1.6), cancellationToken: token);
+            thinkers++;
+            try
+            {
+                // Give the GM a moment to read the options even when the answer is local and instant.
+                var discussion = director.DiscussAsync(expedition, fork, token);
+                await UniTask.Delay(TimeSpan.FromSeconds(1.2), cancellationToken: token);
+                var proposals = await discussion;
+                while (expedition.PendingAdversity) await UniTask.Yield(PlayerLoopTiming.Update, token);
+                if (Run != expedition || !expedition.ResolveFork(fork.Token, proposals)) return;
+                Spotlight(fork.Backtracking ? "막다른 길 · 결정" : "갈림길 · 결정", expedition.LastFork);
+            }
+            finally
+            {
+                thinkers--;
+            }
         }
 
-        private static async UniTask WaitForTrialAsync(DungeonRun expedition, CancellationToken token)
+        /// <summary>Asks for tactics for one situation; the fight keeps going on local rules meanwhile.</summary>
+        private async UniTask PlanAsync(DungeonRun expedition, int situation, CancellationToken token)
         {
-            while (expedition.PendingAdversity) await UniTask.Yield(PlayerLoopTiming.Update, token);
+            thinkers++;
+            try
+            {
+                var plan = await director.TacticsAsync(expedition, token);
+                if (Run == expedition) expedition.ApplyTactics(situation, plan);
+            }
+            finally
+            {
+                thinkers--;
+            }
         }
 
         private void Spotlight(string title, string text)
@@ -183,7 +187,6 @@ namespace DungeonTycoon.Unity
         {
             if (Run.Phase != RunPhase.Victory && Run.Phase != RunPhase.Defeat) return;
             Run = new DungeonRun(Environment.TickCount);
-            Thinking = false;
             ClearTrialDisplay();
             RefreshLayout();
         }
@@ -199,7 +202,8 @@ namespace DungeonTycoon.Unity
         private void RefreshLayout()
         {
             bool planning = Run.Phase == RunPhase.Planning;
-            Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.CanHoldMonster, Run.IsDefeated);
+            Board.SetStage(Run.Stage, Run.Map, Run.Placements, Run.CanHoldMonster);
+            if (!planning) Board.SetMonsters(Run.Monsters);
             fogVersion = -1;
             RefreshParty();
             Board.SetPlanning(planning);

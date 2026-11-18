@@ -18,6 +18,15 @@ namespace DungeonTycoon.Core.Tests
             }));
         }
 
+        [TestCase("고블린", "고블린이")]
+        [TestCase("오우거", "오우거가")]
+        [TestCase("마왕 벨자크", "마왕 벨자크가")]
+        [TestCase("고블린, 오우거", "고블린, 오우거가")]
+        public void SubjectParticleFollowsTheLastSyllable(string word, string expected)
+        {
+            Assert.That(HeroTraits.Subject(word), Is.EqualTo(expected));
+        }
+
         [Test]
         public void CoreAssemblyStaysIndependentOfTheUnityEngine()
         {

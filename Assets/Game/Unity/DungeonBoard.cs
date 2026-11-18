@@ -14,19 +14,42 @@ namespace DungeonTycoon.Unity
         private const float MinZoom = 2.6f;
         private const float ZoomStep = 1.13f;
         private const float FollowZoom = 5.2f;
-        private const float RoundSeconds = 1.35f;
-        // Small offsets keep heroes who share a tile from standing inside each other.
+        private const float LungeSeconds = .32f;
+        private const float FlightSeconds = .3f;
+        // Small offsets keep figures who share a tile from standing inside each other.
         private static readonly Vector2[] Huddle =
         {
             new Vector2(.12f,.13f), new Vector2(-.13f,-.12f), new Vector2(-.13f,.13f), new Vector2(.12f,-.13f)
         };
 
+        private sealed class Foe
+        {
+            public Transform Body, Bar, Fill;
+            public Vector3 Goal;
+            public bool Alive = true, Engaged;
+            public float LungeAt = -1000;
+            public Vector3 LungeDirection;
+            public float Scale = 1;
+        }
+
+        private sealed class Flight
+        {
+            public Transform Body;
+            public Vector3 From, To;
+            public float Start;
+            public bool Orb;
+        }
+
         private readonly List<Mesh> meshes = new List<Mesh>();
         private readonly List<Mesh> stageMeshes = new List<Mesh>();
-        private readonly List<Transform> foes = new List<Transform>();
-        private readonly List<Vector3> foeHomes = new List<Vector3>();
+        private readonly List<Foe> foes = new List<Foe>();
+        private readonly List<Flight> flights = new List<Flight>();
+        private readonly Stack<Transform> arrows = new Stack<Transform>();
+        private readonly Stack<Transform> orbs = new Stack<Transform>();
         private readonly Transform[] heroes = new Transform[4];
         private readonly Vector3[] heroGoals = new Vector3[4];
+        private readonly float[] heroLungeAt = { -1000, -1000, -1000, -1000 };
+        private readonly Vector3[] heroLungeDirection = new Vector3[4];
         private readonly bool[] living = { true, true, true, true };
         private Material[] palette;
         private Material[] fogPalette;
@@ -35,9 +58,8 @@ namespace DungeonTycoon.Unity
         private DungeonMap map;
         private int stage;
         private Transform scenery, entranceZone, fog, hoverAllowed, hoverBlocked;
-        private Transform healthMeter, healthFill, missile, die;
-        private int battleFoe = -1;
-        private float roundStarted = -1000;
+        private Transform barPrototype, arrowPrototype, orbPrototype, die;
+        private float tauntAt = -1000;
         private float adversityStarted = -1000;
         private bool blessing;
         private Camera boardCamera;
@@ -46,7 +68,7 @@ namespace DungeonTycoon.Unity
         private float zoom = 8;
         private int lastWidth, lastHeight;
 
-        /// <summary>World units per second; set so a hero crosses one tile per exploration step.</summary>
+        /// <summary>World units per second; set so a hero crosses one tile per move.</summary>
         public float WalkSpeed { get; set; } = 4f;
         public bool FollowParty { get; private set; }
 
@@ -85,7 +107,7 @@ namespace DungeonTycoon.Unity
             hoverAllowed.gameObject.SetActive(false);
             hoverBlocked.gameObject.SetActive(false);
 
-            var stock = new GameObject("몬스터 원형");
+            var stock = new GameObject("원형");
             stock.transform.SetParent(transform,false);
             stock.SetActive(false);
             foreach (int tier in new[] {1, 2, 4, 5})
@@ -99,7 +121,7 @@ namespace DungeonTycoon.Unity
                 heroes[i] = Draw(new[] {"탱커","힐러","근딜","원딜"}[i], DungeonFigures.Hero(i), meshes);
                 heroes[i].gameObject.AddComponent<HeroView>().SetRole((HeroRole)i);
             }
-            CreateFeedback();
+            CreateFeedback(stock.transform);
         }
 
         private Transform Draw(string objectName, DungeonMesh geometry, List<Mesh> owner, Transform parent = null, Material[] materials = null)
@@ -143,9 +165,8 @@ namespace DungeonTycoon.Unity
         public Vector3 TileCenter(TilePoint tile) =>
             new Vector3((tile.X-(map.Width-1)*.5f)*Tile, 0, ((map.Height-1)*.5f-tile.Y)*Tile);
 
-        /// <summary>Rebuilds the floor when the map changes and redraws every monster figure; the boss is last.</summary>
-        public void SetStage(int stage, DungeonMap map, IReadOnlyList<MonsterPlacement> monsters,
-            Func<TilePoint,bool> placeable, Func<int,bool> defeated)
+        /// <summary>Rebuilds the floor when the map changes and redraws the placed monsters; the boss is last.</summary>
+        public void SetStage(int stage, DungeonMap map, IReadOnlyList<MonsterPlacement> placements, Func<TilePoint,bool> placeable)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
             if (!ReferenceEquals(this.map, map))
@@ -162,39 +183,89 @@ namespace DungeonTycoon.Unity
             }
             if (this.stage != stage)
             {
-                roundStarted = adversityStarted = -1000;
+                adversityStarted = -1000;
                 this.stage = stage;
             }
-            foreach (var foe in foes) if (foe) Destroy(foe.gameObject);
-            foes.Clear();
-            foeHomes.Clear();
-            var perTile = new Dictionary<TilePoint,int>();
-            foreach (var placement in monsters) perTile[placement.Tile] = perTile.TryGetValue(placement.Tile, out int n) ? n+1 : 1;
-            var seen = new Dictionary<TilePoint,int>();
-            for (int i = 0; i < monsters.Count; i++)
+            ClearFoes();
+            var tiles = new List<TilePoint>();
+            foreach (var placement in placements)
             {
-                var placement = monsters[i];
-                seen[placement.Tile] = seen.TryGetValue(placement.Tile, out int k) ? k+1 : 0;
-                int count = perTile[placement.Tile];
-                float angle = seen[placement.Tile]*Mathf.PI*2/count + .6f;
-                var offset = count == 1 ? Vector3.zero : new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*Tile*.27f;
-                AddFoe(placement.Kind == MonsterKind.Ogre ? 2 : 1, TileCenter(placement.Tile)+offset, count == 1 ? 1f : .72f);
-                if (defeated != null && defeated(i)) foes[i].gameObject.SetActive(false);
+                AddFoe(placement.Kind == MonsterKind.Ogre ? 2 : 1);
+                tiles.Add(placement.Tile);
             }
-            AddFoe(stage > 1 ? 5 : 4, TileCenter(map.BossTile), 1f);
-            if (healthMeter) healthMeter.gameObject.SetActive(false);
-            battleFoe = -1;
+            AddFoe(stage > 1 ? 5 : 4);
+            tiles.Add(map.BossTile);
+            PlaceFoes(tiles, null, true);
         }
 
-        private void AddFoe(int tier, Vector3 home, float scale)
+        private void ClearFoes()
         {
-            var foe = Instantiate(models[tier],transform,false);
-            foe.gameObject.SetActive(true);
-            foe.localPosition = home;
-            foe.localRotation = Quaternion.Euler(0,20,0);
-            foe.localScale = Vector3.one*scale;
-            foes.Add(foe);
-            foeHomes.Add(home);
+            foreach (var foe in foes)
+            {
+                if (foe.Body) Destroy(foe.Body.gameObject);
+                if (foe.Bar) Destroy(foe.Bar.gameObject);
+            }
+            foes.Clear();
+        }
+
+        private void AddFoe(int tier)
+        {
+            var body = Instantiate(models[tier],transform,false);
+            body.gameObject.SetActive(true);
+            body.localRotation = Quaternion.Euler(0,20,0);
+            var bar = Instantiate(barPrototype,transform,false);
+            bar.gameObject.SetActive(false);
+            foes.Add(new Foe { Body = body, Bar = bar, Fill = bar.GetChild(0) });
+        }
+
+        /// <summary>Spreads figures that share a tile; stacked monsters are drawn smaller.</summary>
+        private void PlaceFoes(IReadOnlyList<TilePoint> tiles, IReadOnlyList<bool> alive, bool snap)
+        {
+            var perTile = new Dictionary<TilePoint,int>();
+            for (int i = 0; i < tiles.Count; i++)
+                if (alive == null || alive[i]) perTile[tiles[i]] = perTile.TryGetValue(tiles[i], out int n) ? n+1 : 1;
+            var seen = new Dictionary<TilePoint,int>();
+            for (int i = 0; i < tiles.Count; i++)
+            {
+                if (alive != null && !alive[i]) continue;
+                seen[tiles[i]] = seen.TryGetValue(tiles[i], out int k) ? k+1 : 0;
+                int count = perTile[tiles[i]];
+                float angle = seen[tiles[i]]*Mathf.PI*2/count + .6f;
+                var offset = count == 1 ? Vector3.zero : new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*Tile*.27f;
+                var foe = foes[i];
+                foe.Goal = TileCenter(tiles[i])+offset;
+                foe.Scale = count == 1 || i == foes.Count-1 ? 1f : .72f;
+                if (!snap) continue;
+                foe.Body.localPosition = foe.Goal;
+                foe.Body.localScale = Vector3.one*foe.Scale;
+            }
+        }
+
+        /// <summary>Moves monster figures toward their current tiles and updates health bars.</summary>
+        public void SetMonsters(IReadOnlyList<MonsterState> monsters)
+        {
+            if (map == null || monsters == null || monsters.Count != foes.Count) return;
+            var tiles = new TilePoint[monsters.Count];
+            var alive = new bool[monsters.Count];
+            for (int i = 0; i < monsters.Count; i++)
+            {
+                var monster = monsters[i];
+                var foe = foes[i];
+                tiles[i] = monster.Tile;
+                alive[i] = monster.Alive;
+                if (foe.Alive != monster.Alive)
+                {
+                    foe.Alive = monster.Alive;
+                    foe.Body.gameObject.SetActive(monster.Alive);
+                }
+                foe.Engaged = monster.Alive && monster.Mood == MonsterMood.Chasing;
+                bool showBar = monster.Alive && (foe.Engaged || monster.Hp < monster.MaxHp);
+                if (foe.Bar.gameObject.activeSelf != showBar) foe.Bar.gameObject.SetActive(showBar);
+                float fraction = Mathf.Clamp01((float)monster.Hp/monster.MaxHp);
+                foe.Fill.localScale = new Vector3(fraction,1,1);
+                foe.Fill.localPosition = new Vector3((fraction-1)*.465f,0,-.03f);
+            }
+            PlaceFoes(tiles, alive, false);
         }
 
         private void BuildScenery(Func<TilePoint,bool> placeable)
@@ -333,7 +404,7 @@ namespace DungeonTycoon.Unity
             return true;
         }
 
-        // ── Party ────────────────────────────────────────────────────────
+        // ── Party and combat cues ────────────────────────────────────────
 
         private Vector3 HeroSpot(TilePoint tile, int hero) =>
             TileCenter(tile) + new Vector3(Huddle[hero].x,0,Huddle[hero].y)*Tile;
@@ -349,23 +420,55 @@ namespace DungeonTycoon.Unity
             }
         }
 
-        public void SetEnemyHealth(int foe, float fraction)
+        /// <summary>Turns rule events into lunges, arrows, heal orbs and the tank's taunt hop.</summary>
+        public void PlayEvents(IReadOnlyList<CombatEvent> events)
         {
-            if (foe < 0 || foe >= foes.Count || !foes[foe]) return;
-            fraction = Mathf.Clamp01(fraction);
-            foes[foe].gameObject.SetActive(fraction > 0f);
-            healthMeter.gameObject.SetActive(fraction > 0f);
-            healthMeter.localPosition = foeHomes[foe]+Vector3.up*(foe == foes.Count-1 ? 2.3f : 1.7f);
-            healthFill.localScale = new Vector3(fraction,1,1);
-            healthFill.localPosition = new Vector3((fraction-1)*.465f,0,-.03f);
-            battleFoe = fraction > 0 ? foe : -1;
+            if (events == null) return;
+            foreach (var e in events)
+            {
+                if (e.FromHero && (e.Source < 0 || e.Source >= heroes.Length)) continue;
+                if (!e.FromHero && (e.Source < 0 || e.Source >= foes.Count)) continue;
+                Vector3 to = e.ToHero
+                    ? (e.Target >= 0 && e.Target < heroes.Length ? heroes[e.Target].localPosition : Vector3.zero)
+                    : (e.Target >= 0 && e.Target < foes.Count ? foes[e.Target].Body.localPosition : Vector3.zero);
+                switch (e.Kind)
+                {
+                    case CombatEventKind.Taunt:
+                        tauntAt = Time.time;
+                        break;
+                    case CombatEventKind.Heal:
+                        Launch(heroes[e.Source].localPosition, to, true);
+                        break;
+                    default:
+                        if (!e.FromHero)
+                        {
+                            var foe = foes[e.Source];
+                            foe.LungeAt = Time.time;
+                            foe.LungeDirection = Flat(to-foe.Body.localPosition);
+                        }
+                        else if (e.Source == (int)HeroRole.Tank || e.Source == (int)HeroRole.MeleeDamage)
+                        {
+                            heroLungeAt[e.Source] = Time.time;
+                            heroLungeDirection[e.Source] = Flat(to-heroes[e.Source].localPosition);
+                        }
+                        else Launch(heroes[e.Source].localPosition, to, e.Source == (int)HeroRole.Healer);
+                        break;
+                }
+            }
         }
 
-        public void PlayRound(int foe)
+        private static Vector3 Flat(Vector3 v)
         {
-            if (foe < 0 || foe >= foes.Count) return;
-            battleFoe = foe;
-            roundStarted = Time.time;
+            v.y = 0;
+            return v.sqrMagnitude > .0001f ? v.normalized : Vector3.zero;
+        }
+
+        private void Launch(Vector3 from, Vector3 to, bool orb)
+        {
+            var pool = orb ? orbs : arrows;
+            var body = pool.Count > 0 ? pool.Pop() : Instantiate(orb ? orbPrototype : arrowPrototype, transform, false);
+            body.gameObject.SetActive(true);
+            flights.Add(new Flight { Body = body, From = from+Vector3.up*.9f, To = to+Vector3.up*.86f, Start = Time.time, Orb = orb });
         }
 
         public void PlayAdversity(bool success)
@@ -374,22 +477,23 @@ namespace DungeonTycoon.Unity
             adversityStarted = Time.time;
         }
 
-        private void CreateFeedback()
+        private void CreateFeedback(Transform stock)
         {
             var back = new DungeonMesh();
             back.Box(0,0,0,1f,.13f,.035f,Finish.Ink);
-            healthMeter = Draw("적 체력",back,meshes);
+            barPrototype = Draw("체력 막대",back,meshes,stock);
             var fill = new DungeonMesh();
             fill.Box(0,0,0,.93f,.075f,.032f,Finish.Ember);
-            healthFill = Draw("남은 체력",fill,meshes);
-            healthFill.SetParent(healthMeter,false);
-            healthMeter.gameObject.SetActive(false);
+            Draw("남은 체력",fill,meshes,barPrototype);
+            barPrototype.localScale = Vector3.one*.8f;
 
             var arrow = new DungeonMesh();
             arrow.Rod(Vector3.left*.20f, Vector3.right*.14f,.046f,Finish.Ivory);
             arrow.Rod(Vector3.right*.08f,Vector3.right*.27f,.105f,Finish.Mint,0);
-            missile = Draw("화살",arrow,meshes);
-            missile.gameObject.SetActive(false);
+            arrowPrototype = Draw("화살",arrow,meshes,stock);
+            var orb = new DungeonMesh();
+            DungeonFigures.Jewel(orb,0,0,0,.2f,.3f,Finish.Mint);
+            orbPrototype = Draw("치유 빛",orb,meshes,stock);
             die = Draw("역경 d20",Die(),meshes);
             die.gameObject.SetActive(false);
         }
@@ -423,14 +527,17 @@ namespace DungeonTycoon.Unity
 
         // ── Animation ────────────────────────────────────────────────────
 
+        private static float Pulse(float startedAt, float seconds)
+        {
+            float t = (Time.time-startedAt)/seconds;
+            return t >= 0 && t < 1 ? Mathf.Sin(t*Mathf.PI) : 0;
+        }
+
         private void Update()
         {
-            if (!boardCamera || healthMeter == null || map == null) return;
+            if (!boardCamera || map == null) return;
             if (lastWidth != Screen.width || lastHeight != Screen.height) ApplyCamera();
 
-            float age = Time.time-roundStarted;
-            bool attacking = age >= 0 && age < RoundSeconds && battleFoe >= 0;
-            Vector3 foePosition = battleFoe >= 0 && battleFoe < foes.Count ? foeHomes[battleFoe] : Vector3.zero;
             int leaderIndex = -1;
             for (int i = 0; i < heroes.Length; i++)
             {
@@ -447,27 +554,59 @@ namespace DungeonTycoon.Unity
                 toward.y = 0;
                 float travel = toward.magnitude;
                 float beat = Mathf.Sin(Time.time*12f + i*1.47f);
-                float pulse = attacking ? Mathf.Sin(Mathf.Clamp01((age-i*.12f)/.48f)*Mathf.PI) : 0;
-                Vector3 lunge = Vector3.zero;
-                if (battleFoe >= 0 && (i == 0 || i == 2))
-                {
-                    var reach = foePosition-goal;
-                    reach.y = 0;
-                    lunge = reach.normalized*pulse*.45f;
-                }
-                var target = goal+lunge+Vector3.up*(Mathf.Abs(beat)*Mathf.Clamp01(travel*2)*.1f + pulse*.1f);
-                hero.localPosition = Vector3.MoveTowards(hero.localPosition,target,Time.deltaTime*WalkSpeed*1.25f);
+                float lunge = Pulse(heroLungeAt[i], LungeSeconds);
+                float hop = i == (int)HeroRole.Tank ? Pulse(tauntAt, .45f) : 0;
+                var target = goal + heroLungeDirection[i]*lunge*.42f +
+                             Vector3.up*(Mathf.Abs(beat)*Mathf.Clamp01(travel*2)*.1f + lunge*.08f + hop*.35f);
+                hero.localPosition = Vector3.MoveTowards(hero.localPosition,target,Time.deltaTime*WalkSpeed*1.6f);
 
-                Vector3 facing = travel > .05f ? toward : battleFoe >= 0 ? foePosition-hero.localPosition : Vector3.zero;
+                Vector3 facing = travel > .05f ? toward : lunge > 0 ? heroLungeDirection[i] : NearestFoeDirection(hero.localPosition);
                 facing.y = 0;
                 var heading = facing.sqrMagnitude > .0001f
                     ? Quaternion.LookRotation(-facing.normalized, Vector3.up)
                     : Quaternion.Euler(0,hero.localEulerAngles.y,0);
-                var rotation = heading*Quaternion.Euler(0,0,beat*Mathf.Clamp01(travel)*5 - pulse*13);
+                var rotation = heading*Quaternion.Euler(0,0,beat*Mathf.Clamp01(travel)*5 - lunge*13);
                 hero.localRotation = Quaternion.RotateTowards(hero.localRotation,rotation,Time.deltaTime*360);
             }
 
             Vector3 leader = heroes[Math.Max(0,leaderIndex)].localPosition;
+            foreach (var foe in foes)
+            {
+                if (!foe.Alive) continue;
+                var body = foe.Body;
+                float lunge = Pulse(foe.LungeAt, LungeSeconds);
+                Vector3 toward = foe.Goal-body.localPosition;
+                toward.y = 0;
+                var target = foe.Goal + foe.LungeDirection*lunge*.42f + Vector3.up*lunge*.12f;
+                body.localPosition = Vector3.MoveTowards(body.localPosition,target,Time.deltaTime*WalkSpeed*1.4f);
+                body.localScale = Vector3.MoveTowards(body.localScale,Vector3.one*foe.Scale,Time.deltaTime*2);
+                Vector3 facing = toward.magnitude > .05f ? toward : foe.Engaged ? NearestHeroDirection(body.localPosition) : Vector3.zero;
+                if (facing.sqrMagnitude > .0001f)
+                    body.localRotation = Quaternion.RotateTowards(body.localRotation,
+                        Quaternion.LookRotation(-Flat(facing),Vector3.up)*Quaternion.Euler(0,0,lunge*16),Time.deltaTime*300);
+                if (foe.Bar.gameObject.activeSelf)
+                {
+                    foe.Bar.localPosition = body.localPosition+Vector3.up*(foe == foes[foes.Count-1] ? 2.3f : 1.6f*foe.Scale+.1f);
+                    foe.Bar.rotation = boardCamera.transform.rotation;
+                }
+            }
+
+            for (int i = flights.Count-1; i >= 0; i--)
+            {
+                var flight = flights[i];
+                float t = (Time.time-flight.Start)/FlightSeconds;
+                if (t >= 1)
+                {
+                    flight.Body.gameObject.SetActive(false);
+                    (flight.Orb ? orbs : arrows).Push(flight.Body);
+                    flights.RemoveAt(i);
+                    continue;
+                }
+                flight.Body.localPosition = Vector3.Lerp(flight.From,flight.To,t)+Vector3.up*(.26f*Mathf.Sin(t*Mathf.PI));
+                if (flight.Orb) flight.Body.localRotation = Quaternion.Euler(0,t*360,0);
+                else flight.Body.localRotation = Quaternion.FromToRotation(Vector3.right,flight.To-flight.From);
+            }
+
             if (FollowParty)
             {
                 var party = Vector3.zero;
@@ -482,27 +621,6 @@ namespace DungeonTycoon.Unity
                 ApplyCamera();
             }
 
-            if (battleFoe >= 0 && battleFoe < foes.Count && foes[battleFoe])
-            {
-                var foe = foes[battleFoe];
-                float counter = attacking ? Mathf.Sin(Mathf.Clamp01((age-.75f)/.46f)*Mathf.PI) : 0;
-                var towardParty = leader-foeHomes[battleFoe];
-                towardParty.y = 0;
-                foe.localPosition = foeHomes[battleFoe]+towardParty.normalized*counter*.5f+Vector3.up*counter*.15f;
-                if (towardParty.sqrMagnitude > .0001f)
-                    foe.localRotation = Quaternion.LookRotation(-towardParty.normalized,Vector3.up)*Quaternion.Euler(0,0,counter*16);
-            }
-            bool shoot = attacking && living[3] && age > .46f && age < .78f;
-            if (missile.gameObject.activeSelf != shoot) missile.gameObject.SetActive(shoot);
-            if (shoot)
-            {
-                float t = Mathf.InverseLerp(.46f,.78f,age);
-                Vector3 start = heroes[3].localPosition + Vector3.up*.9f;
-                Vector3 end = foePosition + Vector3.up*.86f;
-                missile.localPosition = Vector3.Lerp(start,end,t)+Vector3.up*(.26f*Mathf.Sin(t*Mathf.PI));
-                missile.localRotation = Quaternion.FromToRotation(Vector3.right,end-start);
-            }
-            if (healthMeter.gameObject.activeSelf) healthMeter.rotation = boardCamera.transform.rotation;
             float diceAge = Time.time-adversityStarted;
             bool rolling = diceAge >= 0 && diceAge < 1.5f;
             if (die.gameObject.activeSelf != rolling) die.gameObject.SetActive(rolling);
@@ -514,6 +632,36 @@ namespace DungeonTycoon.Unity
                 die.localRotation = Quaternion.Euler(t*320,t*480,blessing ? t*180 : -t*180);
                 die.localScale = Vector3.one*Mathf.Clamp01((1-t)*6);
             }
+        }
+
+        private Vector3 NearestFoeDirection(Vector3 from)
+        {
+            Vector3 best = Vector3.zero;
+            float bestDistance = float.MaxValue;
+            foreach (var foe in foes)
+            {
+                if (!foe.Alive || !foe.Engaged) continue;
+                float distance = (foe.Body.localPosition-from).sqrMagnitude;
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = foe.Body.localPosition-from;
+            }
+            return best;
+        }
+
+        private Vector3 NearestHeroDirection(Vector3 from)
+        {
+            Vector3 best = Vector3.zero;
+            float bestDistance = float.MaxValue;
+            for (int i = 0; i < heroes.Length; i++)
+            {
+                if (!living[i]) continue;
+                float distance = (heroes[i].localPosition-from).sqrMagnitude;
+                if (distance >= bestDistance) continue;
+                bestDistance = distance;
+                best = heroes[i].localPosition-from;
+            }
+            return best;
         }
 
         private static Material[] MakePalette()

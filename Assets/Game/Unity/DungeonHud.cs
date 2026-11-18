@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using DungeonTycoon.Core;
 using UnityEngine;
 
@@ -194,7 +195,7 @@ namespace DungeonTycoon.Unity
 
             string where = run.FightingBoss ? "보스와 교전 중" :
                 run.PendingFork != null ? "갈림길에서 논의 중" :
-                run.Phase == RunPhase.Combat ? "교전 중" :
+                run.Phase == RunPhase.Combat ? "교전 중  ·  적 "+run.Engaged.Count() :
                 run.IsSeen(run.Map.BossTile) ? "보스방을 발견했다" : "보스방을 찾는 중";
             string progress = where+"   ·   "+run.StepsTaken+"걸음   ·   발견한 몬스터 "+run.SpottedCount+" / "+run.Placements.Count+
                 "   ·   처치 "+run.DefeatedCount+"   ·   갈림길 "+run.ForkCount+"번";
@@ -286,7 +287,9 @@ namespace DungeonTycoon.Unity
             }
             else
             {
-                string title = run.Enemy != null ? run.Enemy.Name+"    "+run.Enemy.Hp+" / "+run.Enemy.MaxHp+" HP" :
+                var engaged = run.Engaged.OrderByDescending(m => m.IsBoss).ThenBy(m => m.Hp).Take(3)
+                    .Select(m => m.Name+" "+m.Hp+"/"+m.MaxHp).ToList();
+                string title = engaged.Count > 0 ? string.Join("   ·   ",engaged) :
                     run.IsSeen(run.Map.BossTile) ? "보스방으로 향하는 중" : "던전을 탐색하는 중";
                 Write(new Rect(299,y+12,details,28),title,17,Paper,true);
                 Write(new Rect(299,y+44,details,28),"낙석 역경    d20 + 능력 보정 ≥ 난이도 "+run.TrialDifficulty,14,Muted);
