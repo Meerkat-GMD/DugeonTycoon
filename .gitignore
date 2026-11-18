@@ -1,0 +1,17 @@
+/Library/
+/Temp/
+/Obj/
+/Logs/
+/UserSettings/
+/Build/
+/Builds/
+/.vs/
+/.idea/
+/*.sln
+/*.slnx
+/*.csproj
+/DotNet/**/bin/
+/DotNet/**/obj/
+/DotNet/**/TestResults/
+/meshy_output/
+/.env

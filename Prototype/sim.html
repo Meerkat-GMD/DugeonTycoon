@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>밸런스 시뮬레이터</title>
+<style>body{font-family:system-ui,sans-serif;background:#16131c;color:#eee;padding:16px}table{border-collapse:collapse}td,th{border:1px solid #444;padding:4px 10px;text-align:left}</style>
+</head><body>
+<h1>던전 타이쿤 밸런스 시뮬레이터</h1>
+<p>gamerules.md의 첫 플레이 검증 기준(빈 던전은 져야 하고, 키운 파티는 이겨야 한다)을 시드 200개로 반복 실행합니다.</p>
+<div id="out">계산 중…</div>
+<script src="core.js"></script>
+<script src="sim.js"></script>
+<script>
+  const r = DTSim.report(200);
+  const keys = Object.keys(Object.values(r)[0]);
+  document.getElementById('out').innerHTML = '<table><tr><th>배치 / 역경</th>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>' +
+    Object.entries(r).map(([n, v]) => `<tr><td>${n}</td>` + keys.map(k => `<td>${v[k]}</td>`).join('') + '</tr>').join('') + '</table>';
+</script>
+</body></html>

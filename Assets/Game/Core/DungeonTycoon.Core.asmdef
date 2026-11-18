@@ -1,0 +1,8 @@
+{
+    "name": "DungeonTycoon.Core",
+    "rootNamespace": "DungeonTycoon.Core",
+    "references": [],
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "noEngineReferences": true
+}

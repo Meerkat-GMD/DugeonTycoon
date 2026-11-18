@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>던전 타이쿤 프로토타입</title>
+<style>
+  :root {
+    --bg: #14111a; --panel: #1e1a26; --panel2: #262131; --line: #352f42; --text: #ece7f3; --muted: #9b93aa;
+    --gold: #e6b955; --hp: #5cc27a; --hp-low: #e2605a; --xp: #6aa7ff; --faith: #f2d47c; --god: #b993ff; --bad: #ef6b63; --good: #6ad48a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, "Malgun Gothic", sans-serif; }
+  button { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--gold); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.on { background: var(--gold); color: #1a1408; border-color: var(--gold); font-weight: 700; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 14px 16px 40px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 12px; }
+  header h1 { font-size: 18px; margin: 0; color: var(--gold); letter-spacing: .5px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; }
+  .chip b { color: var(--faith); }
+  .speed { margin-left: auto; display: flex; gap: 4px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; letter-spacing: .4px; }
+
+  /* 경로 */
+  .path { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .cell { position: relative; flex: 1 0 74px; min-height: 76px; border: 1px dashed var(--line); border-radius: 10px; background: var(--panel2);
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; user-select: none; }
+  .cell.prep { cursor: pointer; }
+  .cell.prep:hover { border-color: var(--gold); }
+  .cell .ic { font-size: 26px; line-height: 1; }
+  .cell .nm { font-size: 11px; color: var(--muted); }
+  .cell.passed { opacity: .35; }
+  .cell.boss { border-style: solid; border-color: #6b2f3a; background: #2a1a22; }
+  .cell.gate { border-style: solid; background: #1b2620; border-color: #2f4a3a; }
+  .cell.here { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .token { position: absolute; top: -10px; right: -4px; font-size: 18px; filter: drop-shadow(0 0 4px #000); }
+  .prepbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .budget { flex: 1 1 200px; }
+  .meter { height: 8px; background: #0e0c12; border-radius: 4px; overflow: hidden; }
+  .meter > i { display: block; height: 100%; background: var(--gold); transition: width .2s; }
+
+  .grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; margin-top: 12px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  /* 용사 */
+  .party { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (max-width: 520px) { .party { grid-template-columns: 1fr; } }
+  .hero { border: 1px solid var(--line); border-radius: 10px; padding: 9px; background: var(--panel2); position: relative; }
+  .hero.dead { opacity: .45; filter: grayscale(.8); }
+  .hero.target { border-color: var(--god); box-shadow: 0 0 0 2px var(--god) inset; cursor: pointer; }
+  .hero .top { display: flex; align-items: center; gap: 8px; }
+  .hero .ic { font-size: 26px; }
+  .hero .nm { font-weight: 700; }
+  .hero .rl { font-size: 11px; color: var(--muted); }
+  .hero .lv { margin-left: auto; color: var(--gold); font-weight: 700; }
+  .bar { height: 9px; background: #0e0c12; border-radius: 5px; overflow: hidden; margin-top: 5px; }
+  .bar > i { display: block; height: 100%; transition: width .25s; }
+  .bar.hp > i { background: var(--hp); } .bar.hp.low > i { background: var(--hp-low); }
+  .bar.xp { height: 4px; } .bar.xp > i { background: var(--xp); }
+  .nums { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .say { margin-top: 6px; font-size: 12px; background: #15121b; border-radius: 8px; padding: 5px 8px; min-height: 28px; color: #d9d2e6; }
+  .ai { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .ai.thinking { color: var(--xp); border-color: #2d4a73; }
+  .ai.ai-ok { color: var(--good); border-color: #2f5a3d; }
+  .ai.fallback { color: var(--gold); border-color: #5a4a2a; }
+
+  /* 전투 */
+  .enemies { display: flex; flex-wrap: wrap; gap: 8px; }
+  .enemy { flex: 1 1 140px; border: 1px solid #4a2a30; background: #241820; border-radius: 10px; padding: 8px; }
+  .enemy.dead { opacity: .35; }
+  .enemy .ic { font-size: 28px; }
+  .walk { color: var(--muted); padding: 14px 4px; text-align: center; }
+  .aibox { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .aibox .bar > i { background: var(--xp); }
+  .aibox .bar { position: relative; }
+  .aibox .limit { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--gold); }
+  details pre { max-height: 220px; overflow: auto; background: #0e0c12; padding: 8px; border-radius: 8px; font-size: 11px; white-space: pre-wrap; }
+
+  /* 개입 */
+  .god { display: grid; gap: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .helpbtn { display: flex; flex-direction: column; align-items: flex-start; text-align: left; flex: 1 1 150px; }
+  .helpbtn small, .advbtn small { color: var(--muted); font-size: 11px; }
+  .advbtn { display: flex; flex-direction: column; align-items: flex-start; text-align: left; flex: 1 1 170px; border-color: #3a3050; }
+  .hint { font-size: 12px; color: var(--god); min-height: 18px; }
+
+  /* 로그 */
+  .log { height: 300px; overflow-y: auto; font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
+  .log div { padding: 2px 6px; border-radius: 4px; }
+  .k-stage { color: var(--gold); font-weight: 700; margin-top: 4px; }
+  .k-boss { color: #ff8f8f; font-weight: 700; } .k-warn { color: #f0a070; }
+  .k-dmg { color: #c99; } .k-hit { color: #cfc8dc; } .k-heal { color: var(--good); }
+  .k-good { color: var(--good); font-weight: 600; } .k-bad { color: var(--bad); font-weight: 600; }
+  .k-level { color: var(--xp); font-weight: 700; } .k-xp { color: #8fb4e8; } .k-faith { color: var(--faith); }
+  .k-god { color: var(--god); font-weight: 600; } .k-ai { color: #7f9ec9; font-style: italic; }
+
+  /* 모달 */
+  .modal { position: fixed; inset: 0; background: rgba(8,6,12,.72); display: none; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+  .modal.show { display: flex; }
+  .card { background: var(--panel); border: 1px solid var(--gold); border-radius: 14px; padding: 20px; width: min(460px, 100%); text-align: center; max-height: 90vh; overflow: auto; }
+  .card h3 { margin: 0 0 6px; color: var(--gold); }
+  .die { font-size: 64px; font-weight: 800; margin: 10px 0 2px; font-variant-numeric: tabular-nums; }
+  .formula { font-size: 15px; color: var(--muted); min-height: 22px; }
+  .verdict { font-size: 22px; font-weight: 800; margin: 8px 0; min-height: 30px; }
+  .verdict.ok { color: var(--good); } .verdict.no { color: var(--bad); }
+  .quote { background: #15121b; border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+  table.sum { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  table.sum td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+  table.sum td:last-child { text-align: right; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>⚔ 던전 타이쿤</h1>
+    <span class="chip" id="stageName"></span>
+    <span class="chip">🙏 신앙 <b id="faith"></b></span>
+    <span class="chip">🎲 역경 <b id="advLeft"></b></span>
+    <div class="speed" id="speed"></div>
+  </header>
+
+  <section class="panel">
+    <h2 id="pathTitle">경로</h2>
+    <div class="path" id="path"></div>
+    <div class="prepbar" id="prepbar"></div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>용사 파티</h2>
+      <div class="party" id="party"></div>
+    </section>
+    <section class="panel">
+      <h2 id="battleTitle">조우</h2>
+      <div id="battle"></div>
+    </section>
+    <section class="panel">
+      <h2>사회자의 개입</h2>
+      <div class="god" id="god"></div>
+    </section>
+    <section class="panel">
+      <h2>전투 기록</h2>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+</div>
+
+<div class="modal" id="modal"><div class="card" id="modalCard"></div></div>
+
+<script src="core.js"></script>
+<script>
+'use strict';
+// ---------- 실시간 진행 설정 (TUNE: 게임 시간 ms, 1배속 기준) ----------
+const STEP_MS = 1100;      // 한 칸 이동
+const ROUND_MS = 1800;     // 전투 라운드 길이
+const AI_TIMEOUT = 1200;   // AI 응답 제한 시간. 넘기면 역할 기본 행동
+const $ = id => document.getElementById(id);
+
+let g;
+const ui = { brush: 'goblin', speed: 1, paused: false, modal: false, targeting: null, now: 0, events: [], seq: 0,
+             reqSeq: 0, req: null, roundKey: null, heroAI: {}, cache: {}, logLen: -1 };
+
+function newGame() {
+  g = DT.createGame();
+  Object.assign(ui, { brush: DT.stage(g).monsters[0], paused: false, modal: false, targeting: null, now: 0, events: [], req: null, roundKey: null, heroAI: {}, logLen: -1 });
+  closeModal();
+  render();
+}
+
+// ---------- 게임 시간 스케줄러 ----------
+function schedule(ms, fn) { ui.events.push({ t: ui.now + ms, fn, id: ++ui.seq }); }
+let last = performance.now();
+function loop(ts) {
+  const dt = Math.min(100, ts - last); last = ts;
+  if (!ui.paused && !ui.modal && g.phase === 'run') {
+    ui.now += dt * ui.speed;
+    ui.events.sort((a, b) => a.t - b.t || a.id - b.id);
+    let ran = false;
+    while (ui.events.length && ui.events[0].t <= ui.now) {
+      ui.events.shift().fn(); ran = true;
+      if (g.phase !== 'run' || ui.modal) break;
+    }
+    if (ran) render();
+  }
+  renderAiTimer();
+  requestAnimationFrame(loop);
+}
+
+// ---------- 진행 ----------
+function depart() { DT.depart(g); ui.events = []; ui.heroAI = {}; schedule(STEP_MS, doStep); render(); }
+
+function doStep() {
+  const ctx = DT.step(g);
+  if (ctx === 'path') schedule(STEP_MS, doStep);
+  else if (ctx) schedule(400, startRound);
+}
+
+function startRound() {
+  const enc = g.encounter;
+  if (!enc || enc.over || g.phase !== 'run') return;
+  const key = enc.id * 1000 + enc.round;
+  ui.roundKey = key;
+  const heroes = DT.aliveHeroes(g);
+  // 동시에 판단할 용사들의 상태와 가능한 행동을 한 번의 요청에 담는다 (OpenAI 호출 자리 — 여기서는 모의 응답)
+  const payload = buildPayload(heroes);
+  const decisions = mockDecide(heroes);        // 요청 시점 상태로 판단 → 도착 시점엔 상황이 바뀌었을 수 있다
+  const latency = sampleLatency();
+  const req = { id: ++ui.reqSeq, encId: enc.id, key, sentAt: ui.now, latency, timedOut: false, payload, decisions };
+  ui.req = req;
+  heroes.forEach(h => ui.heroAI[h.id] = { status: 'thinking', line: (ui.heroAI[h.id] || {}).line });
+  schedule(latency, () => onAiResponse(req));
+  schedule(AI_TIMEOUT, () => onAiTimeout(req));
+  schedule(ROUND_MS, () => endRound(key));
+}
+
+function onAiResponse(req) {
+  req.arrived = true;
+  const enc = g.encounter;
+  if (req.timedOut || !enc || enc.id !== req.encId || enc.over || ui.roundKey !== req.key) {
+    g.log.push({ text: `🗑 AI 응답 #${req.id}이 ${req.latency}ms 만에 도착했지만 이미 ${!enc || enc.id !== req.encId ? '조우가 끝나' : '기본 행동으로 진행해'} 폐기했다.`, kind: 'ai' });
+    return;
+  }
+  for (const d of req.decisions) {
+    const h = DT.hero(g, d.hero);
+    const res = DT.applyHeroAction(g, h, d, 'ai');
+    if (res.applied) ui.heroAI[h.id] = { status: res.source === 'ai' ? 'ai-ok' : 'fallback', line: res.source === 'ai' ? d.line : `(${res.note.replace(/[()]/g, '')})` };
+    if (g.encounter.over) break;
+  }
+  afterHeroActions();
+}
+
+function onAiTimeout(req) {
+  const enc = g.encounter;
+  if (ui.req !== req || !enc || enc.id !== req.encId || enc.over || ui.roundKey !== req.key) return;
+  const waiting = DT.aliveHeroes(g).filter(h => h.actedRound !== req.key);
+  if (!waiting.length) return;
+  req.timedOut = true;
+  g.log.push({ text: `⏱ AI 응답 #${req.id} 지연(제한 ${AI_TIMEOUT}ms) → 역할별 기본 행동`, kind: 'ai' });
+  for (const h of waiting) {
+    const res = DT.applyHeroAction(g, h, DT.defaultDecision(g, h), 'default');
+    if (res.applied) ui.heroAI[h.id] = { status: 'fallback', line: '(기본 행동)' };
+    if (g.encounter.over) break;
+  }
+  afterHeroActions();
+}
+
+function afterHeroActions() { handleResult(DT.checkEnd(g)); }
+
+function endRound(key) {
+  if (ui.roundKey !== key || !g.encounter || g.encounter.over) return;
+  // 제한 시간 전에 응답이 오지 않은 용사는 이미 기본 행동했다. 적 차례.
+  const r = DT.enemyPhase(g);
+  if (r === 'continue') startRound(); else handleResult(r);
+}
+
+function handleResult(r) {
+  if (r === 'win') {
+    if (g.phase === 'run') schedule(STEP_MS, doStep);
+    else { ui.events = []; showSummary(); }
+  } else if (r === 'wipe') { ui.events = []; showSummary(); }
+}
+
+function sampleLatency() { // TUNE: 모의 API 지연. 약 1/3은 제한 시간을 넘긴다
+  return Math.round(Math.random() < 0.65 ? 250 + Math.random() * 750 : 1300 + Math.random() * 1300);
+}
+
+// ---------- 모의 AI (실제 버전에서는 OpenAI 요청/응답) ----------
+function buildPayload(heroes) {
+  return {
+    encounter: g.encounter.name, round: g.encounter.round + 1,
+    heroes: heroes.map(h => ({ id: h.id, role: h.role, hp: h.hp, maxHp: h.maxHp,
+      actions: h.key === 'healer' ? ['heal', 'attack'] : h.key === 'tank' ? ['attack', 'taunt'] : ['attack'] })),
+    allies: g.heroes.map(h => ({ id: h.id, hp: h.hp, maxHp: h.maxHp, alive: h.alive })),
+    enemies: DT.aliveEnemies(g).map(e => ({ id: e.id, name: e.name, hp: e.hp, maxHp: e.maxHp, atk: e.atk })),
+  };
+}
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function mockDecide(heroes) {
+  const foes = DT.aliveEnemies(g);
+  const weakest = foes.slice().sort((a, b) => a.hp - b.hp)[0];
+  const strongest = foes.slice().sort((a, b) => b.atk - a.atk)[0];
+  return heroes.map(h => {
+    if (h.key === 'tank') {
+      const weak = heroes.find(x => x.key !== 'tank' && x.hp / x.maxHp < 0.45);
+      if (weak) return { hero: h.id, action: 'taunt', line: pick([`${weak.name}, 내 뒤로!`, '이쪽이다, 덤벼라!', '방패를 세운다. 아무도 못 지나가!']) };
+      return { hero: h.id, action: 'attack', target: strongest.id, line: pick([`${strongest.name}, 상대는 나다!`, '앞은 내가 맡는다.', '버텨! 밀어붙인다!']) };
+    }
+    if (h.key === 'healer') {
+      const t = DT.lowestAlly(g);
+      if (t && t.hp / t.maxHp < 0.7) return { hero: h.id, action: 'heal', target: t.id, line: pick([`${t.name}, 조금만 버텨요!`, `빛이여, ${t.name}를 지켜주소서.`]) };
+      return { hero: h.id, action: 'attack', target: weakest.id, line: pick(['지금은 저도 거들게요.', '모두 무사하군요. 공격!']) };
+    }
+    if (h.key === 'melee') return { hero: h.id, action: 'attack', target: weakest.id, line: pick([`${weakest.name}부터 끝낸다!`, '빈틈이 보인다!', '한 방 더!']) };
+    return { hero: h.id, action: 'attack', target: weakest.id, line: pick([`${weakest.name}, 조준 완료.`, '바람 계산 끝. 쏩니다!', '약한 놈부터 떨굽니다.']) };
+  });
+}
+
+// ---------- 사회자 개입 ----------
+function clickHelp(key) {
+  const help = DT.HELPS[key];
+  if (help.target === 'none') { DT.applyHelp(g, key); render(); return; }
+  ui.targeting = ui.targeting === key ? null : key;
+  render();
+}
+function clickHero(id) {
+  if (!ui.targeting) return;
+  const r = DT.applyHelp(g, ui.targeting, id);
+  if (r.ok) ui.targeting = null; else flashHint(r.reason);
+  render();
+}
+let hintTimer;
+function flashHint(t) { ui.hint = t; clearTimeout(hintTimer); hintTimer = setTimeout(() => { ui.hint = null; render(); }, 1800); }
+
+function clickAdversity(id) {
+  const adv = DT.ADVERSITIES.find(a => a.id === id);
+  const rep = DT.representative(g, adv);
+  ui.modal = true;
+  ui.targeting = null;
+  const res = DT.declareAdversity(g, id);   // 판정은 즉시 확정. 화면은 연출 뒤에 공개한다
+  if (!res.ok) { ui.modal = false; flashHint(res.reason); render(); return; }
+  $('modalCard').innerHTML = `
+    <h3>역경 선언: ${adv.name}</h3>
+    <div style="color:var(--muted)">대표 용사 ${rep.icon} <b style="color:var(--text)">${rep.name}</b> (${rep.role}) · ${res.statName} 판정 · 난이도 ${res.dc}</div>
+    <div class="quote">“${res.line}”</div>
+    <div class="die" id="die">?</div>
+    <div class="formula" id="formula"></div>
+    <div class="verdict" id="verdict"></div>
+    <div id="after" style="min-height:22px;color:var(--muted)"></div>
+    <button id="cont" style="margin-top:10px" disabled>계속</button>`;
+  $('modal').classList.add('show');
+  let n = 0;
+  const spin = setInterval(() => {
+    if (!$('die')) { clearInterval(spin); return; }
+    $('die').textContent = 1 + Math.floor(Math.random() * 20);
+    if (++n > 14) {
+      clearInterval(spin);
+      $('die').textContent = res.roll;
+      $('formula').textContent = `d20 ${res.roll} + ${res.statName} ${res.mod >= 0 ? '+' : ''}${res.mod} = ${res.roll + res.mod}  ${res.success ? '≥' : '<'}  난이도 ${res.dc}`;
+      $('verdict').textContent = res.success ? '성공!' : '실패';
+      $('verdict').className = 'verdict ' + (res.success ? 'ok' : 'no');
+      $('after').textContent = res.success ? `파티 경험치 +70 · 신앙 +3` : `${rep.name}이(가) ${adv.dmg} 피해를 입었다. 원정은 이어진다.`;
+      const btn = $('cont'); btn.disabled = false; btn.focus();
+      btn.onclick = () => { closeModal(); if (res.end) handleResult(res.end); else if (g.phase === 'defeat') showSummary(); render(); };
+    }
+  }, 70);
+}
+
+function closeModal() { ui.modal = false; $('modal').classList.remove('show'); }
+
+// ---------- 결과 요약 ----------
+function statRows(s) {
+  const adv = s.adversity.map(a => `${a.name} ${a.success ? '✓' : '✗'}`).join(', ') || '없음';
+  return `<tr><td>획득 경험치</td><td>${s.xp}</td></tr><tr><td>처치한 조우</td><td>${s.kills}</td></tr>
+    <tr><td>받은 피해 / 회복량</td><td>${s.damageTaken} / ${s.healed}</td></tr>
+    <tr><td>신앙 획득 / 사용</td><td>${s.faithGained} / ${s.faithSpent}</td></tr><tr><td>역경</td><td>${adv}</td></tr>`;
+}
+function heroRows() { return g.heroes.map(h => `<tr><td>${h.icon} ${h.name}</td><td>Lv ${h.level} · ${h.alive ? `HP ${h.hp}/${h.maxHp}` : '쓰러짐'}</td></tr>`).join(''); }
+
+function showSummary() {
+  ui.modal = true;
+  let title, body = '', btn;
+  if (g.phase === 'stageClear') {
+    title = `🏆 ${DT.stage(g).name} 돌파`;
+    body = `<p style="color:var(--muted)">살아남은 용사의 레벨과 기술은 그대로 이어지고, 쓰러진 용사는 다음 층 입구에서 복귀합니다.</p>
+      <table class="sum">${statRows(g.stats[g.stageIndex])}</table><table class="sum">${heroRows()}</table>`;
+    btn = `<button id="cont" class="on">2층 경로 준비</button>`;
+  } else {
+    const win = g.phase === 'victory';
+    const boss = g.encounter && g.encounter.kind === 'boss' ? g.encounter.enemies[0] : null;
+    title = win ? '👑 원정 승리!' : '☠ 원정 패배';
+    if (!win) body += `<p style="color:var(--muted)">${boss ? `${boss.icon} ${boss.name} 잔여 HP <b style="color:var(--bad)">${boss.hp} / ${boss.maxHp}</b>. ` : `${DT.stage(g).name}에서 전멸. `}파티 평균 레벨 ${(g.heroes.reduce((s, h) => s + h.level, 0) / 4).toFixed(1)} · 남은 신앙 ${g.faith}</p>`;
+    g.stats.forEach((s, i) => { if (s) body += `<div style="text-align:left;color:var(--gold);margin-top:8px">${DT.STAGES[i].name}</div><table class="sum">${statRows(s)}</table>`; });
+    body += `<table class="sum">${heroRows()}</table>`;
+    btn = `<button id="cont" class="on">새 원정</button>`;
+  }
+  $('modalCard').innerHTML = `<h3>${title}</h3>${body}${btn}`;
+  $('modal').classList.add('show');
+  $('cont').onclick = () => {
+    if (g.phase === 'stageClear') { DT.nextStage(g); ui.brush = DT.stage(g).monsters[0]; ui.events = []; closeModal(); render(); }
+    else newGame();
+  };
+}
+
+// ---------- 렌더링 ----------
+function setHTML(id, html) { if (ui.cache[id] !== html) { ui.cache[id] = html; $(id).innerHTML = html; } }
+const pct = (a, b) => Math.max(0, Math.min(100, a / b * 100)).toFixed(1);
+
+function render() {
+  const st = DT.stage(g);
+  $('stageName').textContent = st.name;
+  $('faith').textContent = g.faith;
+  $('advLeft').textContent = `${g.adversityLeft}/${DT.ADVERSITY_PER_STAGE}`;
+  setHTML('speed', [['⏸', 0], ['1x', 1], ['2x', 2], ['4x', 4]].map(([t, s]) =>
+    `<button data-speed="${s}" class="${(s === 0 ? ui.paused : !ui.paused && ui.speed === s) ? 'on' : ''}">${t}</button>`).join(''));
+  renderPath(st); renderParty(); renderBattle(); renderGod(); renderLog();
+}
+
+function renderPath(st) {
+  const prep = g.phase === 'prep';
+  $('pathTitle').textContent = prep ? '경로 준비 — 몬스터를 고르고 칸을 눌러 배치 (다시 누르면 제거)' : '경로';
+  let html = `<div class="cell gate ${g.pos === -1 && !prep ? 'here' : ''}">${g.pos === -1 && !prep ? '<span class="token">🚩</span>' : ''}<span class="ic">🚪</span><span class="nm">입구</span></div>`;
+  for (let i = 0; i < st.length; i++) {
+    const m = g.placements[i] && DT.MONSTERS[g.placements[i]];
+    const here = !prep && g.pos === i;
+    html += `<div class="cell ${prep ? 'prep' : ''} ${!prep && g.pos > i ? 'passed' : ''} ${here ? 'here' : ''}" data-cell="${i}">
+      ${here ? '<span class="token">🚩</span>' : ''}<span class="ic">${m ? m.icon : '·'}</span><span class="nm">${m ? `${m.name} (${m.cost})` : '빈 길'}</span></div>`;
+  }
+  const atBoss = !prep && g.pos >= st.length;
+  html += `<div class="cell boss ${atBoss ? 'here' : ''}">${atBoss ? '<span class="token">🚩</span>' : ''}<span class="ic">${st.boss.icon}</span><span class="nm">${st.boss.name}</span></div>`;
+  setHTML('path', html);
+
+  if (prep) {
+    const used = DT.budgetUsed(g);
+    setHTML('prepbar', st.monsters.map(k => { const m = DT.MONSTERS[k];
+      return `<button data-brush="${k}" class="${ui.brush === k ? 'on' : ''}" title="HP ${m.units.map(u => u.hp).join('+')} · 공격 ${m.units[0].atk} · 경험치 ${m.xp}">${m.icon} ${m.name} · 위협 ${m.cost}</button>`; }).join('') +
+      `<div class="budget"><div class="nums"><span>위협 예산</span><span>${used} / ${st.budget}</span></div><div class="meter"><i style="width:${pct(used, st.budget)}%"></i></div></div>
+       <button data-act="clear">비우기</button><button data-act="preset">예시 배치</button><button data-act="depart" class="on">출발 ▶</button>`);
+  } else setHTML('prepbar', '');
+}
+
+function renderParty() {
+  setHTML('party', g.heroes.map(h => {
+    const ai = ui.heroAI[h.id] || {};
+    const statusText = !h.alive ? '💀 쓰러짐' : { thinking: '🤖 판단 중…', 'ai-ok': '🤖 AI 행동', fallback: '⏱ 기본 행동' }[ai.status] || '대기';
+    const mods = Object.entries(h.mods).map(([k, v]) => `${DT.STAT_NAME[k]} ${v >= 0 ? '+' : ''}${v}`).join(' · ');
+    const tgt = ui.targeting && !DT.canHelp(g, ui.targeting, h.id);
+    return `<div class="hero ${h.alive ? '' : 'dead'} ${tgt ? 'target' : ''}" data-hero="${h.id}">
+      <div class="top"><span class="ic">${h.icon}</span><div><div class="nm">${h.name}</div><div class="rl">${h.role} · ${mods}</div></div><span class="lv">Lv ${h.level}</span></div>
+      <div class="bar hp ${h.hp / h.maxHp < 0.35 ? 'low' : ''}"><i style="width:${pct(h.hp, h.maxHp)}%"></i></div>
+      <div class="nums"><span>HP ${h.hp}/${h.maxHp}</span><span>공격 ${h.atk}${h.heal ? ` · 치유 ${h.heal}` : ''}</span></div>
+      <div class="bar xp"><i style="width:${pct(h.xp, DT.xpToNext(h.level))}%"></i></div>
+      <div class="nums"><span>XP ${h.xp}/${DT.xpToNext(h.level)}</span><span class="ai ${ai.status || ''}">${statusText}</span></div>
+      <div class="say">${ai.line ? `“${ai.line}”` : '<span style="color:var(--muted)">…</span>'}</div></div>`;
+  }).join(''));
+}
+
+function renderBattle() {
+  const enc = g.encounter;
+  let html;
+  if (g.phase === 'prep') { $('battleTitle').textContent = '조우'; html = `<div class="walk">출발하면 파티가 배치한 순서대로 조우합니다.<br>빈 칸만 있어도 출발할 수 있습니다.</div>`; }
+  else if (!enc) { $('battleTitle').textContent = '이동 중'; html = `<div class="walk">🚶 파티가 길을 걷고 있다… (빈 길에서도 역경을 선언할 수 있다)</div>`; }
+  else {
+    $('battleTitle').textContent = `${enc.kind === 'boss' ? '보스전' : '전투'} · ${enc.name} · 라운드 ${enc.round + 1}${g.blessed ? ' · 🔥축복' : ''}`;
+    html = `<div class="enemies">${enc.enemies.map(e => `<div class="enemy ${e.alive ? '' : 'dead'}">
+      <div class="top" style="display:flex;gap:8px;align-items:center"><span class="ic">${e.icon}</span><div><b>${e.name}</b><div class="rl" style="font-size:11px;color:var(--muted)">공격 ${e.atk}${e.aoeEvery ? ` · ${e.aoeEvery}라운드마다 광역` : ''}</div></div></div>
+      <div class="bar hp"><i style="width:${pct(e.hp, e.maxHp)}%;background:#d0575f"></i></div><div class="nums"><span>HP ${e.hp}/${e.maxHp}</span></div></div>`).join('')}</div>`;
+  }
+  const req = ui.req;
+  html += `<div class="aibox" id="aibox"></div>`;
+  if (req) html += `<details><summary style="cursor:pointer;font-size:12px;color:var(--muted);margin-top:6px">마지막 AI 요청 #${req.id} 보기 (용사 ${req.decisions.length}명을 한 번에 판단)</summary><pre>${escapeHtml(JSON.stringify({ request: req.payload, response: req.decisions }, null, 1))}</pre></details>`;
+  setHTML('battle', html);
+  renderAiTimer(true);
+}
+
+function renderAiTimer(force) {
+  const box = $('aibox');
+  if (!box) return;
+  const req = ui.req;
+  const enc = g.encounter;
+  let html = '';
+  if (req && enc && enc.id === req.encId && !enc.over && g.phase === 'run') {
+    const el = Math.min(ui.now - req.sentAt, 2600);
+    const state = req.arrived && !req.timedOut ? `응답 도착 (${req.latency}ms)` : req.timedOut ? '제한 시간 초과 → 기본 행동' : `응답 대기 ${Math.round(el)}ms`;
+    html = `<div class="nums"><span>🤖 AI 요청 #${req.id}</span><span>${state} · 제한 ${AI_TIMEOUT}ms</span></div>
+      <div class="bar"><i style="width:${pct(req.arrived ? Math.min(req.latency, el) : el, 2600)}%"></i><span class="limit" style="left:${pct(AI_TIMEOUT, 2600)}%"></span></div>`;
+  }
+  if (force || box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+}
+
+function renderGod() {
+  const running = g.phase === 'run';
+  const ctx = DT.context(g);
+  const ctxName = { path: '빈 길', battle: '일반 전투', boss: '보스전' }[ctx] || '-';
+  const advBad = DT.canAdversity(g);
+  const helps = Object.entries(DT.HELPS).map(([k, h]) => {
+    const disabled = !running || g.faith < h.cost || (h.combatOnly && !g.encounter) || (k === 'bless' && g.blessed);
+    return `<button class="helpbtn ${ui.targeting === k ? 'on' : ''}" data-help="${k}" ${disabled ? 'disabled' : ''}><span>${h.icon} ${h.name} · 신앙 ${h.cost}</span><small>${h.desc}</small></button>`;
+  }).join('');
+  const advs = running ? DT.adversityOptions(g).map(a => {
+    const rep = DT.representative(g, a);
+    return `<button class="advbtn" data-adv="${a.id}" ${advBad || !rep ? 'disabled' : ''}><span>🎲 ${a.name} · 난이도 ${a.dc}</span>
+      <small>${rep ? `${rep.icon} ${rep.name} ${DT.STAT_NAME[a.stat]} ${rep.mods[a.stat] >= 0 ? '+' : ''}${rep.mods[a.stat]} · 성공 확률 ${Math.max(0, Math.min(20, 21 - (a.dc - rep.mods[a.stat]))) * 5}%` : ''}</small>
+      <small>성공: 경험치+신앙 · 실패: ${a.dmg} 피해</small></button>`;
+  }).join('') : '';
+  const hint = ui.hint || (ui.targeting ? `${DT.HELPS[ui.targeting].name}: 대상 용사 카드를 누르세요 (Esc 취소)` : running ? `👁 관망 중 — 아무것도 하지 않으면 용사들이 스스로 해결합니다.` : '');
+  setHTML('god', `<div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">도움 (신앙 소모, 보스전 가능)</div><div class="row">${helps}</div></div>
+    <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">역경 (이 층 남은 ${g.adversityLeft}회 · 지금: ${ctxName})${advBad && running ? ` — ${advBad}` : ''}</div><div class="row">${advs || '<span style="color:var(--muted);font-size:12px">원정 중에 선언할 수 있습니다.</span>'}</div></div>
+    <div class="hint">${hint}</div>`);
+}
+
+function renderLog() {
+  if (ui.logLen === g.log.length) return;
+  ui.logLen = g.log.length;
+  const el = $('log');
+  el.innerHTML = g.log.slice(-150).map(l => `<div class="k-${l.kind}">${escapeHtml(l.text)}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// ---------- 입력 ----------
+const PRESETS = [
+  ['goblin', 'wolves', null, 'orc', 'goblin', null, 'wolves', 'goblin'],
+  ['wolves', 'orc', null, 'knight', 'wolves', null, 'orc', null],
+];
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-speed],[data-brush],[data-act],[data-cell],[data-help],[data-hero],[data-adv]');
+  if (!t || ui.modal) return;
+  const d = t.dataset;
+  if (d.speed != null) { const s = +d.speed; if (s === 0) ui.paused = !ui.paused; else { ui.speed = s; ui.paused = false; } }
+  else if (d.brush) ui.brush = d.brush;
+  else if (d.cell != null && g.phase === 'prep') {
+    const i = +d.cell;
+    const r = DT.place(g, i, g.placements[i] === ui.brush ? null : ui.brush);
+    if (!r.ok) flashHint(r.reason);
+  }
+  else if (d.act === 'clear') g.placements.fill(null);
+  else if (d.act === 'preset') { g.placements.fill(null); PRESETS[g.stageIndex].forEach((m, i) => m && DT.place(g, i, m)); }
+  else if (d.act === 'depart') depart();
+  else if (d.help) clickHelp(d.help);
+  else if (d.hero) clickHero(d.hero);
+  else if (d.adv) clickAdversity(d.adv);
+  render();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { ui.targeting = null; render(); }
+  if (e.key === ' ' && !ui.modal && e.target === document.body) { e.preventDefault(); ui.paused = !ui.paused; render(); }
+});
+
+newGame();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+    "name": "DungeonTycoon.Unity",
+    "rootNamespace": "DungeonTycoon.Unity",
+    "references": [
+        "DungeonTycoon.Core",
+        "UniTask"
+    ]
+}
