@@ -59,7 +59,7 @@
 .hud .card-art {
     height: 192px;
     background-color: rgb(30, 41, 46);
-    -unity-background-scale-mode: scale-and-crop;
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 .hud .card-edit {
@@ -223,7 +223,7 @@
     margin-bottom: 8px;
     background-color: rgb(30, 41, 46);
     border-radius: 10px;
-    -unity-background-scale-mode: scale-and-crop;
+    -unity-background-scale-mode: scale-to-fit;
 }
 
 .hud .editor-name {
