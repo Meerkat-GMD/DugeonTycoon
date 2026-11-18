@@ -357,14 +357,11 @@ namespace DungeonTycoon.Core
             foreach (var option in options)
             {
                 double score = -.15 * option.Distance + .5 * hero.Modifier(Ability.Strength) * option.VisibleMonsters;
-                foreach (var tag in hero.Tags)
+                switch (hero.Voice)
                 {
-                    switch (tag)
-                    {
-                        case PersonalityTag.Reckless: score += 3 * option.VisibleMonsters + .25 * option.Depth; break;
-                        case PersonalityTag.Cautious: score -= (hurt ? 6 : 3) * option.VisibleMonsters + .2 * option.Distance; break;
-                        case PersonalityTag.Curious: score += .4 * option.Openness + .1 * option.Depth; break;
-                    }
+                    case Voice.Bold: score += 3 * option.VisibleMonsters + .25 * option.Depth; break;
+                    case Voice.Careful: score -= (hurt ? 6 : 3) * option.VisibleMonsters + .2 * option.Distance; break;
+                    case Voice.Curious: score += .4 * option.Openness + .1 * option.Depth; break;
                 }
                 if (score <= bestScore) continue;
                 bestScore = score;
@@ -375,9 +372,9 @@ namespace DungeonTycoon.Core
             var fatigue = Fatigue;
             bool exhausted = fatigue == FatigueStage.Exhausted;
             string line;
-            switch (hero.Tags[0])
+            switch (hero.Voice)
             {
-                case PersonalityTag.Reckless:
+                case Voice.Bold:
                     if (fatigue != FatigueStage.Rested)
                         line = choice.VisibleMonsters > 0
                             ? (exhausted ? $"숨이 턱까지 찼지만 {choice.Label}의 적은 내가 벤다!" : $"다리가 무거워도 {choice.Label}의 적쯤은 문제없어!")
@@ -385,7 +382,7 @@ namespace DungeonTycoon.Core
                     else
                         line = choice.VisibleMonsters > 0 ? $"{choice.Label}에 적이 있어. 정면 돌파다!" : $"{choice.Label}로 깊이 들어가자!";
                     break;
-                case PersonalityTag.Cautious:
+                case Voice.Careful:
                     if (hurt) line = $"다들 지쳤어요. {choice.Label}로 조심히 가요.";
                     else if (fatigue != FatigueStage.Rested)
                         line = exhausted ? $"이대로 더 헤매면 쓰러져요. {choice.Label}로 가요." :
@@ -393,9 +390,13 @@ namespace DungeonTycoon.Core
                     else
                         line = choice.VisibleMonsters == 0 ? $"{choice.Label}은 조용해 보여요." : $"적을 살피며 {choice.Label}로 가죠.";
                     break;
-                default:
+                case Voice.Curious:
                     line = fatigue == FatigueStage.Rested ? $"{choice.Label}이 더 넓게 트였어. 가 보자." :
                         exhausted ? $"구경할 기운도 없지만… {choice.Label}이 제일 트였어." : $"좀 지치긴 했어도 {choice.Label}은 궁금한걸.";
+                    break;
+                default:
+                    line = fatigue == FatigueStage.Rested ? $"{choice.Label}로 가자. 그쪽이 나아 보여." :
+                        exhausted ? $"더는 못 헤매. {choice.Label}로 가자." : $"좀 지쳤어. {choice.Label}로 가는 게 좋겠어.";
                     break;
             }
             return new ForkOpinion(hero.Role, best, line);

@@ -7,9 +7,10 @@ namespace DungeonTycoon.Core.Tests
     public class PrayerTests
     {
         /// <summary>On the march past the first fork, which opens right at the entrance.</summary>
-        private static DungeonRun Departed(int faith = 2)
+        private static DungeonRun Departed(int faith = 2, HeroRole? skeptic = null)
         {
             var run = new DungeonRun();
+            if (skeptic is HeroRole role) run.SetBuild(role, run.BuildOf(role).With(PersonalityTrait.Skeptic));
             run.Start();
             Assert.That(ExplorationTests.TickToFirstFork(run), Is.True);
             Assert.That(run.ResolveFork(run.PendingFork.Token), Is.True);
@@ -61,9 +62,10 @@ namespace DungeonTycoon.Core.Tests
             run = Departed();
             Hero(run, HeroRole.Tank).Hp = 5;
             Hero(run, HeroRole.Healer).Hp = 8;
-            Hero(run, HeroRole.MeleeDamage).Hp = 10;
+            Hero(run, HeroRole.MeleeDamage).Hp = Hero(run, HeroRole.MeleeDamage).MaxHp / 2;
             Hero(run, HeroRole.RangedDamage).Hp = 10;
-            Assert.That(run.IsDesperate(HeroRole.Tank), Is.True, "party at 33/142 health");
+            Assert.That(run.Party.Sum(h => h.Hp) * 100, Is.LessThanOrEqualTo(run.Party.Sum(h => h.MaxHp) * DungeonRun.CrumblingPartyPercent));
+            Assert.That(run.IsDesperate(HeroRole.Tank), Is.True, "the party is crumbling");
             Assert.That(run.IsDesperate(HeroRole.MeleeDamage), Is.False, "the hero must be close to death too");
 
             run = Departed();
@@ -81,7 +83,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(prayer, Is.Not.Null);
             Assert.That(prayer.Role, Is.EqualTo(HeroRole.Tank));
             Assert.That(prayer.Local.Prays, Is.True, "a cautious hero prays without the AI");
-            Assert.That(prayer.Local.Line, Is.EqualTo(DialogueLines.Prayer(PersonalityTag.Cautious)));
+            Assert.That(prayer.Local.Line, Is.EqualTo(DialogueLines.Prayer(Voice.Careful)));
             int ticks = run.Ticks;
             Assert.That(run.Tick(), Is.False);
             Assert.That(run.Ticks, Is.EqualTo(ticks));
@@ -110,9 +112,9 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
-        public void ARecklessHeroRefusesOnLocalRulesAndARefusalCostsNothing()
+        public void ASkepticRefusesOnLocalRulesAndARefusalCostsNothing()
         {
-            var run = Departed();
+            var run = Departed(skeptic: HeroRole.MeleeDamage);
             Hero(run, HeroRole.MeleeDamage).Hp = 4;
             Hero(run, HeroRole.RangedDamage).Hp = 0;
             run.Tick();
@@ -122,11 +124,35 @@ namespace DungeonTycoon.Core.Tests
 
             var heard = run.HearPrayer(prayer.Token);
             Assert.That(heard.Praying, Is.False);
-            Assert.That(heard.Line, Is.EqualTo(DialogueLines.PrayerRefusal(PersonalityTag.Reckless)));
+            Assert.That(heard.Line, Is.EqualTo(DialogueLines.PrayerRefusal(PersonalityTrait.Skeptic)));
             Assert.That(run.PendingPrayer, Is.Null, "the dungeon moves on");
             Assert.That(run.PrayedThisStage, Is.False, "a refusal does not use the stage's prayer");
             Assert.That(run.Tick(), Is.True);
             Assert.That(run.PendingPrayer, Is.Null, "the refusing hero is not asked again at once");
+        }
+
+        [Test]
+        public void ASkepticRefusesEvenWhenTheAiWouldPray()
+        {
+            var run = Departed(skeptic: HeroRole.MeleeDamage);
+            Hero(run, HeroRole.MeleeDamage).Hp = 4;
+            Hero(run, HeroRole.RangedDamage).Hp = 0;
+            run.Tick();
+            var heard = run.HearPrayer(run.PendingPrayer.Token, new PrayerProposal(true, "신이시여, 제발!"));
+            Assert.That(heard.Praying, Is.False);
+            Assert.That(run.PrayedThisStage, Is.False);
+        }
+
+        [Test]
+        public void TheChallengerWhoWasRecklessNowPrays()
+        {
+            var run = Departed();
+            Assert.That(Hero(run, HeroRole.MeleeDamage).Personality, Is.EqualTo(PersonalityTrait.Challenger));
+            Hero(run, HeroRole.MeleeDamage).Hp = 4;
+            Hero(run, HeroRole.RangedDamage).Hp = 0;
+            run.Tick();
+            Assert.That(run.PendingPrayer.Local.Prays, Is.True, "only the skeptic refuses on local rules");
+            Assert.That(run.PendingPrayer.Local.Line, Is.EqualTo(DialogueLines.Prayer(Voice.Bold)));
         }
 
         [Test]
@@ -150,7 +176,7 @@ namespace DungeonTycoon.Core.Tests
             run.Tick();
             int token = run.PendingPrayer.Token;
             var heard = run.HearPrayer(token, new PrayerProposal(true, "  "));
-            Assert.That(heard.Line, Is.EqualTo(DialogueLines.Prayer(PersonalityTag.Cautious)));
+            Assert.That(heard.Line, Is.EqualTo(DialogueLines.Prayer(Voice.Careful)));
 
             run = Departed();
             Hero(run, HeroRole.MeleeDamage).Hp = 4;
@@ -181,7 +207,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.Faith, Is.EqualTo(2 - DungeonRun.MiracleCost));
             Assert.That(tank.Belief, Is.EqualTo(Belief.Firm));
             Assert.That(run.LastPrayer.Answered, Is.True);
-            Assert.That(run.LastPrayer.Reaction, Is.EqualTo(DialogueLines.PrayerAnswered(PersonalityTag.Cautious)));
+            Assert.That(run.LastPrayer.Reaction, Is.EqualTo(DialogueLines.PrayerAnswered(Voice.Careful)));
             Assert.That(run.PendingPrayer, Is.Null);
             Assert.That(run.Tick(), Is.True);
         }
@@ -211,7 +237,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.Faith, Is.EqualTo(2));
             Assert.That(Hero(run, HeroRole.Tank).Hp, Is.EqualTo(5));
             Assert.That(Hero(run, HeroRole.Tank).Belief, Is.EqualTo(Belief.Shaken));
-            Assert.That(run.LastPrayer.Reaction, Is.EqualTo(DialogueLines.PrayerIgnored(PersonalityTag.Cautious)));
+            Assert.That(run.LastPrayer.Reaction, Is.EqualTo(DialogueLines.PrayerIgnored(Voice.Careful)));
         }
 
         [Test]
@@ -290,7 +316,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.LastScene.Any(b => b.Kind == BeatKind.Roll), Is.False);
             Assert.That(run.LastFork, Does.Contain(fork.Options[1].Label));
             foreach (var beat in run.LastScene.Where(b => b.Kind == BeatKind.Line))
-                Assert.That(beat.Text, Is.EqualTo(DialogueLines.OracleReaction(run.Party[(int)beat.Speaker.Value].Tags[0], true)));
+                Assert.That(beat.Text, Is.EqualTo(DialogueLines.OracleReaction(run.Party[(int)beat.Speaker.Value].Voice, true)));
         }
 
         [Test]

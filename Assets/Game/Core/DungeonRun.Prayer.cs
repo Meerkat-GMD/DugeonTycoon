@@ -144,9 +144,11 @@ namespace DungeonTycoon.Core
             if (prayer == null || token != prayer.Token || prayer.Praying) return null;
             var hero = party[(int)prayer.Role];
             var choice = proposal != null && (!proposal.Prays || !string.IsNullOrWhiteSpace(proposal.Line)) ? proposal : prayer.Local;
+            // The trait decides, not the AI: a skeptic never prays.
+            if (hero.Personality == PersonalityTrait.Skeptic) choice = prayer.Local;
             if (!choice.Prays)
             {
-                prayer.Line = DialogueLines.PrayerRefusal(hero.Tags[0]);
+                prayer.Line = DialogueLines.PrayerRefusal(hero.Personality);
                 hero.LastLine = prayer.Line;
                 prayerHolds[(int)hero.Role] = Phase == RunPhase.Combat ? PrayerHold.UntilCombatEnds : PrayerHold.UntilNextFork;
                 log.Add($"기도 거절 • {hero.Name} “{prayer.Line}”");
@@ -195,7 +197,7 @@ namespace DungeonTycoon.Core
             bool answered = answer != PrayerAnswer.Ignore;
             hero.Belief = answered ? Belief.Firm : Belief.Shaken;
             narration += answered ? $" {hero.Name}의 믿음이 굳건해졌다." : $" {hero.Name}의 믿음이 흔들린다.";
-            string reaction = answered ? DialogueLines.PrayerAnswered(hero.Tags[0]) : DialogueLines.PrayerIgnored(hero.Tags[0]);
+            string reaction = answered ? DialogueLines.PrayerAnswered(hero.Voice) : DialogueLines.PrayerIgnored(hero.Voice);
             hero.LastLine = reaction;
             log.Add($"믿음 • {hero.Name} {BeliefName(hero.Belief)} “{reaction}”");
             LastPrayer = new PrayerOutcome(hero.Role, answer, narration, reaction, hero.Belief);
@@ -219,8 +221,8 @@ namespace DungeonTycoon.Core
                 if (chosen == null || hero.Hp * chosen.MaxHp < chosen.Hp * hero.MaxHp) chosen = hero;
             }
             if (chosen == null) return;
-            bool prays = !chosen.Tags.Contains(PersonalityTag.Reckless);
-            var local = new PrayerProposal(prays, DialogueLines.Prayer(chosen.Tags[0]));
+            bool prays = chosen.Personality != PersonalityTrait.Skeptic;
+            var local = new PrayerProposal(prays, DialogueLines.Prayer(chosen.Voice));
             PendingPrayer = new PrayerRequest(++nextPrayerToken, chosen.Role, local);
             log.Add($"절망 • {chosen.Name} 체력 {chosen.Hp} / {chosen.MaxHp} — 신에게 기도할지 망설인다.");
         }

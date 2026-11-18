@@ -1,0 +1,507 @@
+/*
+    Formation screen. Panel units, like the HUD (about 640 tall, at least 1000 wide). Every rule is prefixed with
+    .hud so it wins over the default runtime theme. Colours come from the HUD's variables.
+*/
+
+.hud .formation-screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    flex-direction: column;
+    padding: 22px 34px 20px 34px;
+    background-color: rgb(12, 16, 19);
+}
+
+.hud .formation-title {
+    font-size: 24px;
+    -unity-font-style: bold;
+}
+
+.hud .formation-sub {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* ── The four heroes ─────────────────────────────────────────────── */
+
+.hud .formation-party {
+    flex-grow: 1;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 14px 0 12px 0;
+}
+
+.hud .formation-card {
+    width: 23.6%;
+    padding: 0;
+    margin: 0;
+    flex-direction: column;
+    align-items: stretch;
+    background-color: var(--panel);
+    border-width: 2px;
+    border-color: var(--edge);
+    border-radius: 12px;
+    overflow: hidden;
+    transition-property: translate, border-color;
+    transition-duration: 0.12s;
+}
+
+.hud .formation-card:hover {
+    border-color: var(--gold);
+    translate: 0 -4px;
+}
+
+.hud .card-art {
+    height: 192px;
+    background-color: rgb(30, 41, 46);
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.hud .card-edit {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    padding: 2px 7px;
+    font-size: 10px;
+    color: var(--muted);
+    background-color: rgba(21, 27, 32, 0.85);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 4px;
+}
+
+.hud .formation-card:hover .card-edit {
+    color: var(--gold);
+    border-color: var(--gold);
+}
+
+.hud .card-info {
+    padding: 8px 12px 10px 12px;
+}
+
+.hud .card-name {
+    font-size: 16px;
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.hud .card-name .role,
+.hud .editor-name .role {
+    font-size: 11px;
+    color: var(--muted);
+    -unity-font-style: normal;
+}
+
+.hud .stat-row {
+    flex-direction: row;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 1px;
+}
+
+.hud .stat-row .stat-name {
+    color: var(--muted);
+}
+
+.hud .stat-row .up { color: var(--teal); }
+.hud .stat-row .down { color: var(--ember); }
+
+.hud .card-chip {
+    flex-direction: column;
+    margin-top: 4px;
+    padding: 3px 7px 4px 7px;
+    font-size: 11px;
+    background-color: var(--card);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 4px;
+}
+
+.hud .card-chip .kind {
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.hud .card-status {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.hud .card-status.left {
+    color: var(--gold);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+.hud .formation-foot {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hud .formation-note {
+    flex-grow: 1;
+    margin: 0 14px;
+    font-size: 12px;
+    color: var(--gold);
+    -unity-text-align: middle-right;
+}
+
+.hud .formation-button {
+    margin: 0;
+    padding: 7px 16px;
+    font-size: 13px;
+    color: var(--paper);
+    background-color: var(--card);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 6px;
+}
+
+.hud .formation-button:hover {
+    border-color: var(--muted);
+}
+
+.hud .formation-button.start {
+    padding: 9px 30px;
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: rgb(39, 32, 25);
+    background-color: var(--gold);
+    border-color: var(--gold);
+}
+
+.hud .formation-button.small {
+    padding: 5px 12px;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.hud .formation-button.small.start {
+    padding: 5px 18px;
+    font-size: 13px;
+}
+
+.hud .formation-button:disabled {
+    opacity: 0.4;
+}
+
+/* ── Editor ──────────────────────────────────────────────────────── */
+
+.hud .formation-editor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(5, 8, 10, 0.78);
+}
+
+.hud .editor-box {
+    width: 860px;
+    height: 540px;
+    flex-direction: row;
+    background-color: var(--panel);
+    border-width: 2px;
+    border-color: var(--edge);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.hud .editor-side {
+    width: 196px;
+    padding: 14px;
+    background-color: var(--ink);
+    border-right-width: 1px;
+    border-color: var(--edge);
+}
+
+.hud .editor-art {
+    height: 168px;
+    margin-bottom: 8px;
+    background-color: rgb(30, 41, 46);
+    border-radius: 10px;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.hud .editor-name {
+    font-size: 16px;
+    -unity-font-style: bold;
+    margin-bottom: 6px;
+}
+
+.hud .editor-main {
+    flex-grow: 1;
+    padding: 14px 18px;
+}
+
+.hud .editor-steps {
+    flex-direction: row;
+    margin-bottom: 8px;
+}
+
+.hud .editor-step {
+    margin-right: 6px;
+    padding: 2px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 10px;
+}
+
+.hud .editor-step.now {
+    color: var(--gold);
+    border-color: var(--gold);
+}
+
+.hud .editor-step.past {
+    color: var(--teal);
+    border-color: rgb(63, 111, 99);
+}
+
+.hud .editor-title {
+    font-size: 19px;
+    -unity-font-style: bold;
+}
+
+.hud .editor-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+
+.hud .editor-body {
+    flex-grow: 1;
+}
+
+.hud .editor-foot {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 10px;
+    border-top-width: 1px;
+    border-color: var(--edge);
+}
+
+.hud .editor-warn {
+    flex-grow: 1;
+    margin: 0 8px;
+    font-size: 11px;
+    color: var(--gold);
+    white-space: normal;
+}
+
+/* Points */
+
+.hud .pips {
+    flex-direction: row;
+    margin-bottom: 6px;
+}
+
+.hud .pip {
+    flex-grow: 1;
+    height: 8px;
+    margin-right: 3px;
+    background-color: var(--card);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 4px;
+}
+
+.hud .pip.on {
+    background-color: var(--gold);
+    border-color: var(--gold);
+}
+
+.hud .points-left {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.hud .point-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom-width: 1px;
+    border-color: var(--card);
+}
+
+.hud .point-row .point-name {
+    width: 88px;
+    font-size: 14px;
+}
+
+.hud .point-row .point-gain {
+    flex-grow: 1;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.hud .point-row .point-value {
+    width: 40px;
+    font-size: 17px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .point-step {
+    width: 36px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    font-size: 17px;
+    color: var(--paper);
+    background-color: var(--card);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 6px;
+}
+
+.hud .point-step:hover {
+    border-color: var(--muted);
+}
+
+/* Trait lists */
+
+.hud .trait-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.hud .trait {
+    width: 32%;
+    margin: 0 1% 4px 0;
+    padding: 4px 7px;
+    flex-direction: column;
+    align-items: stretch;
+    background-color: var(--card);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 6px;
+}
+
+.hud .trait:hover {
+    border-color: var(--muted);
+}
+
+.hud .trait.chosen {
+    background-color: var(--chosen);
+    border-color: var(--gold);
+}
+
+.hud .trait.blocked {
+    opacity: 0.55;
+}
+
+.hud .trait-head {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.hud .trait-name {
+    font-size: 12px;
+}
+
+.hud .trait-badge {
+    padding: 0 5px;
+    font-size: 9px;
+    color: var(--muted);
+    background-color: var(--ink);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 3px;
+}
+
+.hud .trait-badge.works {
+    color: var(--teal);
+    border-color: rgb(63, 111, 99);
+}
+
+.hud .trait-badge.only {
+    color: var(--ember);
+    border-color: rgb(122, 74, 62);
+}
+
+.hud .trait-mods {
+    font-size: 10px;
+    color: var(--muted);
+}
+
+.hud .trait-about {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background-color: var(--ink);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 8px;
+}
+
+.hud .trait-about Label {
+    font-size: 12px;
+    white-space: normal;
+}
+
+.hud .trait-about .line {
+    color: var(--gold);
+    -unity-font-style: italic;
+}
+
+.hud .trait-about .note {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+/* Portraits: the same art as the prayer scene's answered hero. */
+.hud .role-0 .card-art, .hud .role-0 .editor-art { background-image: url("/Assets/Art/Prayer/tank_radiant.png"); }
+.hud .role-1 .card-art, .hud .role-1 .editor-art { background-image: url("/Assets/Art/Prayer/healer_radiant.png"); }
+.hud .role-2 .card-art, .hud .role-2 .editor-art { background-image: url("/Assets/Art/Prayer/melee_radiant.png"); }
+.hud .role-3 .card-art, .hud .role-3 .editor-art { background-image: url("/Assets/Art/Prayer/ranged_radiant.png"); }
+
+.hud .formation-button.small.first {
+    margin-left: 0;
+}
+
+/* A trait on a card: name and kind, then its stat bonus, then what the hero does. */
+.hud .chip-head {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.hud .chip-name {
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.hud .chip-bonus {
+    font-size: 10px;
+}
+
+.hud .chip-action,
+.hud .trait-summary {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hud .trait-summary {
+    color: var(--paper);
+    margin-top: 1px;
+}
+
+/* Cards and trait buttons are Buttons, which centre their text; their lines read from the left. */
+.hud .formation-card Label,
+.hud .trait Label {
+    -unity-text-align: upper-left;
+}

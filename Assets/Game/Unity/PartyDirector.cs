@@ -25,23 +25,26 @@ namespace DungeonTycoon.Unity
             "주사위와 성공 여부는 게임이 판정한다.";
 
         private const string ForkPrompt =
-            "던전 TRPG 용사들이 갈림길에서 어느 길로 갈지 논의한다. 각 용사는 자기 성격 태그와 능력치, 파티의 체력, " +
+            "던전 TRPG 용사들이 갈림길에서 어느 길로 갈지 논의한다. 각 용사는 자기 성격 성향과 능력치, 파티의 체력, " +
             "입력에 적힌 보이는 정보만 근거로 길 하나를 고른다. 입력에 없는 것은 용사들도 모른다. " +
             "opinions 배열에 살아 있는 용사마다 role(입력의 영문 역할 ID), option(입력의 길 번호 숫자 문자열), " +
             "line(30자 이내의 한국어 1인칭 주장)을 넣어 JSON으로 답하라. line에서는 길 번호를 말하지 말고 " +
             "'북쪽 길'처럼 입력에 적힌 길 이름으로 부르며, 용사마다 말투가 겹치지 않게 하라. 최종 결정은 게임이 판정한다.";
 
         private const string LootPrompt =
-            "던전 TRPG 용사들이 전투가 끝나고 얻은 방어구를 누가 입을지 의논한다. 각 용사는 자기 성격 태그, 역할, 체력, " +
+            "던전 TRPG 용사들이 전투가 끝나고 얻은 방어구를 누가 입을지 의논한다. 각 용사는 자기 성격 성향, 역할, 체력, " +
             "지금 입은 방어구와 비교해 원하는지 말한다. 지금보다 못한 방어구를 원해도 게임이 후보에서 뺀다. " +
+            "탐욕광은 언제나 원한다고 말하고, 양보하는 자는 더 큰 이득을 보는 동료가 원하면 양보한다. 이 둘은 게임이 그대로 적용하니 " +
+            "그에 맞는 말을 하라. " +
             "wishes 배열에 방어구마다, 입력에 적힌 용사마다 하나씩 role(입력의 영문 역할 ID), item(입력의 방어구 번호 숫자 문자열), " +
             "wants(\"yes\" 또는 \"no\"), line(30자 이내의 한국어 1인칭 말)을 넣어 JSON으로 답하라. 원하는 사람이 여럿이면 " +
             "게임이 주사위로 정하니 양보하거나 욕심내는 것은 성격대로 하고, 용사마다 말투가 겹치지 않게 하라.";
 
         private const string PrayerPrompt =
             "던전 TRPG의 용사 한 명이 죽음 직전이다. 이 용사가 지금 신에게 기도할지 성격대로 정하라. 기도는 절박할 때만 하는 " +
-            "드문 일이고, 신이 응답할지는 알 수 없다. 무모한 용사는 대개 자존심 때문에 기도하지 않고 버티지만 정말 절망적이면 " +
-            "기도할 수도 있다. JSON 객체에 pray(\"yes\" 또는 \"no\")와 line(기도한다면 신에게 직접 외치는 40자 이내의 한국어 " +
+            "드문 일이고, 신이 응답할지는 알 수 없다. 승부광은 대개 자존심 때문에 버티려 하지만 정말 절망적이면 기도할 수도 있다. " +
+            "불신자는 기도하지 않는다(게임이 그대로 적용한다). " +
+            "JSON 객체에 pray(\"yes\" 또는 \"no\")와 line(기도한다면 신에게 직접 외치는 40자 이내의 한국어 " +
             "1인칭 기도, 기도하지 않으면 빈 문자열)을 넣어 답하라.";
 
         private readonly string apiKey;
@@ -180,9 +183,7 @@ namespace DungeonTycoon.Unity
             foreach (var hero in run.Party)
             {
                 if (hero.Hp == 0) continue;
-                var tags = new List<string>();
-                foreach (var tag in hero.Tags) tags.Add(HeroTraits.Name(tag));
-                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 성격 {string.Join("·", tags)}, " +
+                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 성격 성향 {Personality(hero)}, " +
                                 $"힘 {hero.Modifier(Ability.Strength):+0;-0;0} 민첩 {hero.Modifier(Ability.Dexterity):+0;-0;0} " +
                                 $"지혜 {hero.Modifier(Ability.Wisdom):+0;-0;0} 매력 {hero.Modifier(Ability.Charisma):+0;-0;0}");
             }
@@ -226,10 +227,8 @@ namespace DungeonTycoon.Unity
             foreach (var role in loot.Heroes)
             {
                 var hero = run.Party[(int)role];
-                var tags = new List<string>();
-                foreach (var tag in hero.Tags) tags.Add(HeroTraits.Name(tag));
                 var worn = hero.BodyArmor;
-                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 방어 {hero.Armor}, 성격 {string.Join("·", tags)}, " +
+                text.AppendLine($"{hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 방어 {hero.Armor}, 성격 성향 {Personality(hero)}, " +
                                 $"지금 방어구 {(worn == null ? "없음 (위력 0)" : $"{worn.Name} — {worn.Stats}, 위력 {worn.Power}")}");
             }
             text.Append("방어구마다 각 용사가 원하는지 JSON으로 작성해.");
@@ -251,15 +250,20 @@ namespace DungeonTycoon.Unity
             return new PrayerProposal(true, CleanLine(answer.line));
         }
 
+        /// <summary>The hero's personality trait with what it makes them do, for the AI to play.</summary>
+        private static string Personality(HeroState hero)
+        {
+            var trait = TraitCatalog.Of(hero.Personality);
+            return $"{trait.Name}({trait.Trigger})";
+        }
+
         private static string DescribePrayer(DungeonRun run, PrayerRequest prayer)
         {
             var hero = run.Party[(int)prayer.Role];
-            var tags = new List<string>();
-            foreach (var tag in hero.Tags) tags.Add(HeroTraits.Name(tag));
             var text = new StringBuilder();
             text.AppendLine($"스테이지 {run.Stage}, 파티 레벨 {run.Level}" +
                             (run.FightingBoss ? ", 보스와 싸우는 중" : run.Phase == RunPhase.Combat ? ", 전투 중" : ", 탐색 중"));
-            text.AppendLine($"기도할지 정할 용사: {hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 성격 {string.Join("·", tags)}, " +
+            text.AppendLine($"기도할지 정할 용사: {hero.Role} ({hero.Name}) HP {hero.Hp}/{hero.MaxHp}, 성격 성향 {Personality(hero)}, " +
                             $"신을 향한 믿음 {DungeonRun.BeliefName(hero.Belief)}");
             foreach (var ally in run.Party)
             {

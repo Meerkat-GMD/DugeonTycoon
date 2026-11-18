@@ -86,7 +86,7 @@ namespace DungeonTycoon.Core
                 {
                     var hero = party[(int)opinion.Role];
                     bool accepts = opinion.Option == oracle || hero.Belief == Belief.Firm;
-                    string reaction = DialogueLines.OracleReaction(hero.Tags[0], accepts);
+                    string reaction = DialogueLines.OracleReaction(hero.Voice, accepts);
                     hero.LastLine = reaction;
                     scene.Add(DialogueBeat.Line(hero.Role, reaction));
                 }

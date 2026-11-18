@@ -64,6 +64,21 @@ namespace DungeonTycoon.Unity
             // Mounts itself into the HUD document in Start, after the HUD has bound its own elements.
             stage = gameObject.AddComponent<DialogueStage>();
             prayerScene = gameObject.AddComponent<PrayerScene>();
+            Formation = gameObject.AddComponent<FormationScreen>();
+        }
+
+        /// <summary>The formation screen shown before the first departure.</summary>
+        public FormationScreen Formation { get; private set; }
+
+        /// <summary>
+        /// The departure button: before the first departure it opens the formation screen, whose Start departs.
+        /// Later stages keep the formation and set off at once.
+        /// </summary>
+        public void RequestDeparture()
+        {
+            if (Run.Phase != RunPhase.Planning) return;
+            if (Run.CanEditFormation) Formation.Open();
+            else Depart();
         }
 
         public void SetSpeed(int speed)
@@ -375,10 +390,15 @@ namespace DungeonTycoon.Unity
             Spotlight("신의 휴식", Run.Log[Run.Log.Count - 1]);
         }
 
-        public void Restart()
+        /// <summary>
+        /// Starts a new expedition after the last one ended. <paramref name="keepPlan"/> copies the formation and the
+        /// monsters placed on each stage (still editable); <paramref name="sameSeed"/> also replays the same dice,
+        /// so the GM can compare one change at a time.
+        /// </summary>
+        public void Restart(bool keepPlan = false, bool sameSeed = false)
         {
             if (Run.Phase != RunPhase.Victory && Run.Phase != RunPhase.Defeat) return;
-            Run = new DungeonRun(Environment.TickCount);
+            Run = keepPlan ? Run.Rematch(sameSeed ? Run.Seed : Environment.TickCount) : new DungeonRun(Environment.TickCount);
             sharedLoot = 0;
             heardPrayer = 0;
             ClearTrialDisplay();

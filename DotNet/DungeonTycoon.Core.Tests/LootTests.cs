@@ -45,9 +45,10 @@ namespace DungeonTycoon.Core.Tests
         {
             var run = FightOneGoblin("강철 대검");
             var melee = Hero(run, HeroRole.MeleeDamage);
+            int bare = HeroStats.Starting(HeroRole.MeleeDamage, melee.Build).Attack;
             Assert.That(run.PendingLoot, Is.Null, "weapons are never debated");
             Assert.That(melee.Weapon.Name, Is.EqualTo("강철 대검"));
-            Assert.That(melee.Attack, Is.EqualTo(8 + 3));
+            Assert.That(melee.Attack, Is.EqualTo(bare + 3));
             Assert.That(run.LastSpoils.Items.Single().Wearer, Is.EqualTo(HeroRole.MeleeDamage));
             Assert.That(run.LastSpoils.Experience, Is.GreaterThan(0));
             Assert.That(run.Tick(), Is.True, "the dungeon keeps running");
@@ -112,7 +113,7 @@ namespace DungeonTycoon.Core.Tests
             var faces = new Queue<int>(new[] { 12, 12, 7, 15 });
             run.LootRollOverride = () => faces.Dequeue();
             var melee = Hero(run, HeroRole.MeleeDamage);
-            int maxBefore = melee.MaxHp, hpBefore = melee.Hp;
+            int maxBefore = melee.MaxHp, hpBefore = melee.Hp, armorBefore = melee.Armor;
             Assert.That(run.ResolveLoot(run.PendingLoot.Token, Wishes(run, HeroRole.Tank, HeroRole.MeleeDamage)), Is.True);
 
             var scene = run.LastScene;
@@ -133,7 +134,7 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(scene.Last().Speaker, Is.EqualTo(HeroRole.MeleeDamage), "the winner closes the scene");
 
             Assert.That(melee.BodyArmor.Name, Is.EqualTo("사슬 갑옷"));
-            Assert.That(melee.Armor, Is.EqualTo(2));
+            Assert.That(melee.Armor, Is.EqualTo(armorBefore + 2));
             Assert.That(melee.MaxHp, Is.EqualTo(maxBefore + 8));
             Assert.That(melee.Hp, Is.EqualTo(hpBefore + 8), "a higher maximum heals by the difference");
             Assert.That(run.LastSpoils.Items.Single().Wearer, Is.EqualTo(HeroRole.MeleeDamage));

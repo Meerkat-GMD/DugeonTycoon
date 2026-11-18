@@ -4,8 +4,11 @@ namespace DungeonTycoon.Core
 {
     public enum Ability { Strength, Dexterity, Wisdom, Charisma }
 
-    /// <summary>Personality shapes what a hero argues for at a fork. It never changes combat numbers or checks.</summary>
-    public enum PersonalityTag { Reckless, Cautious, Curious }
+    /// <summary>
+    /// How a hero sounds and leans at a fork, from the personality trait. Three traits carry over the old
+    /// personality tags (무모함 → 승부광, 조심스러움 → 신중한 길잡이, 호기심 → 호기심쟁이); the rest speak plainly.
+    /// </summary>
+    public enum Voice { Neutral, Bold, Careful, Curious }
 
     public static class HeroTraits
     {
@@ -21,14 +24,29 @@ namespace DungeonTycoon.Core
             }
         }
 
-        public static string Name(PersonalityTag tag)
+        public static string Name(CombatTrait trait) => TraitCatalog.Of(trait).Name;
+        public static string Name(PersonalityTrait trait) => TraitCatalog.Of(trait).Name;
+
+        public static string Name(BuildStat stat)
         {
-            switch (tag)
+            switch (stat)
             {
-                case PersonalityTag.Reckless: return "무모함";
-                case PersonalityTag.Cautious: return "조심스러움";
-                case PersonalityTag.Curious: return "호기심";
-                default: throw new ArgumentOutOfRangeException(nameof(tag));
+                case BuildStat.MaxHp: return "체력";
+                case BuildStat.Attack: return "공격력";
+                case BuildStat.Armor: return "방어";
+                case BuildStat.Speed: return "이동 속도";
+                default: throw new ArgumentOutOfRangeException(nameof(stat));
+            }
+        }
+
+        public static Voice VoiceOf(PersonalityTrait trait)
+        {
+            switch (trait)
+            {
+                case PersonalityTrait.Challenger: return Voice.Bold;
+                case PersonalityTrait.CautiousGuide: return Voice.Careful;
+                case PersonalityTrait.Curious: return Voice.Curious;
+                default: return Voice.Neutral;
             }
         }
 

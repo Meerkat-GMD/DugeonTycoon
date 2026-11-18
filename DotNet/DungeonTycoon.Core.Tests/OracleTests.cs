@@ -63,7 +63,7 @@ namespace DungeonTycoon.Core.Tests
             var reactions = scene.Skip(1).Take(4).ToList();
             Assert.That(reactions.Select(b => b.Speaker), Is.EqualTo(March.Cast<HeroRole?>()));
             foreach (var beat in reactions)
-                Assert.That(beat.Text, Is.EqualTo(DialogueLines.OracleReaction(run.Party[(int)beat.Speaker.Value].Tags[0], false)));
+                Assert.That(beat.Text, Is.EqualTo(DialogueLines.OracleReaction(run.Party[(int)beat.Speaker.Value].Voice, false)));
 
             var roll = scene.Single(b => b.Kind == BeatKind.Roll);
             Assert.That(roll.Text, Is.EqualTo(DialogueLines.OracleTitle(DungeonRun.OracleBonus)));

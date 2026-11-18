@@ -312,7 +312,21 @@ namespace DungeonTycoon.Core
             var path = Map.FindPath(here, goal);
             if (path.Count < 2 || (path.Count == 2 && range <= 1)) return;
             heroTiles[(int)hero.Role] = path[1];
-            hero.MoveReady = Ticks + HeroMoveTicks;
+            hero.MoveReady = Ticks + CombatMoveTicks(hero);
+        }
+
+        /// <summary>
+        /// Ticks until a hero's next step in a fight: <see cref="HeroMoveTicks"/> at the standard speed, scaled by
+        /// the hero's speed. The remainder carries to the next step, so 96.3% speed averages exactly 3 / 0.963 ticks.
+        /// Exploration keeps the party's fixed pace.
+        /// </summary>
+        private static int CombatMoveTicks(HeroState hero)
+        {
+            int speed = Math.Max(1, hero.SpeedHundredths);
+            int owed = hero.MoveCarry + HeroMoveTicks * 10000;
+            int ticks = owed / speed;
+            hero.MoveCarry = owed - ticks * speed;
+            return Math.Max(1, ticks);
         }
 
         /// <summary>Back-liners step away from an adjacent monster when an open tile puts more room between them.</summary>
@@ -331,7 +345,7 @@ namespace DungeonTycoon.Core
             }
             if (choice == null) return false;
             heroTiles[(int)hero.Role] = choice.Value;
-            hero.MoveReady = Ticks + HeroMoveTicks;
+            hero.MoveReady = Ticks + CombatMoveTicks(hero);
             return true;
         }
 

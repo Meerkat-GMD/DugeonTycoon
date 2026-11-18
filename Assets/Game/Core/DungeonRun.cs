@@ -22,11 +22,15 @@ namespace DungeonTycoon.Core
         private readonly List<string> log = new List<string>();
         private readonly HeroState[] party =
         {
-            new HeroState(HeroRole.Tank, "가론", 46, 5, 2, 1, new[] { 3, 0, 1, 1 }, PersonalityTag.Cautious),
-            new HeroState(HeroRole.Healer, "세레나", 28, 3, 0, 4, new[] { 0, 1, 2, 2 }, PersonalityTag.Cautious, PersonalityTag.Curious),
-            new HeroState(HeroRole.MeleeDamage, "카이", 36, 8, 0, 1, new[] { 3, 2, -1, 0 }, PersonalityTag.Reckless),
-            new HeroState(HeroRole.RangedDamage, "리아", 32, 7, 0, 4, new[] { 0, 2, 1, 1 }, PersonalityTag.Curious)
+            new HeroState(HeroRole.Tank, "가론", 1, new[] { 3, 0, 1, 1 }, HeroBuild.Default(HeroRole.Tank)),
+            new HeroState(HeroRole.Healer, "세레나", 4, new[] { 0, 1, 2, 2 }, HeroBuild.Default(HeroRole.Healer)),
+            new HeroState(HeroRole.MeleeDamage, "카이", 1, new[] { 3, 2, -1, 0 }, HeroBuild.Default(HeroRole.MeleeDamage)),
+            new HeroState(HeroRole.RangedDamage, "리아", 4, new[] { 0, 2, 1, 1 }, HeroBuild.Default(HeroRole.RangedDamage))
         };
+        /// <summary>What the GM placed on each stage at departure, so a new expedition can start from the same plan.</summary>
+        private readonly Dictionary<int, MonsterPlacement[]> plans = new Dictionary<int, MonsterPlacement[]>();
+        /// <summary>Plans copied from an earlier expedition, laid out again when their stage opens.</summary>
+        private Dictionary<int, MonsterPlacement[]> inheritedPlans;
         private readonly Random dice;
         /// <summary>
         /// Drops and loot rolls have their own seeded dice, so adding loot never shifts the rolls that decide
@@ -38,6 +42,7 @@ namespace DungeonTycoon.Core
 
         public DungeonRun(int seed = 20261118)
         {
+            Seed = seed;
             dice = new Random(seed);
             lootDice = new Random(unchecked(seed * 31 + 7));
             Placements = placements.AsReadOnly();
@@ -48,6 +53,8 @@ namespace DungeonTycoon.Core
             log.Add("첫 원정 • 성문으로 가는 던전에 몬스터를 배치하세요.");
         }
 
+        /// <summary>The seed every die of this expedition comes from. Same seed, plan and choices give the same run.</summary>
+        public int Seed { get; }
         public RunPhase Phase { get; private set; } = RunPhase.Planning;
         public int Stage { get; private set; } = 1;
         public DungeonMap Map { get; private set; }
@@ -147,14 +154,53 @@ namespace DungeonTycoon.Core
             return true;
         }
 
+        // ── Formation ────────────────────────────────────────────────────
+
+        /// <summary>The formation can change until the party first sets off. Later stages keep it.</summary>
+        public bool CanEditFormation => Stage == 1 && Phase == RunPhase.Planning;
+
+        public HeroBuild BuildOf(HeroRole role) => party[(int)role].Build;
+
+        /// <summary>Gives the hero a new build and the starting stats it brings. False once the party has set off.</summary>
+        public bool SetBuild(HeroRole role, HeroBuild build)
+        {
+            if (!CanEditFormation || build == null) return false;
+            party[(int)role].ApplyBuild(build);
+            return true;
+        }
+
+        /// <summary>
+        /// A fresh expedition with this one's formation and monster plan: the stage-1 monsters are placed now and
+        /// later stages' monsters when they open, all still editable. Health, gear, levels and faith start over.
+        /// Passing this run's <see cref="Seed"/> replays the same dice for a fair comparison.
+        /// </summary>
+        public DungeonRun Rematch(int seed)
+        {
+            var next = new DungeonRun(seed);
+            foreach (var hero in party) next.party[(int)hero.Role].ApplyBuild(hero.Build);
+            var known = new Dictionary<int, MonsterPlacement[]>(plans);
+            if (Phase == RunPhase.Planning && placements.Count > 0) known[Stage] = placements.ToArray();
+            next.inheritedPlans = known;
+            next.LayOutInheritedPlan();
+            return next;
+        }
+
+        /// <summary>Places the inherited monsters for the stage now open; any that no longer fit are skipped.</summary>
+        private void LayOutInheritedPlan()
+        {
+            if (inheritedPlans == null || !inheritedPlans.TryGetValue(Stage, out var plan)) return;
+            foreach (var placement in plan) Place(placement.Tile, placement.Kind);
+        }
+
         public bool Start()
         {
             if (Phase != RunPhase.Planning || PendingLoot != null) return false;
+            plans[Stage] = placements.ToArray();
             monsters.Clear();
             for (int i = 0; i < placements.Count; i++) monsters.Add(CreateMonster(i, placements[i].Kind, placements[i].Tile));
             monsters.Add(CreateBoss());
             foreach (var monster in monsters) monster.WanderWait = 5 + dice.Next(0, 20);
-            foreach (var hero in party) hero.MoveReady = hero.ActReady = 0;
+            foreach (var hero in party) hero.MoveReady = hero.ActReady = hero.MoveCarry = 0;
             ResetSkills();
             ResetFatigue();
             ResetPrayer();
@@ -359,6 +405,7 @@ namespace DungeonTycoon.Core
                 hero.Critical = false;
             }
             Phase = RunPhase.Planning;
+            LayOutInheritedPlan();
             log.Add("야영 완료 • 용사들이 회복하고 쓰러진 동료도 복귀했습니다. 마왕성을 준비하세요.");
         }
     }

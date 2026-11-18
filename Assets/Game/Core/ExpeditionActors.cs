@@ -73,24 +73,39 @@ namespace DungeonTycoon.Core
     {
         private readonly int[] abilities;
 
-        internal HeroState(HeroRole role, string name, int maxHp, int attack, int armor, int range,
-            int[] abilities, params PersonalityTag[] tags)
+        internal HeroState(HeroRole role, string name, int range, int[] abilities, HeroBuild build)
         {
             if (abilities == null || abilities.Length != 4) throw new ArgumentException("Four ability modifiers are required.", nameof(abilities));
-            if (tags == null || tags.Length == 0) throw new ArgumentException("At least one personality tag is required.", nameof(tags));
             Role = role;
             Name = name;
-            Hp = MaxHp = maxHp;
-            BaseAttack = attack;
-            BaseArmor = armor;
             Range = range;
             this.abilities = (int[])abilities.Clone();
-            Tags = Array.AsReadOnly((PersonalityTag[])tags.Clone());
+            ApplyBuild(build);
         }
 
         public HeroRole Role { get; }
         public string Name { get; }
-        public IReadOnlyList<PersonalityTag> Tags { get; }
+        /// <summary>The formation chosen before the first departure: two traits and the stat points.</summary>
+        public HeroBuild Build { get; private set; }
+        public CombatTrait CombatTrait => Build.Combat;
+        public PersonalityTrait Personality => Build.Personality;
+        public Voice Voice => HeroTraits.VoiceOf(Build.Personality);
+        /// <summary>Movement speed in hundredths of a percent of the standard speed. Only combat moves use it.</summary>
+        public int SpeedHundredths { get; private set; }
+
+        /// <summary>
+        /// Sets the starting stats from the build: health full, no equipment yet. Only before the first departure,
+        /// when there is no level or gear to keep.
+        /// </summary>
+        internal void ApplyBuild(HeroBuild build)
+        {
+            var stats = HeroStats.Starting(Role, build ?? throw new ArgumentNullException(nameof(build)));
+            Build = build;
+            Hp = MaxHp = stats.MaxHp;
+            BaseAttack = stats.Attack;
+            BaseArmor = stats.Armor;
+            SpeedHundredths = stats.SpeedHundredths;
+        }
         public int Modifier(Ability ability) => abilities[(int)ability];
         public int Hp { get; internal set; }
         public int MaxHp { get; internal set; }
@@ -108,8 +123,10 @@ namespace DungeonTycoon.Core
         /// <summary>Trust in the god, set by how the GM answered this hero's prayer. Lasts the whole expedition.</summary>
         public Belief Belief { get; internal set; } = Belief.Steady;
         private const int MinAttackTicks = 5;
-        internal int BaseAttack { get; }
-        internal int BaseArmor { get; }
+        internal int BaseAttack { get; private set; }
+        internal int BaseArmor { get; private set; }
+        /// <summary>Ticks of movement owed, in 1/<see cref="SpeedHundredths"/> units, so fractional speeds stay exact.</summary>
+        internal int MoveCarry { get; set; }
 
         /// <summary>What the hero has on in the slot this item would take.</summary>
         public Equipment WornIn(EquipmentSlot slot) => slot == EquipmentSlot.Weapon ? Weapon : BodyArmor;

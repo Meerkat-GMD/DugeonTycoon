@@ -155,13 +155,13 @@ namespace DungeonTycoon.Core
 
         public static string OracleTitle(int bonus) => $"설득 판정 — 용사 d20 + 매력 · 신 d20 + {bonus}";
 
-        /// <summary>A hero's answer to the oracle, by their first personality tag.</summary>
-        public static string OracleReaction(PersonalityTag tag, bool agrees)
+        /// <summary>A hero's answer to the oracle, by the voice of their personality trait.</summary>
+        public static string OracleReaction(Voice voice, bool agrees)
         {
-            switch (tag)
+            switch (voice)
             {
-                case PersonalityTag.Reckless: return agrees ? "봐, 신도 내 편이라고!" : "신이라도 내 감은 못 이기지!";
-                case PersonalityTag.Cautious: return agrees ? "계시예요… 안심하고 따를게요." : "정말… 그쪽이 맞을까요?";
+                case Voice.Bold: return agrees ? "봐, 신도 내 편이라고!" : "신이라도 내 감은 못 이기지!";
+                case Voice.Careful: return agrees ? "계시예요… 안심하고 따를게요." : "정말… 그쪽이 맞을까요?";
                 default: return agrees ? "신께서도 같은 생각이시군." : "흠, 계시라니. 그래도 내 생각은 달라.";
             }
         }
@@ -172,6 +172,13 @@ namespace DungeonTycoon.Core
         public const string Wants = "원함";
         public const string Passes = "패스";
         public const string Worse = "손해";
+
+        /// <summary>A greedy hero bids whatever the armour is worth to them.</summary>
+        public static string GreedyBid(bool better) =>
+            better ? "좋은 건 내 거야. 나도 입찰!" : "일단 나도 입찰! 나쁠 게 뭐 있어?";
+
+        /// <summary>A generous hero steps back for an ally who gains more from the armour.</summary>
+        public static string GenerousPass(string ally) => $"이번 건 {HeroTraits.Subject(ally)} 입는 게 더 낫겠어. 양보할게.";
 
         /// <summary>A hero's local answer when the party shares out armour.</summary>
         public static string LootWish(HeroRole role, bool wants)
@@ -200,46 +207,47 @@ namespace DungeonTycoon.Core
         /// <summary>The narrator as a desperate hero kneels to pray.</summary>
         public static string PrayerOpening(string name) => $"{HeroTraits.Subject(name)} 무릎을 꿇고 하늘을 올려다본다.";
 
-        /// <summary>A hero's local prayer, by their first personality tag.</summary>
-        public static string Prayer(PersonalityTag tag)
+        /// <summary>A hero's local prayer, by the voice of their personality trait.</summary>
+        public static string Prayer(Voice voice)
         {
-            switch (tag)
+            switch (voice)
             {
-                case PersonalityTag.Reckless: return "…젠장. 신이든 뭐든 좋아. 듣고 있다면 대답해!";
-                case PersonalityTag.Cautious: return "신이시여… 더는 버틸 수 없습니다. 동료들만은 지켜 주소서!";
+                case Voice.Bold: return "…젠장. 신이든 뭐든 좋아. 듣고 있다면 대답해!";
+                case Voice.Careful: return "신이시여… 더는 버틸 수 없습니다. 동료들만은 지켜 주소서!";
                 default: return "숨이 다 바닥났어요… 신이시여, 저희를 잊지 않으셨죠?";
             }
         }
 
-        /// <summary>What a desperate hero says instead of praying.</summary>
-        public static string PrayerRefusal(PersonalityTag tag)
+        /// <summary>What a desperate hero says instead of praying. A skeptic has their own words.</summary>
+        public static string PrayerRefusal(PersonalityTrait personality)
         {
-            switch (tag)
+            if (personality == PersonalityTrait.Skeptic) return TraitCatalog.Of(PersonalityTrait.Skeptic).Line;
+            switch (HeroTraits.VoiceOf(personality))
             {
-                case PersonalityTag.Reckless: return "기도는 무슨. 이 정도로 쓰러질 내가 아니야!";
-                case PersonalityTag.Cautious: return "아직… 아직 버틸 수 있어.";
+                case Voice.Bold: return "기도는 무슨. 이 정도로 쓰러질 내가 아니야!";
+                case Voice.Careful: return "아직… 아직 버틸 수 있어.";
                 default: return "아니, 아직 해 볼 게 남았어!";
             }
         }
 
         /// <summary>What a hero says when the god answers their prayer.</summary>
-        public static string PrayerAnswered(PersonalityTag tag)
+        public static string PrayerAnswered(Voice voice)
         {
-            switch (tag)
+            switch (voice)
             {
-                case PersonalityTag.Reckless: return "하, 진짜 대답하잖아? 좋아, 믿어 주지!";
-                case PersonalityTag.Cautious: return "느껴져요… 신께서 우리를 보고 계세요!";
+                case Voice.Bold: return "하, 진짜 대답하잖아? 좋아, 믿어 주지!";
+                case Voice.Careful: return "느껴져요… 신께서 우리를 보고 계세요!";
                 default: return "응답하셨어…! 이제 아무것도 두렵지 않아!";
             }
         }
 
         /// <summary>What a hero says when the god looks away.</summary>
-        public static string PrayerIgnored(PersonalityTag tag)
+        public static string PrayerIgnored(Voice voice)
         {
-            switch (tag)
+            switch (voice)
             {
-                case PersonalityTag.Reckless: return "역시 그렇지. 믿은 내가 바보였어.";
-                case PersonalityTag.Cautious: return "…대답이 없어. 신께서도 우리를 버리신 걸까.";
+                case Voice.Bold: return "역시 그렇지. 믿은 내가 바보였어.";
+                case Voice.Careful: return "…대답이 없어. 신께서도 우리를 버리신 걸까.";
                 default: return "아무도… 듣고 있지 않았구나.";
             }
         }

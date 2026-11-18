@@ -284,7 +284,14 @@ namespace DungeonTycoon.Core.Tests
             }
             var bare = Blows(1);
             var walled = Blows(HeroSkills.UnlockLevel);
-            Assert.That(bare, Is.EqualTo(new[] { 6 - 2, 6 }));
+            var probe = Arena(2, 1);
+            int goblin = Goblin(probe, 0).Attack;
+            Assert.That(bare, Is.EqualTo(new[]
+            {
+                Math.Max(0, goblin - Hero(probe, HeroRole.Tank).Armor),
+                Math.Max(0, goblin - Hero(probe, HeroRole.MeleeDamage).Armor)
+            }));
+            Assert.That(bare[1], Is.Positive, "the melee hero must take a blow for the wall to show");
             Assert.That(walled, Is.EqualTo(bare.Select(d => d * (100 - DungeonRun.ShieldWallReductionPercent) / 100).ToArray()));
         }
 

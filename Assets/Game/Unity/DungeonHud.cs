@@ -184,12 +184,15 @@ namespace DungeonTycoon.Unity
             collapse.clicked += () => bottom.ToggleInClassList("collapsed");
             primary.clicked += () =>
             {
-                if (game.Run.Phase == RunPhase.Planning) game.Depart();
+                if (game.Run.Phase == RunPhase.Planning) game.RequestDeparture();
                 else game.Restart();
             };
             goblinCard.clicked += () => brush = MonsterKind.Goblin;
             ogreCard.clicked += () => brush = MonsterKind.Ogre;
             removeCard.clicked += () => brush = MonsterKind.None;
+            // A new expedition from the same formation and monster plan, with new dice or the same ones.
+            root.Q<Button>("result-copy").clicked += () => game.Restart(keepPlan: true);
+            root.Q<Button>("result-replay").clicked += () => game.Restart(keepPlan: true, sameSeed: true);
             trialCard.clicked += () => game.Trial();
             blessCard.clicked += () => game.Bless();
             restCard.clicked += () => game.RelieveFatigue();
@@ -321,7 +324,7 @@ namespace DungeonTycoon.Unity
             for (int speed = 0; speed < speedButtons.Length; speed++)
                 speedButtons[speed].EnableInClassList("on",game.Speed == speed);
             Show(primary,planning || finished);
-            primary.text = planning ? "원정 출발  ›" : "새 원정";
+            primary.text = planning ? (run.CanEditFormation ? "편성 · 출발  ›" : "원정 출발  ›") : "새 원정";
             collapse.text = bottom.ClassListContains("collapsed") ? "▲" : "▼";
 
             // The dialogue stage replaces the bottom panel while it plays. Hidden rather than removed, so the panel

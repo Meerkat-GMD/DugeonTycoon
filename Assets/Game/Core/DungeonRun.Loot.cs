@@ -154,19 +154,61 @@ namespace DungeonTycoon.Core
             {
                 var local = new List<LootWish>();
                 for (int i = 0; i < armour.Count; i++)
-                    foreach (var role in standing)
-                        local.Add(LocalWish(party[(int)role], armour[i], i));
+                {
+                    int index = i;
+                    local.AddRange(TraitWishes(armour[i], i, standing, role => LocalWish(party[(int)role], armour[index], index)));
+                }
                 PendingLoot = new LootDistribution(++nextLootToken, armour.AsReadOnly(), standing.AsReadOnly(), local.AsReadOnly());
                 log.Add("전리품 분배 • 용사들이 " + HeroTraits.Particle(string.Join(", ", armour.Select(item => item.Name)), "을", "를") +
                         " 누가 입을지 의논합니다.");
             }
         }
 
-        /// <summary>A hero wants armour that is better than what they wear.</summary>
+        /// <summary>A hero wants armour that is better than what they wear. A greedy hero wants it anyway.</summary>
         public LootWish LocalWish(HeroState hero, Equipment item, int index)
         {
-            bool wants = item.Power > Equipment.PowerOf(hero.WornIn(item.Slot));
-            return new LootWish(hero.Role, index, wants, DialogueLines.LootWish(hero.Role, wants));
+            bool better = Gain(hero, item) > 0;
+            if (hero.Personality == PersonalityTrait.Greedy)
+                return new LootWish(hero.Role, index, true, DialogueLines.GreedyBid(better));
+            return new LootWish(hero.Role, index, better, DialogueLines.LootWish(hero.Role, better));
+        }
+
+        /// <summary>How much the item's power beats what the hero wears in that slot; negative when it is worse.</summary>
+        private static int Gain(HeroState hero, Equipment item) => item.Power - Equipment.PowerOf(hero.WornIn(item.Slot));
+
+        /// <summary>
+        /// Takes each hero's first answer (the AI's or the local one) and lets the personality trait overrule it,
+        /// so the same situation always ends in the same bids. A greedy hero always bids; worse armour still drops
+        /// them from the roll. A generous hero passes when another standing hero bids validly and gains more. Who
+        /// bids is judged on the first answers, so two generous heroes never both step back for each other.
+        /// </summary>
+        private List<LootWish> TraitWishes(Equipment item, int index, IReadOnlyList<HeroRole> heroes, Func<HeroRole, LootWish> first)
+        {
+            var wishes = new List<LootWish>();
+            foreach (var role in heroes)
+            {
+                var hero = party[(int)role];
+                var wish = first(role);
+                if (hero.Personality == PersonalityTrait.Greedy && !wish.Wants)
+                    wish = new LootWish(role, index, true, DialogueLines.GreedyBid(Gain(hero, item) > 0));
+                wishes.Add(wish);
+            }
+            var bids = wishes.ToArray();
+            for (int i = 0; i < bids.Length; i++)
+            {
+                var hero = party[(int)bids[i].Role];
+                if (hero.Personality != PersonalityTrait.Generous || !bids[i].Wants) continue;
+                int own = Gain(hero, item);
+                HeroState better = null;
+                for (int j = 0; j < bids.Length; j++)
+                {
+                    var ally = party[(int)bids[j].Role];
+                    if (j == i || !bids[j].Wants || item.Power < Equipment.PowerOf(ally.WornIn(item.Slot))) continue;
+                    if (Gain(ally, item) > own && (better == null || Gain(ally, item) > Gain(better, item))) better = ally;
+                }
+                if (better != null) wishes[i] = new LootWish(hero.Role, index, false, DialogueLines.GenerousPass(better.Name));
+            }
+            return wishes;
         }
 
         /// <summary>
@@ -184,12 +226,17 @@ namespace DungeonTycoon.Core
                 var item = loot.Items[i];
                 scene.Add(DialogueBeat.Narration($"{HeroTraits.Particle(item.Name, "을", "를")} 얻었다 — {item.Stats}", item));
                 var wanting = new List<HeroRole>();
-                foreach (var role in loot.Heroes)
+                int index = i;
+                var decided = TraitWishes(item, i, loot.Heroes, role =>
                 {
+                    var proposal = wishes?.FirstOrDefault(w => w != null && w.Role == role && w.Item == index);
+                    return proposal != null && !string.IsNullOrWhiteSpace(proposal.Line)
+                        ? proposal : LocalWish(party[(int)role], item, index);
+                });
+                foreach (var wish in decided)
+                {
+                    var role = wish.Role;
                     var hero = party[(int)role];
-                    var proposal = wishes?.FirstOrDefault(w => w != null && w.Role == role && w.Item == i);
-                    var wish = proposal != null && !string.IsNullOrWhiteSpace(proposal.Line)
-                        ? proposal : LocalWish(hero, item, i);
                     hero.LastLine = wish.Line;
                     string mark = wish.Wants ? DialogueLines.Wants : DialogueLines.Passes;
                     scene.Add(DialogueBeat.Line(role, wish.Line, mark));

@@ -848,6 +848,18 @@
     color: var(--muted);
 }
 
+/* Restart from the same formation and monster plan; "새 원정" (the primary button) starts afresh. */
+.hud .result-actions {
+    flex-direction: row;
+    margin-top: 12px;
+}
+
+.hud .result-action {
+    margin: 0 8px 0 0;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
 /* ── History overlay ─────────────────────────────────────────────── */
 
 .hud .history-backdrop {

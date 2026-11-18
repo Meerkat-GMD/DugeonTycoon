@@ -1,0 +1,45 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="FormationScreen.uss" />
+    <!--
+        The formation screen before the first departure (hero-traits-design.md, Prototypes/formation): four large
+        portraits with each hero's stats and two traits underneath, Start at the bottom right. Clicking a hero opens
+        the editor, which walks through the stat points, then the combat trait, then the personality trait.
+        FormationScreen.cs mounts this into the HUD, finds every element by name and builds the cards' stat rows
+        and the trait lists in code. The portrait comes from the role-N class on each card (see the USS).
+    -->
+    <ui:VisualElement name="formation-screen" class="formation-screen">
+        <ui:VisualElement class="formation-head" picking-mode="Ignore">
+            <ui:Label class="formation-title" text="출발 전 편성" picking-mode="Ignore" />
+            <ui:Label name="formation-sub" class="formation-sub" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="formation-party" class="formation-party" />
+        <ui:VisualElement class="formation-foot">
+            <ui:Button name="formation-back" class="formation-button" text="배치로 돌아가기" focusable="false" />
+            <ui:Label name="formation-note" class="formation-note" picking-mode="Ignore" />
+            <ui:Button name="formation-start" class="formation-button start" text="Start" focusable="false" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="formation-editor" class="formation-editor">
+            <ui:VisualElement class="editor-box">
+                <ui:VisualElement name="editor-side" class="editor-side">
+                    <ui:VisualElement name="editor-art" class="editor-art" picking-mode="Ignore" />
+                    <ui:Label name="editor-name" class="editor-name" picking-mode="Ignore" />
+                    <ui:VisualElement name="editor-stats" class="editor-stats" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="editor-main">
+                    <ui:VisualElement name="editor-steps" class="editor-steps" picking-mode="Ignore" />
+                    <ui:Label name="editor-title" class="editor-title" picking-mode="Ignore" />
+                    <ui:Label name="editor-hint" class="editor-hint" picking-mode="Ignore" />
+                    <ui:VisualElement name="editor-body" class="editor-body" />
+                    <ui:VisualElement class="editor-foot">
+                        <ui:Button name="editor-cancel" class="formation-button small first" text="취소" focusable="false" />
+                        <ui:Button name="editor-restore" class="formation-button small" text="기본값으로" focusable="false" />
+                        <ui:Label name="editor-warn" class="editor-warn" picking-mode="Ignore" />
+                        <ui:Button name="editor-prev" class="formation-button small" text="이전" focusable="false" />
+                        <ui:Button name="editor-next" class="formation-button small start" text="확인" focusable="false" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
