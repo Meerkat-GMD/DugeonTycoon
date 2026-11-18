@@ -34,6 +34,9 @@ namespace DungeonTycoon.Unity
             public float LungeAt = -1000;
             public Vector3 LungeDirection;
             public float Scale = 1;
+            // A pattern's wind-up or landing pose for this frame; cleared once applied.
+            public Vector3 PoseOffset;
+            public float PoseScale = 1;
         }
 
         private sealed class Flight
@@ -180,6 +183,14 @@ namespace DungeonTycoon.Unity
             heroMarker = Draw("도움 대상", DungeonScenery.TileMarker(Tile*.8f, Finish.Gold), meshes);
             heroMarker.gameObject.SetActive(false);
             CreateWarnings();
+            effects = new PatternEffects(transform, Tile, palette, TileCenter,
+                id => id >= 0 && id < foes.Count ? foes[id].Body : null,
+                (id, offset, scale) =>
+                {
+                    if (id < 0 || id >= foes.Count) return;
+                    foes[id].PoseOffset = offset;
+                    foes[id].PoseScale = scale;
+                });
 
             var stock = new GameObject("원형");
             stock.transform.SetParent(transform,false);
@@ -252,6 +263,7 @@ namespace DungeonTycoon.Unity
         private Material warnMaterial;
         private Mesh warnMesh;
         private Transform warnRoot;
+        private PatternEffects effects;
 
         private void CreateWarnings()
         {
@@ -307,6 +319,7 @@ namespace DungeonTycoon.Unity
         /// </summary>
         public void SetCasts(IReadOnlyList<PatternCast> casts, int ticks)
         {
+            effects?.Sync(map == null ? null : casts, ticks);
             int used = 0;
             if (map != null && casts != null && warnRoot)
             {
@@ -652,6 +665,8 @@ namespace DungeonTycoon.Unity
                         if (!e.FromHero)
                         {
                             var foe = foes[e.Source];
+                            // A pattern that hits from afar has its own effect; only blows within reach lunge.
+                            if (Flat(to-foe.Body.localPosition).magnitude > Tile*1.7f) break;
                             foe.LungeAt = Time.time;
                             foe.LungeDirection = Flat(to-foe.Body.localPosition);
                         }
@@ -745,6 +760,7 @@ namespace DungeonTycoon.Unity
         private void Update()
         {
             if (!boardCamera || map == null) return;
+            effects?.Animate();
             if (lastWidth != Screen.width || lastHeight != Screen.height) ApplyCamera();
 
             int leaderIndex = -1;
@@ -791,9 +807,12 @@ namespace DungeonTycoon.Unity
                 float lunge = Pulse(foe.LungeAt, LungeSeconds);
                 Vector3 toward = foe.Goal-body.localPosition;
                 toward.y = 0;
-                var target = foe.Goal + foe.LungeDirection*lunge*.42f + Vector3.up*lunge*.12f;
+                var target = foe.Goal + foe.LungeDirection*lunge*.42f + Vector3.up*lunge*.12f + foe.PoseOffset;
                 body.localPosition = Vector3.MoveTowards(body.localPosition,target,Time.deltaTime*WalkSpeed*1.4f);
-                body.localScale = Vector3.MoveTowards(body.localScale,Vector3.one*foe.Scale,Time.deltaTime*2);
+                bool posed = foe.PoseScale != 1 || foe.PoseOffset != Vector3.zero;
+                body.localScale = Vector3.MoveTowards(body.localScale,Vector3.one*foe.Scale*foe.PoseScale,Time.deltaTime*(posed ? 6 : 2));
+                foe.PoseOffset = Vector3.zero;
+                foe.PoseScale = 1;
                 Vector3 facing = toward.magnitude > .05f ? toward : foe.Engaged ? NearestHeroDirection(body.localPosition) : Vector3.zero;
                 if (facing.sqrMagnitude > .0001f)
                     body.localRotation = Quaternion.RotateTowards(body.localRotation,
@@ -935,6 +954,7 @@ namespace DungeonTycoon.Unity
             if (fogMesh) Destroy(fogMesh);
             if (fogPalette != null && fogPalette.Length > 0 && fogPalette[0]) Destroy(fogPalette[0]);
             if (warnMesh) Destroy(warnMesh);
+            effects?.Dispose();
             if (warnMaterial && (palette == null || Array.IndexOf(palette, warnMaterial) < 0)) Destroy(warnMaterial);
             if (palette == null) return;
             foreach (var material in palette) if (material) Destroy(material);
