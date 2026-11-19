@@ -81,6 +81,7 @@ namespace DungeonTycoon.Unity
 
         /// <summary>The formation screen shown before the first departure.</summary>
         public FormationScreen Formation { get; private set; }
+        internal bool TutorialActive => hud.TutorialActive;
 
         /// <summary>
         /// The departure button: before the first departure it opens the formation screen, whose Start departs.
@@ -278,8 +279,9 @@ namespace DungeonTycoon.Unity
                             if (opinion.Option == option.Index) backers.Add(opinion.Role);
                         choices.Add(new DialogueStage.OracleChoice(option.Label, backers));
                     }
+                    bool explain = !DialogueStage.FastForward && hud.TryExplainOracle();
                     oracle = await stage.ChooseOracleAsync(choices, DungeonRun.OracleCost,
-                        index => Board.ShowRoute(index >= 0 ? fork.Options[index].Route : null), token);
+                        index => Board.ShowRoute(index >= 0 ? fork.Options[index].Route : null), explain, token);
                 }
                 if (Run != expedition || !expedition.ResolveFork(fork.Token, null, oracle)) return;
                 if (oracle >= 0) dungeonAudio.PlayEffect(SoundKey.OracleSign);
@@ -340,7 +342,7 @@ namespace DungeonTycoon.Unity
                     if (!expedition.AnswerPrayer(heard.Token, answer)) return null;
                     if (expedition.LastPrayer.Answered) dungeonAudio.PlayEffect(SoundKey.PrayerAnswer);
                     return expedition.LastPrayer;
-                }, token);
+                }, !DialogueStage.FastForward && hud.TryExplainPrayer(), token);
             if (Run == expedition) RefreshParty();
         }
 

@@ -23,7 +23,7 @@ namespace DungeonTycoon.Unity
 
         private VisualElement root, hero, bubble, choices, flash, sparkles, beam, vignette;
         private VisualElement pray, radiant, despair;
-        private Label narration, who, line, next;
+        private Label narration, who, line, next, tutorial;
         private readonly Button[] buttons = new Button[3];
         private readonly List<VisualElement> sparks = new List<VisualElement>();
         private int picked = -1;
@@ -66,6 +66,11 @@ namespace DungeonTycoon.Unity
             vignette = root.Q("prayer-vignette");
             bubble = root.Q("prayer-bubble");
             choices = root.Q("prayer-choices");
+            tutorial = new Label("절망에 빠진 용사의 기도입니다. 신앙을 써서 기적을 내리거나 외면할 수 있습니다.")
+                { pickingMode = PickingMode.Ignore };
+            tutorial.AddToClassList("tutorial-inline");
+            tutorial.style.display = DisplayStyle.None;
+            choices.Insert(0, tutorial);
             flash = root.Q("prayer-flash");
             narration = root.Q<Label>("prayer-narration");
             who = root.Q<Label>("prayer-who");
@@ -94,7 +99,7 @@ namespace DungeonTycoon.Unity
         /// and the hero's reaction. <paramref name="answer"/> applies the choice in Core and returns the outcome.
         /// </summary>
         public async UniTask PlayAsync(DungeonRun run, PrayerRequest prayer, Func<PrayerAnswer, PrayerOutcome> answer,
-            CancellationToken ct)
+            bool explain, CancellationToken ct)
         {
             if (root == null) return;
             var praying = run.Party[(int)prayer.Role];
@@ -128,9 +133,11 @@ namespace DungeonTycoon.Unity
                     buttons[i].RemoveFromClassList("picked");
                 }
                 choices.RemoveFromClassList("done");
+                tutorial.style.display = explain ? DisplayStyle.Flex : DisplayStyle.None;
                 choices.AddToClassList("show");
                 choices.pickingMode = PickingMode.Position;
                 int index = await PickAsync(run, ct);
+                tutorial.style.display = DisplayStyle.None;
                 buttons[index].AddToClassList("picked");
                 choices.AddToClassList("done");
                 choices.pickingMode = PickingMode.Ignore;
@@ -146,6 +153,7 @@ namespace DungeonTycoon.Unity
             }
             finally
             {
+                tutorial.style.display = DisplayStyle.None;
                 Close();
             }
         }

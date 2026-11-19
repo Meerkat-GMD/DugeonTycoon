@@ -12,13 +12,14 @@ namespace DungeonTycoon.Unity
     /// Layout and look live in the UXML/USS so they can be edited in UI Builder; this script only fills in
     /// values, toggles classes and reacts to clicks.
     /// </summary>
-    public sealed class DungeonHud : MonoBehaviour
+    public sealed partial class DungeonHud : MonoBehaviour
     {
         // The panel is scaled so the screen is about ReferenceHeight units tall. Below that it keeps at least
         // ReadableScale, unless the layout would no longer fit in MinWidth x MinHeight units.
         private const float ReferenceHeight = 640, ReadableScale = .75f;
         private const float MinWidth = 1000, MinHeight = 500;
         private const float LineSeconds = 6, NoticeSeconds = 2.5f;
+        private const float PlacementLimitSeconds = 3f;
 
         private static readonly string[] RoleNames = { "탱커", "힐러", "근딜", "원딜" };
 
@@ -31,7 +32,7 @@ namespace DungeonTycoon.Unity
         internal bool DungeonVisible => hud != null && titleScreen.style.display == DisplayStyle.None;
         private VisualElement interventionPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
-        private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
+        private Label hint, budget, placementCount, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
         private VisualElement stageClearPage, stageClearLayout;
         private Label stageClearTitle;
         private Button follow, whole, primary, collapse, removeCard, blessCard;
@@ -143,6 +144,7 @@ namespace DungeonTycoon.Unity
             hud.style.display = DisplayStyle.None;
             titleScreen = root.Q("title-screen");
             var newGame = titleScreen.Q<Button>("title-new");
+            BindTutorial(root);
             BindPrologue(newGame);
             newGame.schedule.Execute(() => newGame.Focus());
             titleScreen.Q<Button>("title-quit").clicked += QuitGame;
@@ -163,6 +165,7 @@ namespace DungeonTycoon.Unity
             expeditionFaith = root.Q<Label>("expedition-faith");
             hint = root.Q<Label>("hint");
             budget = root.Q<Label>("budget");
+            placementCount = root.Q<Label>("placement-count");
             faith = root.Q<Label>("faith");
             partyLevel = root.Q<Label>("party-level");
             speedGroup = root.Q("speed");
@@ -195,12 +198,20 @@ namespace DungeonTycoon.Unity
             stageClearLayout = stageClearPage.Q("stage-clear-layout");
             stageClearTitle = root.Q<Label>("stage-clear-title");
             stageContinue = stageClearPage.Q<Button>("stage-continue");
-            stageContinue.clicked += game.AdvanceToNextStage;
+            stageContinue.clicked += () =>
+            {
+                game.AdvanceToNextStage();
+                if (tutorialActive && game.Run.Stage > 1) DismissTutorial();
+            };
             foreach (var (kind, cardName) in Brushes)
             {
                 var card = root.Q<Button>(cardName);
                 card.Q<Label>("detail").text = $"위협 {DungeonRun.Cost(kind)}";
-                card.clicked += () => brush = kind;
+                card.clicked += () =>
+                {
+                    SelectPlacementBrush(kind);
+                    if (kind == MonsterKind.Skeleton) tutorialSelectedSkeleton = true;
+                };
                 brushCards.Add(kind, card);
             }
             removeCard = root.Q<Button>("brush-remove");
@@ -281,7 +292,7 @@ namespace DungeonTycoon.Unity
             root.Q<Button>("history-close").clicked += () => history.RemoveFromClassList("open");
             collapse.clicked += () => bottom.ToggleInClassList("collapsed");
             primary.clicked += game.RequestDeparture;
-            removeCard.clicked += () => brush = MonsterKind.None;
+            removeCard.clicked += () => SelectPlacementBrush(MonsterKind.None);
             blessPicker = root.Q("bless-picker");
             blessFeedback = root.Q<Label>("bless-feedback");
             var targets = root.Q("bless-targets");
@@ -341,13 +352,21 @@ namespace DungeonTycoon.Unity
                 hud.style.display = DisplayStyle.Flex;
             }
 
-            newGame.clicked += () => {
+            void BeginPrologue()
+            {
                 page = 0;
                 titleScreen.Q(className: "title-menu").style.display = DisplayStyle.None;
                 titleScreen.Q("title-logo").style.display = DisplayStyle.None;
                 prologue.style.display = DisplayStyle.Flex;
                 ShowPage();
                 prologue.Focus();
+            }
+
+            newGame.clicked += BeginPrologue;
+            titleScreen.Q<Button>("title-tutorial").clicked += () =>
+            {
+                SetTutorialSeen(false);
+                BeginPrologue();
             };
 
             void Advance()
@@ -399,12 +418,14 @@ namespace DungeonTycoon.Unity
                 stageClearLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
             else if (run.Phase != RunPhase.Defeat) BoardInput(run);
             else if (scale > 0) gameOverLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
+            RefreshTutorial(run);
         }
 
         private void ResetForStage(DungeonRun run)
         {
             if (!ReferenceEquals(knownRun,run))
             {
+                ResetTutorial(run);
                 historyList.Clear();
                 loggedRows = 0;
                 // A new expedition: forget the previous one's banner and pop-up bookkeeping.
@@ -522,6 +543,7 @@ namespace DungeonTycoon.Unity
             hint.text = warning ? notice : planning && !cameraUsed ? "우클릭 드래그 이동 · 휠 확대·축소" : "";
             hint.EnableInClassList("warning",warning);
             budget.text = run.Budget.ToString();
+            placementCount.text = $"{run.Placements.Count}/{run.PlacementLimit}";
             if (!game.Presenting) faith.text = run.Faith.ToString();
 
             bool bottomCollapsed = bottom.ClassListContains("collapsed");
@@ -936,6 +958,8 @@ namespace DungeonTycoon.Unity
             var hero = run.Party[(int)role];
             int before = hero.Hp;
             if (!game.Bless(role)) return;
+            tutorialBlessSeen = true;
+            ResumeTutorialPause();
             Show(blessPicker,false);
             blessFeedback.text = $"{hero.Name} 체력 +{hero.Hp - before} · 신앙 -{DungeonRun.BlessCost}";
             blessFeedbackUntil = Time.unscaledTime + NoticeSeconds;
@@ -1045,6 +1069,7 @@ namespace DungeonTycoon.Unity
 
         private void BoardInput(DungeonRun run)
         {
+            if (game.Formation.IsOpen && game.Board.ClearPlacementLimit()) notice = "";
             Vector2 mouse = Input.mousePosition;
             var picked = PickHud(mouse);
             bool inputOpen = !HistoryOpen && !game.Formation.IsOpen;
@@ -1170,11 +1195,32 @@ namespace DungeonTycoon.Unity
         private string PlacementMonsterName(MonsterKind kind) =>
             brushCards[kind].Q<Label>(className:"skill-title").text;
 
+        private void SelectPlacementBrush(MonsterKind kind)
+        {
+            if (brush != kind && game.Board.ClearPlacementLimit()) notice = "";
+            brush = kind;
+        }
+
         private void Paint(TilePoint tile)
         {
-            switch (game.Place(tile,brush))
+            var check = game.Place(tile, brush);
+            if (check != PlacementCheck.NearbyLimit) game.Board.ClearPlacementLimit();
+            switch (check)
             {
+                case PlacementCheck.Allowed:
+                    if (brush != MonsterKind.None) tutorialPlaced = true;
+                    notice = "";
+                    break;
                 case PlacementCheck.OverBudget: notice = "위협 예산이 부족합니다."; break;
+                case PlacementCheck.StageLimit:
+                    notice = $"이 스테이지에는 최대 {game.Run.PlacementLimit}마리까지 배치할 수 있습니다.";
+                    break;
+                case PlacementCheck.TileLimit:
+                    notice = $"한 칸에는 최대 {DungeonRun.TilePlacementLimit}마리까지 배치할 수 있습니다.";
+                    break;
+                case PlacementCheck.NearbyLimit:
+                    ShowPlacementLimit(tile);
+                    return;
                 case PlacementCheck.NearEntrance: notice = "입구 근처에는 몬스터를 둘 수 없습니다."; break;
                 case PlacementCheck.NotFloor: notice = "벽에는 몬스터를 둘 수 없습니다."; break;
                 case PlacementCheck.NothingToRemove: notice = "이 칸에는 되돌릴 몬스터가 없습니다."; break;
@@ -1184,6 +1230,31 @@ namespace DungeonTycoon.Unity
                 default: notice = ""; break;
             }
             noticeUntil = Time.unscaledTime+NoticeSeconds;
+        }
+
+        private void ShowPlacementLimit(TilePoint attempted)
+        {
+            var run = game.Run;
+            var blocked = new List<TilePoint>();
+            var recommended = new List<TilePoint>(2);
+            var distances = run.Map.Distances(attempted, run.Map.IsFloor);
+            foreach (var entry in distances.OrderBy(entry => entry.Value))
+            {
+                switch (run.CheckPlace(entry.Key, brush))
+                {
+                    case PlacementCheck.NearbyLimit:
+                        blocked.Add(entry.Key);
+                        break;
+                    case PlacementCheck.Allowed when recommended.Count < 2:
+                        recommended.Add(entry.Key);
+                        break;
+                }
+            }
+            noticeUntil = Time.unscaledTime + PlacementLimitSeconds;
+            game.Board.ShowPlacementLimit(attempted, blocked, recommended, noticeUntil);
+            notice = recommended.Count > 0
+                ? "붉은 칸은 몬스터가 너무 밀집해 있습니다. 청록색 칸에 놓을 수 있습니다."
+                : "몬스터가 너무 밀집해 있습니다. 기존 몬스터를 지우거나 다른 구역에 배치해 보세요.";
         }
 
         private static void Show(VisualElement element,bool visible) =>

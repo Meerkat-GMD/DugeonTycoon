@@ -62,6 +62,10 @@
         <!-- The oracle: numbered path cards above the portraits. DialogueStage.cs fills oracle-cards. -->
         <ui:VisualElement name="stage-oracle" class="stage-oracle" picking-mode="Ignore">
             <ui:Label name="oracle-question" class="oracle-question" text="신탁" picking-mode="Ignore" />
+            <ui:VisualElement name="oracle-tutorial" class="oracle-tutorial tutorial-hidden" picking-mode="Ignore">
+                <ui:Label class="tutorial-inline" picking-mode="Ignore" text="길 카드에 마우스를 올리면 경로가 보입니다. 신앙을 써서 길을 정하거나, 넘어가서 용사들의 선택을 지켜보세요." />
+                <ui:Button name="oracle-tutorial-continue" class="chip" text="안내 닫기" />
+            </ui:VisualElement>
             <ui:VisualElement name="oracle-cards" class="oracle-cards" picking-mode="Ignore" />
             <ui:VisualElement class="oracle-countdown" picking-mode="Ignore">
                 <ui:VisualElement name="oracle-timer" class="oracle-timer" picking-mode="Ignore" />

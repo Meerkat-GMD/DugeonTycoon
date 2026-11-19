@@ -113,6 +113,52 @@ namespace DungeonTycoon.Core.Tests
         }
 
         [Test]
+        public void PlacementLimitsCountFromEveryReachableFloorTileAndFreeSpaceWhenRemoved()
+        {
+            var run = new DungeonRun();
+            var stack = new TilePoint(18, 7);
+            var neighbor = new TilePoint(19, 7);
+            var eightStepsAway = new TilePoint(26, 7);
+            var nineStepsAway = new TilePoint(27, 7);
+
+            Assert.That(run.Place(stack, MonsterKind.Skeleton), Is.True);
+            Assert.That(run.Place(stack, MonsterKind.Skeleton), Is.True);
+            Assert.That(run.CheckPlace(stack, MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.TileLimit));
+            Assert.That(run.Place(neighbor, MonsterKind.Skeleton), Is.True);
+            Assert.That(run.CheckPlace(eightStepsAway, MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.NearbyLimit));
+            Assert.That(run.Place(eightStepsAway, MonsterKind.Skeleton), Is.False);
+            Assert.That(run.Budget, Is.EqualTo(3));
+            Assert.That(run.CheckPlace(nineStepsAway, MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.Allowed));
+            Assert.That(run.Remove(stack), Is.True);
+            Assert.That(run.Place(eightStepsAway, MonsterKind.Skeleton), Is.True);
+        }
+
+        [Test]
+        public void StagePlacementLimitCanBeReachedWithBudgetLeft()
+        {
+            var run = new DungeonRun(20261118);
+            run.Start();
+            Drive(run, () =>
+            {
+                run.Bless();
+                return run.Stage == 2;
+            });
+            Assert.That(run.Stage, Is.EqualTo(2));
+            var tiles = PlaceableTiles(run);
+            for (int i = 0; i < run.PlacementLimit; i++)
+            {
+                var tile = tiles.First(candidate => run.CheckPlace(candidate, MonsterKind.Skeleton) == PlacementCheck.Allowed);
+                Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True);
+            }
+            Assert.That(run.Placements.Count, Is.EqualTo(7));
+            Assert.That(run.Budget, Is.EqualTo(2));
+            var last = run.Placements.Last().Tile;
+            Assert.That(run.CheckPlace(last, MonsterKind.Skeleton), Is.EqualTo(PlacementCheck.StageLimit));
+            Assert.That(run.Remove(last), Is.True);
+            Assert.That(run.Place(last, MonsterKind.Skeleton), Is.True);
+        }
+
+        [Test]
         public void MonstersStayOffWallsAndAwayFromTheEntrance()
         {
             var run = DungeonRun.Sandbox();

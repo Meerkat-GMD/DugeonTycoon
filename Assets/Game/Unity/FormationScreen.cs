@@ -20,15 +20,20 @@ namespace DungeonTycoon.Unity
             { HeroRole.Tank, HeroRole.Healer, HeroRole.MeleeDamage, HeroRole.RangedDamage };
 
         private DungeonGame game;
-        private VisualElement root, party, editor, editorStats, steps, body;
-        private Label sub, hint, warn, editorName;
+        private VisualElement root, party, editor, editorStats, steps, body, partyGuide, editorGuide;
+        private Label sub, hint, warn, editorName, partyGuideText, editorGuideText;
+        private Button partyGuideSkip;
         private Button prev, next;
         private HeroRole editing;
         private HeroBuild draft;
         private int step;
+        private DungeonRun guideRun;
+        private bool guideFinished, addedPoint;
+        private HeroRole? confirmedRole;
 
         public bool IsOpen { get; private set; }
         private bool Editing => editor != null && editor.resolvedStyle.display == DisplayStyle.Flex;
+        private bool GuideActive => game.TutorialActive && !guideFinished;
 
         // Added by DungeonGame after the HUD, so by Start the HUD document and its `hud` element exist.
         private void Start()
@@ -56,6 +61,13 @@ namespace DungeonTycoon.Unity
             warn = root.Q<Label>("editor-warn");
             prev = root.Q<Button>("editor-prev");
             next = root.Q<Button>("editor-next");
+            partyGuide = root.Q("formation-guide");
+            partyGuideText = root.Q<Label>("formation-guide-text");
+            partyGuideSkip = root.Q<Button>("formation-guide-skip");
+            editorGuide = root.Q("editor-guide");
+            editorGuideText = root.Q<Label>("editor-guide-text");
+            partyGuideSkip.clicked += SkipGuide;
+            root.Q<Button>("editor-guide-skip").clicked += SkipGuide;
 
             root.Q<Button>("formation-back").clicked += Close;
             root.Q<Button>("formation-start").clicked += () =>
@@ -67,6 +79,7 @@ namespace DungeonTycoon.Unity
             root.Q<Button>("editor-restore").clicked += () =>
             {
                 draft = HeroBuild.Default(editing);
+                addedPoint = false;
                 warn.text = "완료하면 기본값이 반영됩니다.";
                 RenderEditor();
             };
@@ -86,6 +99,11 @@ namespace DungeonTycoon.Unity
                     return;
                 }
                 game.Run.SetBuild(editing, draft);
+                if (GuideActive)
+                {
+                    guideFinished = true;
+                    confirmedRole = editing;
+                }
                 CloseEditor();
                 RenderParty();
             };
@@ -102,10 +120,18 @@ namespace DungeonTycoon.Unity
         public void Open()
         {
             if (root == null || !game.Run.CanEditFormation) return;
+            if (guideRun != game.Run)
+            {
+                guideRun = game.Run;
+                guideFinished = false;
+            }
+            confirmedRole = null;
             IsOpen = true;
-            sub.text = "출발하면 편성이 확정됩니다.";
+            sub.text = game.TutorialActive
+                ? "탱커와 근딜이 앞에, 힐러와 원딜이 뒤에 섭니다. 기본 편성으로 바로 출발할 수 있습니다."
+                : "출발하면 편성이 확정됩니다.";
             root.style.display = DisplayStyle.Flex;
-            editor.style.display = DisplayStyle.None;
+            CloseEditor();
             RenderParty();
         }
 
@@ -114,13 +140,21 @@ namespace DungeonTycoon.Unity
             IsOpen = false;
             if (root == null) return;
             root.style.display = DisplayStyle.None;
-            editor.style.display = DisplayStyle.None;
+            CloseEditor();
         }
 
         // ── The four cards ───────────────────────────────────────────────
 
         private void RenderParty()
         {
+            bool showGuide = GuideActive || confirmedRole.HasValue;
+            partyGuide.style.display = showGuide ? DisplayStyle.Flex : DisplayStyle.None;
+            partyGuideSkip.style.display = GuideActive ? DisplayStyle.Flex : DisplayStyle.None;
+            HeroRole focusRole = confirmedRole ?? HeroRole.MeleeDamage;
+            string focusName = game.Run.Party[(int)focusRole].Name;
+            partyGuideText.text = confirmedRole.HasValue
+                ? $"{focusName} 카드에 편성이 반영됐습니다. 출발 전까지 다시 바꿀 수 있습니다."
+                : $"근딜 {focusName} 카드를 눌러 능력치와 성향을 바꿔 보세요.";
             party.Clear();
             foreach (var role in Order)
             {
@@ -129,6 +163,7 @@ namespace DungeonTycoon.Unity
                 var card = new Button(() => OpenEditor(role)) { focusable = false };
                 card.AddToClassList("formation-card");
                 card.AddToClassList("role-" + (int)role);
+                card.EnableInClassList("formation-guide-focus", showGuide && role == focusRole);
 
                 var art = new VisualElement { pickingMode = PickingMode.Ignore };
                 art.AddToClassList("card-art");
@@ -146,6 +181,7 @@ namespace DungeonTycoon.Unity
                 status.EnableInClassList("left", build.Left > 0);
                 info.Add(status);
                 card.Add(info);
+                if (GuideActive && role == focusRole) TutorialHighlight.SetPulse(card, true);
                 party.Add(card);
             }
         }
@@ -226,11 +262,18 @@ namespace DungeonTycoon.Unity
 
         private void OpenEditor(HeroRole role)
         {
+            if (confirmedRole.HasValue)
+            {
+                confirmedRole = null;
+                RenderParty();
+            }
             editing = role;
             draft = game.Run.BuildOf(role);
             step = 0;
+            addedPoint = false;
             warn.text = "";
             for (int i = 0; i < 4; i++) editor.EnableInClassList("role-" + i, i == (int)role);
+            partyGuide.style.visibility = Visibility.Hidden;
             editor.style.display = DisplayStyle.Flex;
             RenderEditor();
         }
@@ -238,7 +281,16 @@ namespace DungeonTycoon.Unity
         private void CloseEditor()
         {
             editor.style.display = DisplayStyle.None;
+            partyGuide.style.visibility = Visibility.Visible;
+            TutorialHighlight.SetPulse(next, false);
             draft = null;
+        }
+
+        private void SkipGuide()
+        {
+            guideFinished = true;
+            RenderParty();
+            if (draft != null) RenderEditor();
         }
 
         private void RenderEditor()
@@ -256,9 +308,13 @@ namespace DungeonTycoon.Unity
                 chip.EnableInClassList("past", i < step);
                 steps.Add(chip);
             }
-            hint.style.display = step == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            hint.style.display = step == 0 && !GuideActive ? DisplayStyle.Flex : DisplayStyle.None;
             prev.style.display = step > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             next.text = step == StepTitles.Length - 1 ? "완료" : "확인";
+            editorStats.EnableInClassList("formation-guide-focus", GuideActive && step == 0 && (draft.Left > 0 || addedPoint));
+            TutorialHighlight.SetPulse(next, GuideActive && step == 0 && addedPoint && draft.Left == 0);
+            editorGuide.style.display = GuideActive ? DisplayStyle.Flex : DisplayStyle.None;
+            if (GuideActive) editorGuideText.text = GuideMessage();
 
             body.Clear();
             if (step == 0) RenderPoints();
@@ -266,10 +322,28 @@ namespace DungeonTycoon.Unity
             else RenderTraits(false);
         }
 
+        private string GuideMessage()
+        {
+            if (step == 1)
+                return "전투 성향은 예고 공격에 대응하는 법이나 우선 공격할 대상을 바꿉니다. 카드를 눌러 발동 조건과 행동을 확인해 보세요.";
+            if (step == 2)
+                return "성격 성향은 갈림길 의견, 장비 입찰이나 기도에 영향을 줍니다. 승부광은 적이 보이는 길을, 신중한 길잡이는 안전한 길을 선호합니다.";
+            if (draft.Left > 0)
+                return "+를 눌러 원하는 능력치에 포인트를 써 보세요. 왼쪽 수치는 즉시 바뀌며, 포인트를 남겨도 됩니다.";
+            if (addedPoint)
+                return "왼쪽에서 바뀐 능력치를 확인해 보세요. 확인을 누르면 전투 성향을 고를 수 있습니다.";
+            return "−를 눌러 아무 능력치에서 1점을 빼 보세요. 돌려받은 포인트는 원하는 능력치에 쓸 수 있습니다.";
+        }
+
         private void RenderPoints()
         {
-            body.Add(Text($"남은 포인트 <b><color=#F0EAE0>{draft.Left}</color></b> / {HeroBuild.Budget}", "points-left"));
+            string valueColor = draft.Left == 0 ? "#FF7777" : "#F0EAE0";
+            var pointsLeft = Text($"남은 포인트 <size=20><b><color={valueColor}>{draft.Left}</color></b></size> / {HeroBuild.Budget}", "points-left");
+            pointsLeft.EnableInClassList("formation-guide-focus", GuideActive && (!addedPoint || draft.Left > 0));
+            body.Add(pointsLeft);
 
+            bool highlightAdd = GuideActive && draft.Left > 0;
+            bool highlightRefund = GuideActive && draft.Left == 0 && !addedPoint;
             foreach (var stat in Stats)
             {
                 int points = draft.Points(stat);
@@ -278,9 +352,15 @@ namespace DungeonTycoon.Unity
                 row.AddToClassList("point-row");
                 row.Add(Text(HeroTraits.Name(stat), "point-name"));
                 row.Add(Text($"점당 +{gain}{(stat == BuildStat.Speed ? "%" : "")}", "point-gain"));
-                row.Add(StepButton("−", () => ChangePoints(stat, -1)));
+                var refund = StepButton("−", () => ChangePoints(stat, -1));
+                refund.EnableInClassList("formation-guide-focus", highlightRefund && points > 0);
+                if (highlightRefund && points > 0) TutorialHighlight.SetPulse(refund, true);
+                row.Add(refund);
                 row.Add(Text(points.ToString(), "point-value"));
-                row.Add(StepButton("+", () => ChangePoints(stat, 1)));
+                var add = StepButton("+", () => ChangePoints(stat, 1));
+                add.EnableInClassList("formation-guide-focus", highlightAdd);
+                if (highlightAdd) TutorialHighlight.SetPulse(add, true);
+                row.Add(add);
                 body.Add(row);
             }
         }
@@ -295,6 +375,7 @@ namespace DungeonTycoon.Unity
                 return;
             }
             draft = draft.WithPoints(stat, value);
+            if (delta > 0) addedPoint = true;
             warn.text = "";
             RenderEditor();
         }
@@ -321,7 +402,9 @@ namespace DungeonTycoon.Unity
             var chosen = combat ? TraitCatalog.Of(draft.Combat) : TraitCatalog.Of(draft.Personality);
             var about = new VisualElement { pickingMode = PickingMode.Ignore };
             about.AddToClassList("trait-about");
+            about.EnableInClassList("formation-guide-focus", GuideActive);
             about.Add(Text($"<b>{chosen.Name}</b> · {chosen.Trigger}", null));
+            if (GuideActive) about.Add(Text(chosen.Summary, null));
             about.Add(Text($"“{chosen.Line}”", "line"));
             if (!chosen.Works || (chosen.OnlyFor is HeroRole only && only != editing)) about.Add(Text(Status(chosen, combat), "note"));
             body.Add(about);

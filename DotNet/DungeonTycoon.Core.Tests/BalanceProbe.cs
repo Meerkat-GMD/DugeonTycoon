@@ -19,25 +19,41 @@ namespace DungeonTycoon.Core.Tests
         {
             new[] { (21, 23, MonsterKind.Skeleton), (6, 11, MonsterKind.Skeleton), (22, 7, MonsterKind.Ghost), (25, 9, MonsterKind.Ghost) },
             // The crypt's corridors every way to the boss passes through.
-            new[] { (27, 25, MonsterKind.Zombie), (38, 18, MonsterKind.Ghost), (16, 30, MonsterKind.Skeleton), (7, 24, MonsterKind.Skeleton), (36, 5, MonsterKind.Skeleton) },
+            new[] { (27, 25, MonsterKind.Zombie), (38, 18, MonsterKind.Ghost), (16, 30, MonsterKind.Skeleton), (7, 24, MonsterKind.Skeleton),
+                    (36, 5, MonsterKind.Skeleton), (36, 5, MonsterKind.Skeleton) },
             // Both roads into the castle's great hall and the hall's way up to the throne.
             new[] { (26, 12, MonsterKind.Zombie), (21, 14, MonsterKind.Archer), (7, 20, MonsterKind.Ghost), (17, 30, MonsterKind.Skeleton),
-                    (26, 24, MonsterKind.Skeleton), (8, 12, MonsterKind.Skeleton) }
+                    (26, 24, MonsterKind.Skeleton), (8, 12, MonsterKind.Skeleton), (8, 12, MonsterKind.Archer) }
         };
 
         /// <summary>Whole-budget plans per stage: clumped on the main road, or spread like the steady plan.</summary>
         internal static readonly (int Stage, string Name, (int X, int Y, MonsterKind Kind)[] Plan)[] FullBudgets =
         {
-            (1, "해골 6 한곳", Enumerable.Repeat((22, 7, MonsterKind.Skeleton), 6).ToArray()),
-            (1, "유령 3 한곳", Enumerable.Repeat((22, 7, MonsterKind.Ghost), 3).ToArray()),
+            (1, "해골 3씩 두 곳", new[] { (22, 7, MonsterKind.Skeleton), (22, 7, MonsterKind.Skeleton), (23, 7, MonsterKind.Skeleton),
+                                         (6, 11, MonsterKind.Skeleton), (6, 11, MonsterKind.Skeleton), (7, 11, MonsterKind.Skeleton) }),
+            (1, "유령 3마리 집중", new[] { (22, 7, MonsterKind.Ghost), (22, 7, MonsterKind.Ghost), (23, 7, MonsterKind.Ghost) }),
             (1, "길목에 흩어", SteadyPlan[0]),
-            (2, "좀비 2+해골 2 한곳", new[] { (26, 18, MonsterKind.Zombie), (26, 18, MonsterKind.Zombie), (26, 18, MonsterKind.Skeleton), (26, 18, MonsterKind.Skeleton) }),
-            (2, "유령 4 한곳", Enumerable.Repeat((26, 18, MonsterKind.Ghost), 4).ToArray()),
+            (2, "좀비 2·해골 1 집중", new[] { (26, 18, MonsterKind.Zombie), (26, 18, MonsterKind.Zombie),
+                                              (26, 19, MonsterKind.Skeleton), (38, 18, MonsterKind.Ghost) }),
+            (2, "유령 3마리 집중", new[] { (26, 18, MonsterKind.Ghost), (26, 18, MonsterKind.Ghost), (26, 19, MonsterKind.Ghost),
+                                           (38, 18, MonsterKind.Ghost), (36, 5, MonsterKind.Skeleton) }),
             (2, "길목에 흩어", SteadyPlan[1]),
-            (3, "좀비 2+궁수 2 한곳", new[] { (26, 17, MonsterKind.Zombie), (26, 17, MonsterKind.Zombie), (26, 17, MonsterKind.Archer), (26, 17, MonsterKind.Archer) }),
-            (3, "궁수 5 한곳", Enumerable.Repeat((26, 17, MonsterKind.Archer), 5).ToArray()),
+            (3, "좀비 2·궁수 2 집중", new[] { (26, 17, MonsterKind.Zombie), (26, 17, MonsterKind.Zombie),
+                                              (26, 16, MonsterKind.Archer), (26, 16, MonsterKind.Archer), (8, 12, MonsterKind.Archer) }),
+            (3, "궁수 4마리 집중", new[] { (26, 17, MonsterKind.Archer), (26, 17, MonsterKind.Archer),
+                                           (26, 16, MonsterKind.Archer), (26, 16, MonsterKind.Archer), (8, 12, MonsterKind.Archer), (8, 12, MonsterKind.Archer) }),
             (3, "길목에 흩어", SteadyPlan[2])
         };
+
+        private static void PlacePlan(DungeonRun run, (int X, int Y, MonsterKind Kind)[] plan)
+        {
+            foreach (var (x, y, kind) in plan)
+            {
+                var tile = new TilePoint(x, y);
+                if (!run.Place(tile, kind))
+                    throw new InvalidOperationException($"{run.Stage}스테이지 {tile}의 {kind} 배치 실패: {run.CheckPlace(tile, kind)}");
+            }
+        }
 
         internal sealed class StageReport
         {
@@ -80,8 +96,7 @@ namespace DungeonTycoon.Core.Tests
                 if (run.Phase == RunPhase.Planning)
                 {
                     if (plan)
-                        foreach (var (x, y, kind) in SteadyPlan[run.Stage - 1])
-                            run.Place(new TilePoint(x, y), kind);
+                        PlacePlan(run, SteadyPlan[run.Stage - 1]);
                     run.Start();
                     current = new StageReport { Stage = run.Stage };
                     reports.Add(current);
@@ -130,7 +145,7 @@ namespace DungeonTycoon.Core.Tests
             while (run.Stage < stage)
             {
                 int next = run.Stage + 1;
-                foreach (var (x, y, kind) in SteadyPlan[run.Stage - 1]) run.Place(new TilePoint(x, y), kind);
+                PlacePlan(run, SteadyPlan[run.Stage - 1]);
                 run.Start();
                 for (int step = 0; step < 60000 && !(run.Stage == next && run.PendingLoot == null) && run.Phase != RunPhase.Defeat; step++)
                 {
@@ -143,7 +158,7 @@ namespace DungeonTycoon.Core.Tests
                 if (run.Stage != next || run.Phase != RunPhase.Planning) return report;
             }
             report.Arrived = true;
-            foreach (var (x, y, kind) in plan) run.Place(new TilePoint(x, y), kind);
+            PlacePlan(run, plan);
             run.Start();
             var down = new HashSet<HeroRole>();
             for (int step = 0; step < 40000 && DungeonRunTests.InDungeon(run) && !run.FightingBoss && run.Stage == stage; step++)
@@ -182,11 +197,14 @@ namespace DungeonTycoon.Core.Tests
             foreach (bool plan in new[] { false, true })
             {
                 var runs = PerSeed(seeds, seed => Play(seed, plan));
-                int wins = runs.Count(r => r.Phase == RunPhase.Victory);
+                var winTicks = runs.Where(r => r.Phase == RunPhase.Victory).Select(r => r.Run.Ticks).OrderBy(ticks => ticks).ToArray();
+                int wins = winTicks.Length;
+                string winTime = wins == 0 ? "-" : $"{winTicks[wins / 2] * DungeonRun.TickSeconds:0.#}초";
                 var finals = runs.Select(r => r.Stages.LastOrDefault()).Where(s => s != null && s.Stage == DungeonRun.FinalStage && s.LevelAtBoss >= 0).ToList();
                 string died = string.Join(" ", runs.Where(r => r.Phase == RunPhase.Defeat).Select(r => $"{r.Stages.Last().Stage}스테이지"));
                 Say($"{(plan ? "길목 배치" : "빈 던전  ")}: 승리 {wins}/{seeds.Length}  최종 보스 앞 레벨 {Range(finals.Select(s => s.LevelAtBoss))}" +
-                                          $"  최종 보스전 {Range(finals.Select(s => s.BossTicks / 10))}초" + (died.Length > 0 ? $"  패배한 곳: {died}" : ""));
+                                          $"  최종 보스전 {Range(finals.Select(s => s.BossTicks / 10))}초  승리 시간 중앙값 {winTime}" +
+                                          (died.Length > 0 ? $"  패배한 곳: {died}" : ""));
             }
             var fightSeeds = seeds.Skip(1).Take(Math.Max(1, seeds.Length - 1)).ToArray();
             Say($"== 일반 전투, 예산 전부 ({fightSeeds.Length}개 시드, 사회자 도움 없음) — 가장 약해진 용사의 체력 %");

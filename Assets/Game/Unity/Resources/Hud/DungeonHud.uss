@@ -1196,3 +1196,90 @@
 }
 
 .hud .field-bubble { translate: -50% -115%; }
+.tutorial-hidden {
+    display: none;
+}
+
+.hud .tutorial-card {
+    position: absolute;
+    width: 230px;
+    padding: 7px 10px;
+    border-width: 1px;
+    border-left-width: 3px;
+    border-radius: 5px;
+    border-color: #bd9350;
+    background-color: rgba(22, 34, 42, 0.96);
+}
+
+.hud .tutorial-title {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #ffd680;
+    white-space: normal;
+}
+
+.hud .tutorial-connector {
+    position: absolute;
+    height: 2px;
+    background-color: #ffd680;
+}
+
+.hud .tutorial-body, .hud .tutorial-inline {
+    font-size: 13px;
+    color: #f4efe3;
+    white-space: normal;
+}
+
+.hud .tutorial-inline {
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    background-color: rgba(22, 34, 42, 0.96);
+    -unity-text-align: middle-center;
+}
+
+.hud .tutorial-card .chip {
+    align-self: flex-end;
+    margin-top: 4px;
+}
+
+.hud .tutorial-focus, .hud .skill-button.tutorial-focus {
+    border-color: #ffd680;
+    border-width: 2px;
+}
+
+.hud .tutorial-pulse {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-width: 2px;
+    border-color: #fff4cf;
+    border-radius: 4px;
+}
+
+.hud #budget {
+    min-width: 29px;
+    padding: 1px 6px;
+    border-width: 2px;
+    border-color: transparent;
+    border-radius: 4px;
+    -unity-text-align: middle-center;
+}
+
+.hud #budget.tutorial-focus {
+    border-color: #ffd680;
+}
+
+.tutorial-carryover {
+    max-width: 810px;
+    margin: -13px 0 8px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    background-color: rgba(22, 34, 42, 0.94);
+    color: #fff2d4;
+    font-size: 16px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}

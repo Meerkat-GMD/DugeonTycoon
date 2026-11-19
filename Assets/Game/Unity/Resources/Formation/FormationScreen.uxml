@@ -12,6 +12,10 @@
             <ui:Label class="formation-title" text="출발 전 편성" picking-mode="Ignore" />
             <ui:Label name="formation-sub" class="formation-sub" picking-mode="Ignore" />
         </ui:VisualElement>
+        <ui:VisualElement name="formation-guide" class="formation-guide">
+            <ui:Label name="formation-guide-text" class="formation-guide-text" picking-mode="Ignore" />
+            <ui:Button name="formation-guide-skip" class="formation-guide-skip" text="편성 안내 건너뛰기" focusable="false" />
+        </ui:VisualElement>
         <ui:VisualElement name="formation-party" class="formation-party" />
         <ui:VisualElement class="formation-foot">
             <ui:Button name="formation-back" class="formation-button" text="배치로 돌아가기" focusable="false" />
@@ -27,6 +31,10 @@
                 </ui:VisualElement>
                 <ui:VisualElement class="editor-main">
                     <ui:VisualElement name="editor-steps" class="editor-steps" picking-mode="Ignore" />
+                    <ui:VisualElement name="editor-guide" class="formation-guide">
+                        <ui:Label name="editor-guide-text" class="formation-guide-text" picking-mode="Ignore" />
+                        <ui:Button name="editor-guide-skip" class="formation-guide-skip" text="편성 안내 건너뛰기" focusable="false" />
+                    </ui:VisualElement>
                     <ui:Label name="editor-hint" text="포인트를 남겨도 출발할 수 있습니다." class="editor-hint" picking-mode="Ignore" />
                     <ui:VisualElement name="editor-body" class="editor-body" />
                     <ui:VisualElement class="editor-foot">

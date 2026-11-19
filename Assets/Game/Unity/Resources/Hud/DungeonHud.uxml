@@ -24,6 +24,7 @@
         </ui:VisualElement>
 
         <ui:VisualElement class="top-buttons" picking-mode="Ignore">
+            <ui:Button name="tutorial-skip" class="chip tutorial-hidden" text="가이드 건너뛰기" />
             <ui:Button name="history-open" class="chip" text="기록" focusable="false" />
             <ui:Button name="audio-toggle" class="chip" text="음량" />
         </ui:VisualElement>
@@ -215,6 +216,8 @@
                 <ui:VisualElement class="stats">
                     <ui:Label class="stat-title" text="위협 예산" />
                     <ui:Label name="budget" class="stat-value gold" text="6" />
+                    <ui:Label class="stat-title" text="배치" />
+                    <ui:Label name="placement-count" class="stat-value" />
                     <ui:Label class="stat-title" text="신앙" />
                     <ui:Label name="faith" class="stat-value teal" text="3" />
                 </ui:VisualElement>
@@ -339,6 +342,12 @@
             <ui:Label name="description" class="tip-description" picking-mode="Ignore" />
             <ui:Label name="fact" class="tip-fact" picking-mode="Ignore" />
         </ui:VisualElement>
+        <ui:VisualElement name="tutorial-connector" class="tutorial-connector tutorial-hidden" picking-mode="Ignore" />
+        <ui:VisualElement name="tutorial-card" class="tutorial-card tutorial-hidden" picking-mode="Ignore">
+            <ui:Label name="tutorial-title" class="tutorial-title" picking-mode="Ignore" />
+            <ui:Label name="tutorial-body" class="tutorial-body" picking-mode="Ignore" />
+            <ui:Button name="tutorial-continue" class="chip tutorial-hidden" text="계속 진행" />
+        </ui:VisualElement>
         <ui:VisualElement name="audio-panel" class="audio-panel">
             <ui:VisualElement class="audio-row"><ui:Label class="audio-name" text="BGM" /><ui:SliderInt name="audio-bgm" low-value="0" high-value="200" /><ui:Label name="audio-bgm-value" class="audio-value" /></ui:VisualElement>
             <ui:VisualElement class="audio-row"><ui:Label class="audio-name" text="효과음" /><ui:SliderInt name="audio-effects" low-value="0" high-value="200" /><ui:Label name="audio-effects-value" class="audio-value" /></ui:VisualElement>
@@ -361,6 +370,7 @@
             <ui:VisualElement name="stage-clear-art" class="outcome-art" picking-mode="Ignore">
                 <ui:VisualElement class="stage-clear-content" picking-mode="Ignore">
                     <ui:Label name="stage-clear-title" picking-mode="Ignore" />
+                    <ui:Label name="tutorial-carryover" class="tutorial-carryover tutorial-hidden" picking-mode="Ignore" />
                     <ui:Button name="stage-continue" class="title-action" text="다음 스테이지 준비" />
                 </ui:VisualElement>
             </ui:VisualElement>
@@ -387,6 +397,7 @@
         <ui:VisualElement name="title-logo" class="title-logo" picking-mode="Ignore" />
         <ui:VisualElement class="title-menu">
             <ui:Button name="title-new" text="새로 시작" class="title-action title-primary" />
+            <ui:Button name="title-tutorial" text="가이드 다시 보기" class="title-action tutorial-hidden" />
             <ui:Button name="title-quit" text="게임 종료" class="title-action" />
         </ui:VisualElement>
         <ui:VisualElement name="prologue" focusable="true">

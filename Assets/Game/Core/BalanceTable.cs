@@ -47,10 +47,12 @@ namespace DungeonTycoon.Core
         /// </summary>
         public int armorScale = 20;
         public int attackPerRoomAlly = 1;
-        public int experiencePerLevel = 10;
-        public int levelAttackGain = 3;
+        public int experiencePerLevel = 12;
+        public int levelAttackGain = 2;
         public int levelHpGain = 5;
-        public int[] budget = { 6, 8, 10 };
+        public int[] budget = { 6, 9, 12 };
+        public int[] placementLimit = { 6, 7, 8 };
+        public int[] nearbyPlacementLimit = { 3, 3, 4 };
         public int[] trialDifficulty = { 13, 14, 15 };
 
         public MonsterBalance skeleton = new MonsterBalance
@@ -66,17 +68,17 @@ namespace DungeonTycoon.Core
         public MonsterBalance zombie = new MonsterBalance
         {
             cost = 3, experience = 8, moveTicks = 5, attackTicks = 18,
-            hp = 220, attack = 28, armor = 6
+            hp = 240, attack = 28, armor = 6
         };
         public MonsterBalance archer = new MonsterBalance
         {
             cost = 2, experience = 8, moveTicks = 3, attackTicks = 18, range = 4,
-            hp = 85, attack = 24, armor = 2
+            hp = 100, attack = 24, armor = 2
         };
 
-        public BossBalance graveKnight = new BossBalance { hp = 450, attack = 22, armor = 4, experience = 5, moveTicks = 4, attackTicks = 15 };
-        public BossBalance cryptPriest = new BossBalance { hp = 900, attack = 28, armor = 6, experience = 6, moveTicks = 4, attackTicks = 15 };
-        public BossBalance necromancer = new BossBalance { hp = 3300, attack = 42, armor = 8, experience = 0, moveTicks = 4, attackTicks = 15 };
+        public BossBalance graveKnight = new BossBalance { hp = 520, attack = 22, armor = 4, experience = 5, moveTicks = 4, attackTicks = 15 };
+        public BossBalance cryptPriest = new BossBalance { hp = 1050, attack = 28, armor = 6, experience = 6, moveTicks = 4, attackTicks = 15 };
+        public BossBalance necromancer = new BossBalance { hp = 3050, attack = 38, armor = 8, experience = 0, moveTicks = 4, attackTicks = 15 };
 
         public int[] chestRarePercent = { 15, 30, 50 };
         public int springRelief = 40;
@@ -150,6 +152,8 @@ namespace DungeonTycoon.Core
             Positive(nameof(faithRecoveryTicks), faithRecoveryTicks);
             Positive(nameof(faithRecoveryCap), faithRecoveryCap);
             Stages(nameof(budget), budget, 0);
+            Stages(nameof(placementLimit), placementLimit, 1);
+            Stages(nameof(nearbyPlacementLimit), nearbyPlacementLimit, 1);
             Stages(nameof(trialDifficulty), trialDifficulty, 1);
             Stages(nameof(chestRarePercent), chestRarePercent, 0);
             foreach (var (name, monster) in new[] { (nameof(skeleton), skeleton), (nameof(ghost), ghost), (nameof(zombie), zombie), (nameof(archer), archer) })

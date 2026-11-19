@@ -152,6 +152,16 @@ namespace DungeonTycoon.Unity
         private DungeonMap map;
         private int stage;
         private Transform scenery, entranceZone, fog, hoverAllowed, hoverBlocked;
+        private Transform placementLimitArea, placementLimitAttempt;
+        private readonly List<Transform> placementLimitSuggestions = new List<Transform>(2);
+        private readonly List<Mesh> placementLimitMeshes = new List<Mesh>(1);
+        private Material[] placementLimitPalette;
+        private float placementLimitUntil;
+        private Transform tutorialMarker;
+        private MeshRenderer tutorialMarkerRenderer;
+        private MaterialPropertyBlock tutorialMarkerBlock;
+        private float tutorialMarkerStart;
+        private Material tutorialGhostMaterial;
         private Transform barPrototype, arrowPrototype, orbPrototype, die;
         private float tauntAt = -1000;
         private float adversityStarted = -1000;
@@ -547,6 +557,7 @@ namespace DungeonTycoon.Unity
             IReadOnlyList<PatrolSquad> patrols, Func<TilePoint,bool> placeable, IReadOnlyList<MapEncounter> encounters)
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
+            ClearPlacementLimit();
             if (!ReferenceEquals(this.map, map))
             {
                 this.map = map;
@@ -806,7 +817,12 @@ namespace DungeonTycoon.Unity
         {
             if (entranceZone) entranceZone.gameObject.SetActive(planning);
             if (fog) fog.gameObject.SetActive(!planning);
-            if (!planning) SetHover(null,false);
+            if (!planning)
+            {
+                SetHover(null,false);
+                SetTutorialPreview(null);
+                ClearPlacementLimit();
+            }
             if (planningView == planning) return;
             planningView = planning;
             for (int i = 0; i < patrolMaterials.Count; i++) PaintPatrol(patrolMaterials[i], i);
@@ -853,6 +869,112 @@ namespace DungeonTycoon.Unity
             hoverAllowed.gameObject.SetActive(visible && allowed);
             hoverBlocked.gameObject.SetActive(visible && !allowed);
             if (visible) (allowed ? hoverAllowed : hoverBlocked).localPosition = TileCenter(tile.Value);
+        }
+
+        internal void ShowPlacementLimit(TilePoint attempted, IReadOnlyList<TilePoint> blocked,
+            IReadOnlyList<TilePoint> suggestions, float until)
+        {
+            ClearPlacementLimit();
+            if (placementLimitPalette == null)
+            {
+                var material = Overlay("밀집 제한 바닥");
+                if (material)
+                {
+                    material.SetColor(BaseColorId, new Color(.94f, .19f, .13f, .44f));
+                    placementLimitPalette = new Material[(int)Finish.Ember + 1];
+                    placementLimitPalette[(int)Finish.Ember] = material;
+                }
+            }
+            if (placementLimitPalette != null)
+            {
+                placementLimitArea = Draw("밀집 제한 범위", DungeonScenery.PlacementLimitArea(blocked, Tile, TileCenter),
+                    placementLimitMeshes, materials: placementLimitPalette);
+                var renderer = placementLimitArea.GetComponent<MeshRenderer>();
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            if (!placementLimitAttempt)
+                placementLimitAttempt = Draw("밀집 제한에 걸린 칸", DungeonScenery.TileMarker(Tile, Finish.Ember, fullBorder: true),
+                    meshes, materials: indicatorPalette);
+            placementLimitAttempt.localPosition = TileCenter(attempted) + Vector3.up * .025f;
+            placementLimitAttempt.gameObject.SetActive(true);
+            for (int i = 0; i < suggestions.Count; i++)
+            {
+                if (i >= placementLimitSuggestions.Count)
+                {
+                    const string label = "밀집 제한 밖의 배치 가능 칸";
+                    var mark = i == 0
+                        ? Draw(label, DungeonScenery.TileMarker(Tile, Finish.Mint, fullBorder: true), meshes, materials: indicatorPalette)
+                        : Instantiate(placementLimitSuggestions[0], transform, false);
+                    mark.name = label;
+                    placementLimitSuggestions.Add(mark);
+                }
+                var markAtTile = placementLimitSuggestions[i];
+                markAtTile.localPosition = TileCenter(suggestions[i]) + Vector3.up * .025f;
+                markAtTile.gameObject.SetActive(true);
+            }
+            placementLimitUntil = until;
+        }
+
+        internal bool ClearPlacementLimit()
+        {
+            if (placementLimitUntil == 0) return false;
+            placementLimitUntil = 0;
+            if (placementLimitArea)
+            {
+                placementLimitArea.gameObject.SetActive(false);
+                Destroy(placementLimitArea.gameObject);
+                placementLimitArea = null;
+            }
+            foreach (var mesh in placementLimitMeshes) Destroy(mesh);
+            placementLimitMeshes.Clear();
+            placementLimitAttempt.gameObject.SetActive(false);
+            foreach (var mark in placementLimitSuggestions) mark.gameObject.SetActive(false);
+            return true;
+        }
+
+        internal void SetTutorialPreview(TilePoint? tile)
+        {
+            if (!tile.HasValue || map == null || !map.Contains(tile.Value))
+            {
+                if (tutorialMarker) tutorialMarker.gameObject.SetActive(false);
+                return;
+            }
+            if (!tutorialMarker)
+            {
+                tutorialMarker = Draw("튜토리얼 추천 칸", DungeonScenery.TileMarker(Tile, Finish.Gold, fullBorder: true),
+                    meshes, materials: indicatorPalette);
+                tutorialMarkerRenderer = tutorialMarker.GetComponent<MeshRenderer>();
+                tutorialMarkerBlock = new MaterialPropertyBlock();
+                tutorialMarker.gameObject.SetActive(false);
+                if (fogPalette != null)
+                {
+                    tutorialGhostMaterial = new Material(fogPalette[0]) { name = "튜토리얼 배치 미리보기" };
+                    tutorialGhostMaterial.SetColor(BaseColorId, new Color(.92f, .78f, .53f, .42f));
+                    var tutorialGhost = Instantiate(models[DungeonFigures.Skeleton].GetChild(0), tutorialMarker, false);
+                    foreach (var renderer in tutorialGhost.GetComponentsInChildren<Renderer>(true))
+                    {
+                        var materials = renderer.sharedMaterials;
+                        Array.Fill(materials, tutorialGhostMaterial);
+                        renderer.sharedMaterials = materials;
+                        renderer.shadowCastingMode = ShadowCastingMode.Off;
+                    }
+                }
+            }
+            if (!tutorialMarker.gameObject.activeSelf) tutorialMarkerStart = Time.unscaledTime;
+            tutorialMarker.localPosition = TileCenter(tile.Value) + Vector3.up * .025f;
+            tutorialMarker.gameObject.SetActive(true);
+            var gold = new Color(.92f, .68f, .28f);
+            var highlight = new Color(1f, .98f, .8f);
+            tutorialMarkerBlock.SetColor(BaseColorId, Color.Lerp(gold, highlight, TutorialHighlight.Brightness(tutorialMarkerStart)));
+            tutorialMarkerRenderer.SetPropertyBlock(tutorialMarkerBlock);
+        }
+
+        internal bool TryTutorialTileScreenPoint(TilePoint tile, out Vector2 point)
+        {
+            var screen = boardCamera.WorldToScreenPoint(transform.TransformPoint(TileCenter(tile)));
+            point = new Vector2(screen.x, screen.y);
+            return screen.z > 0 && clearArea.Contains(new Vector2(screen.x / Screen.width, screen.y / Screen.height));
         }
 
         public bool TryPickTile(Vector2 screenPosition, out TilePoint tile)
@@ -1226,6 +1348,7 @@ namespace DungeonTycoon.Unity
 
         private void LateUpdate()
         {
+            if (placementLimitUntil > 0 && Time.unscaledTime >= placementLimitUntil) ClearPlacementLimit();
             LowerObstructingWalls();
             foreach (var foe in foes)
             {
@@ -1515,10 +1638,13 @@ namespace DungeonTycoon.Unity
 
         private void OnDestroy()
         {
+            foreach (var mesh in placementLimitMeshes) if (mesh) Destroy(mesh);
+            if (placementLimitPalette != null) Destroy(placementLimitPalette[(int)Finish.Ember]);
             foreach (var mesh in meshes) if (mesh) Destroy(mesh);
             foreach (var mesh in stageMeshes) if (mesh) Destroy(mesh);
             if (fogMesh) Destroy(fogMesh);
             if (fogPalette != null && fogPalette.Length > 0 && fogPalette[0]) Destroy(fogPalette[0]);
+            if (tutorialGhostMaterial) Destroy(tutorialGhostMaterial);
             if (warnMesh) Destroy(warnMesh);
             effects?.Dispose();
             if (warnMaterial && (palette == null || Array.IndexOf(palette, warnMaterial) < 0)) Destroy(warnMaterial);

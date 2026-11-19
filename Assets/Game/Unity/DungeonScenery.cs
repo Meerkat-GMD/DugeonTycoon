@@ -251,15 +251,31 @@ namespace DungeonTycoon.Unity
             DungeonFigures.Jewel(m,x,2.44f,z-.26f,.20f,.28f,Finish.Ember);
         }
 
-        internal static DungeonMesh TileMarker(float tile, Finish paint)
+        internal static DungeonMesh PlacementLimitArea(IEnumerable<TilePoint> blocked, float tile, Func<TilePoint, Vector3> center)
+        {
+            var mesh = new DungeonMesh();
+            float half = tile * .47f;
+            foreach (var point in blocked)
+            {
+                var c = center(point);
+                const float height = .04f;
+                mesh.Face(Finish.Ember,
+                    new Vector3(c.x - half, height, c.z - half), new Vector3(c.x - half, height, c.z + half),
+                    new Vector3(c.x + half, height, c.z + half), new Vector3(c.x + half, height, c.z - half));
+            }
+            return mesh;
+        }
+
+        internal static DungeonMesh TileMarker(float tile, Finish paint, bool fullBorder = false)
         {
             var m = new DungeonMesh();
-            float edge = tile*.47f, arm = tile*.2f;
+            float edge = tile*.47f, arm = fullBorder ? edge : tile*.2f;
+            float width = fullBorder ? .10f : .06f;
             for (int sx = -1; sx <= 1; sx += 2)
             for (int sz = -1; sz <= 1; sz += 2)
             {
-                m.Box(sx*(edge-arm*.5f),.05f,sz*edge,arm,.035f,.06f,paint);
-                m.Box(sx*edge,.05f,sz*(edge-arm*.5f),.06f,.035f,arm,paint);
+                m.Box(sx*(edge-arm*.5f),.05f,sz*edge,arm,.035f,width,paint);
+                m.Box(sx*edge,.05f,sz*(edge-arm*.5f),width,.035f,arm,paint);
             }
             return m;
         }

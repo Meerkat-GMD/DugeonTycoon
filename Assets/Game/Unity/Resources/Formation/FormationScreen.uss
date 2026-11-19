@@ -316,8 +316,8 @@
 }
 
 .hud .points-left {
-    font-size: 12px;
-    color: var(--muted);
+    font-size: 16px;
+    color: var(--paper);
     margin-bottom: 4px;
 }
 
@@ -498,4 +498,80 @@
 .hud .formation-card Label,
 .hud .trait Label {
     -unity-text-align: upper-left;
+}
+
+.hud .formation-guide {
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 10px;
+    background-color: var(--ink);
+    border-width: 1px;
+    border-left-width: 3px;
+    border-color: var(--edge);
+    border-left-color: var(--gold);
+    border-radius: 6px;
+}
+
+.hud #formation-guide { margin-top: 10px; }
+.hud #editor-guide { margin-bottom: 8px; }
+
+.hud .formation-guide-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    font-size: 12px;
+    color: var(--paper);
+    white-space: normal;
+}
+
+.hud .formation-guide-skip {
+    flex-shrink: 0;
+    margin: 0 0 0 10px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    background-color: var(--card);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-radius: 4px;
+}
+
+.hud .formation-guide-skip:hover {
+    color: var(--paper);
+    border-color: var(--muted);
+}
+
+.hud .points-left,
+.hud .editor-stats {
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+    border-radius: 6px;
+}
+
+.hud .points-left {
+    align-self: flex-start;
+    padding: 3px 8px;
+}
+
+.hud .editor-stats {
+    margin: 0 -6px;
+    padding: 4px 5px;
+}
+
+.hud .formation-screen .formation-guide-focus {
+    border-color: var(--gold);
+}
+
+.hud .formation-card > .tutorial-pulse {
+    border-radius: 9px;
+}
+
+.hud #editor-next {
+    min-width: 64px;
+    min-height: 26px;
+}
+
+.hud #editor-next > .tutorial-pulse {
+    border-width: 3px;
+    background-color: rgba(255, 244, 207, 0.14);
 }

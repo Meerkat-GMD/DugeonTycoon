@@ -76,7 +76,7 @@ namespace DungeonTycoon.Core
         private readonly List<TreasureChest> chests = new List<TreasureChest>();
         private readonly List<Spring> springs = new List<Spring>();
         private bool freshFeature;
-        /// <summary>A test run: any monster kind on any stage and no patrols; chests and springs only when <see cref="sandboxFeatures"/>.</summary>
+        /// <summary>전투와 지도 검사용 원정이다. 몬스터 명단과 배치 마릿수 한도를 풀고 순회조를 제외한다.</summary>
         private bool sandbox;
         private bool sandboxFeatures;
         /// <summary>A map check: the party never heads for the boss room and walks until every other tile is seen.</summary>

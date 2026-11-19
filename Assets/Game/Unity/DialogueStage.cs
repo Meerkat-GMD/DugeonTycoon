@@ -32,7 +32,7 @@ namespace DungeonTycoon.Unity
         private const int Unpicked = -2;
         /// <summary>The oracle card chosen so far: an option index, -1 to pass, or <see cref="Unpicked"/>.</summary>
         private int picked = Unpicked;
-        private VisualElement godPanel, oraclePanel, oracleCards, oracleTimer;
+        private VisualElement godPanel, oraclePanel, oracleCards, oracleTimer, oracleTutorial;
         private Label oracleQuestion;
         private VisualElement root, box, dcPanel, itemCard;
         private Label speaker, text, next, dcValue, stamp, itemGrade, itemName, itemStats, itemPower;
@@ -113,6 +113,8 @@ namespace DungeonTycoon.Unity
             oracleQuestion = root.Q<Label>("oracle-question");
             oracleCards = root.Q("oracle-cards");
             oracleTimer = root.Q("oracle-timer");
+            oracleTutorial = root.Q("oracle-tutorial");
+            oracleTutorial.Q<Button>("oracle-tutorial-continue").clicked += () => Show(oracleTutorial, false);
             itemCard = root.Q("stage-item");
             itemGrade = root.Q<Label>("item-grade");
             itemName = root.Q<Label>("item-name");
@@ -452,7 +454,7 @@ namespace DungeonTycoon.Unity
         /// <paramref name="hover"/> gets the index under the mouse, or -1, so the board can show that way.
         /// </summary>
         public async UniTask<int> ChooseOracleAsync(IReadOnlyList<OracleChoice> choices, int cost, Action<int> hover,
-            CancellationToken ct)
+            bool explain, CancellationToken ct)
         {
             if (root == null || choices == null || choices.Count == 0) return -1;
             if (FastForward) return FastOraclePick >= 0 && FastOraclePick < choices.Count ? FastOraclePick : -1;
@@ -494,6 +496,7 @@ namespace DungeonTycoon.Unity
                 oracleCards.Add(card);
             }
             Show(oraclePanel, true);
+            Show(oracleTutorial, explain);
             float start = Time.unscaledTime;
             try
             {
@@ -502,16 +505,20 @@ namespace DungeonTycoon.Unity
                     for (int i = 0; i <= choices.Count && i < 9; i++)
                         if (Input.GetKeyDown(KeyCode.Alpha1+i) || Input.GetKeyDown(KeyCode.Keypad1+i))
                             picked = i < choices.Count ? i : -1;
-                    float left = autoAdvance ? 1-(Time.unscaledTime-start)/OracleSeconds : 1;
+                    bool reading = oracleTutorial.style.display == DisplayStyle.Flex;
+                    if (reading) start = Time.unscaledTime;
+                    bool counting = autoAdvance && !reading;
+                    float left = counting ? 1-(Time.unscaledTime-start)/OracleSeconds : 1;
                     oracleTimer.style.width = Length.Percent(100*Mathf.Clamp01(left));
-                    Show(oracleTimer.parent, autoAdvance);
-                    if (autoAdvance && left <= 0) picked = -1;
+                    Show(oracleTimer.parent, counting);
+                    if (counting && left <= 0) picked = -1;
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                 }
             }
             finally
             {
                 Show(oraclePanel, false);
+                Show(oracleTutorial, false);
                 oracleCards.Clear();
                 foreach (var slot in slots) slot.Mark.RemoveFromClassList("opt");
                 ClearMarks();

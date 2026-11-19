@@ -14,6 +14,8 @@ namespace DungeonTycoon.Core
         public const int BlessCost = 1;
         /// <summary>Tiles this many steps or fewer from the entrance cannot hold monsters. Balance value.</summary>
         public const int EntranceClearance = 4;
+        public const int TilePlacementLimit = 2;
+        public const int NearbyPlacementRadius = 4;
         private static readonly HeroRole[] MarchOrder =
             { HeroRole.Tank, HeroRole.MeleeDamage, HeroRole.Healer, HeroRole.RangedDamage };
 
@@ -118,6 +120,9 @@ namespace DungeonTycoon.Core
 
         // ── Planning ─────────────────────────────────────────────────────
 
+        public int PlacementLimit => BalanceTable.ForStage(BalanceTable.Current.placementLimit, Stage);
+        public int NearbyPlacementLimit => BalanceTable.ForStage(BalanceTable.Current.nearbyPlacementLimit, Stage);
+
         public int CountAt(TilePoint tile)
         {
             int count = 0;
@@ -138,7 +143,35 @@ namespace DungeonTycoon.Core
             if (!Map.IsFloor(tile)) return PlacementCheck.NotFloor;
             if (!CanHoldMonster(tile)) return PlacementCheck.NearEntrance;
             if (Cost(kind) > Budget) return PlacementCheck.OverBudget;
+            if (sandbox) return PlacementCheck.Allowed;
+            if (placements.Count >= PlacementLimit) return PlacementCheck.StageLimit;
+            if (CountAt(tile) >= TilePlacementLimit) return PlacementCheck.TileLimit;
+            if (ExceedsNearbyPlacementLimit(tile)) return PlacementCheck.NearbyLimit;
             return PlacementCheck.Allowed;
+        }
+
+        private bool ExceedsNearbyPlacementLimit(TilePoint tile)
+        {
+            int limit = NearbyPlacementLimit;
+            if (placements.Count < limit) return false;
+
+            // 새 배치로 수가 늘어나는 기준 칸은 새 타일까지 네 걸음 이내에 있다.
+            var centers = Map.Distances(tile, Map.IsFloor, NearbyPlacementRadius);
+            var counts = new Dictionary<TilePoint, int>();
+            foreach (var placement in placements)
+            {
+                int distance = Math.Abs(placement.Tile.X - tile.X) + Math.Abs(placement.Tile.Y - tile.Y);
+                if (distance > 2 * NearbyPlacementRadius) continue;
+
+                foreach (var center in Map.Distances(placement.Tile, Map.IsFloor, NearbyPlacementRadius).Keys)
+                {
+                    if (!centers.ContainsKey(center)) continue;
+                    counts.TryGetValue(center, out int count);
+                    if (count + 1 >= limit) return true;
+                    counts[center] = count + 1;
+                }
+            }
+            return false;
         }
 
         public bool Place(TilePoint tile, MonsterKind kind)
