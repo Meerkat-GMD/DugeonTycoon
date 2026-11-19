@@ -23,6 +23,11 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <ui:VisualElement class="top-buttons" picking-mode="Ignore">
+            <ui:Button name="history-open" class="chip" text="기록" focusable="false" />
+            <ui:Button name="audio-toggle" class="chip" text="음량" />
+        </ui:VisualElement>
+
         <ui:Label name="pause-banner" class="pause-banner" text="일시정지" picking-mode="Ignore" />
 
         <!-- Experience and item names float up from the board here; DungeonHud.cs adds and removes the labels. -->
@@ -32,13 +37,6 @@
         <ui:VisualElement name="spoils" class="spoils" picking-mode="Ignore">
             <ui:Label class="spoils-title" text="— 전투 정산 —" picking-mode="Ignore" />
             <ui:VisualElement name="spoils-lines" class="spoils-lines" picking-mode="Ignore" />
-        </ui:VisualElement>
-
-        <ui:VisualElement name="view-buttons" class="view-buttons" picking-mode="Ignore">
-            <ui:Button name="follow" class="chip follow" text="따라가기  켬" focusable="false" />
-            <ui:Button name="whole" class="chip" text="전체 보기" focusable="false" />
-            <ui:Button name="history-open" class="chip" text="기록" focusable="false" />
-            <ui:Button name="audio-toggle" class="chip" text="음량" />
         </ui:VisualElement>
 
         <ui:VisualElement name="party" class="party" picking-mode="Ignore">
@@ -228,25 +226,25 @@
                 <ui:VisualElement name="planning" class="page">
                     <ui:Button name="brush-skeleton" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-skeleton-art" picking-mode="Ignore" />
-                        <ui:Label class="skill-title" text="해골" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="해골 검사" picking-mode="Ignore" />
                         <ui:Label class="placement-description" text="근접 · 전방 크게 베기" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-ghost" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-ghost-art" picking-mode="Ignore" />
-                        <ui:Label class="skill-title" text="유령" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="해골 별점술사" picking-mode="Ignore" />
                         <ui:Label class="placement-description" text="두 용사 발밑에 쌍묘비" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-zombie" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-zombie-art" picking-mode="Ignore" />
-                        <ui:Label class="skill-title" text="좀비" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="해골 방패병" picking-mode="Ignore" />
                         <ui:Label class="placement-description" text="높은 체력 · 방패 밀치기" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-archer" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-archer-art" picking-mode="Ignore" />
-                        <ui:Label class="skill-title" text="해골 궁수" picking-mode="Ignore" />
+                        <ui:Label class="skill-title" text="해골 폭탄병" picking-mode="Ignore" />
                         <ui:Label class="placement-description" text="머리 투척 · 3×3 폭발" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
@@ -267,10 +265,16 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <ui:VisualElement name="speed" class="speed" picking-mode="Ignore">
-            <ui:Button name="speed-0" class="chip" text="일시정지" focusable="false" />
-            <ui:Button name="speed-1" class="chip" text="1배속" focusable="false" />
-            <ui:Button name="speed-2" class="chip" text="2배속" focusable="false" />
+        <ui:VisualElement name="camera-controls" class="camera-controls" picking-mode="Ignore">
+            <ui:VisualElement name="view-buttons" class="view-buttons" picking-mode="Ignore">
+                <ui:Button name="follow" class="chip follow" text="따라가기  켬" focusable="false" />
+                <ui:Button name="whole" class="chip" text="전체 보기" focusable="false" />
+            </ui:VisualElement>
+            <ui:VisualElement name="speed" class="speed" picking-mode="Ignore">
+                <ui:Button name="speed-0" class="chip" text="일시정지" focusable="false" />
+                <ui:Button name="speed-1" class="chip" text="1배속" focusable="false" />
+                <ui:Button name="speed-2" class="chip" text="2배속" focusable="false" />
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement name="intervention" class="skill-dock" picking-mode="Ignore">
             <ui:VisualElement name="bless-picker" class="bless-picker">
@@ -329,11 +333,6 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <ui:VisualElement name="stage-clear" class="stage-clear">
-            <ui:Label name="stage-clear-title" class="result-title" />
-            <ui:Button name="stage-continue" class="primary" text="다음 스테이지 준비" focusable="false" />
-        </ui:VisualElement>
-
         <ui:VisualElement name="planning-tip" class="planning-tip" picking-mode="Ignore">
             <ui:Label name="kind" class="tip-kind" picking-mode="Ignore" />
             <ui:Label name="name" class="tip-name" picking-mode="Ignore" />
@@ -357,12 +356,23 @@
         </ui:VisualElement>
 
     </ui:VisualElement>
+    <ui:VisualElement name="stage-clear" class="ending-overlay">
+        <ui:VisualElement name="stage-clear-layout" class="ending-layout" picking-mode="Ignore">
+            <ui:VisualElement name="stage-clear-art" class="outcome-art" picking-mode="Ignore">
+                <ui:VisualElement class="stage-clear-content" picking-mode="Ignore">
+                    <ui:Label name="stage-clear-title" picking-mode="Ignore" />
+                    <ui:Button name="stage-continue" class="title-action" text="다음 스테이지 준비" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
     <ui:VisualElement name="game-over" class="ending-overlay">
         <ui:VisualElement name="game-over-layout" class="ending-layout" picking-mode="Ignore">
-            <ui:VisualElement name="game-over-art" picking-mode="Ignore" />
-            <ui:VisualElement class="game-over-actions" picking-mode="Ignore">
-                <ui:Button name="defeat-restart" text="다시시작" class="title-action" />
-                <ui:Button name="defeat-main" text="메인으로" class="title-action" />
+            <ui:VisualElement name="game-over-art" class="outcome-art" picking-mode="Ignore">
+                <ui:VisualElement class="game-over-actions" picking-mode="Ignore">
+                    <ui:Button name="defeat-restart" text="다시시작" class="title-action" />
+                    <ui:Button name="defeat-main" text="메인으로" class="title-action" />
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

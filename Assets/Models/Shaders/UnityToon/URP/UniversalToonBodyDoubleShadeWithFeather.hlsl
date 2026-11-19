@@ -464,8 +464,10 @@ void frag(VertexOutput i, out float4 finalRGBA : SV_Target0
     const float3 giColor = envColor.rgb * envLightIntensity * _GI_Intensity * smoothstep(1, 0, envLightIntensity / 2);
 #endif
 
-    finalColor += giColor + emissive;
-    finalColor += pointLightColor;
+    AmbientOcclusionFactor ao = GetScreenSpaceAmbientOcclusion(inputData.normalizedScreenSpaceUV);
+    half directOcclusion = lerp(ao.directAmbientOcclusion, 1.0h, _TransparentEnabled);
+    half indirectOcclusion = lerp(ao.indirectAmbientOcclusion, 1.0h, _TransparentEnabled);
+    finalColor = (finalColor + pointLightColor) * directOcclusion + giColor * indirectOcclusion + emissive;
 #endif
 
 #ifdef _IS_CLIPPING_OFF

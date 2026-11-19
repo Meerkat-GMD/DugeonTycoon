@@ -247,6 +247,7 @@ namespace DungeonTycoon.Unity
         {
             if (palette != null) return;
             palette = MakePalette();
+            indicatorPalette = MakeIndicatorPalette(palette);
             fogPalette = MakeFogPalette();
             models = new Transform[DungeonFigures.TierCount];
             boardCamera = Camera.main;
@@ -259,15 +260,15 @@ namespace DungeonTycoon.Unity
             }
             boardCamera.orthographic = true;
             boardCamera.clearFlags = CameraClearFlags.SolidColor;
-            boardCamera.backgroundColor = new Color32(148,124,105,255);
+            boardCamera.backgroundColor = new Color32(39,33,48,255);
             boardCamera.nearClipPlane = .1f;
             ConfigureLight();
 
-            hoverAllowed = Draw("놓을 수 있는 칸", DungeonScenery.TileMarker(Tile, Finish.Mint), meshes);
-            hoverBlocked = Draw("놓을 수 없는 칸", DungeonScenery.TileMarker(Tile, Finish.Ember), meshes);
+            hoverAllowed = Draw("놓을 수 있는 칸", DungeonScenery.TileMarker(Tile, Finish.Mint), meshes, materials: indicatorPalette);
+            hoverBlocked = Draw("놓을 수 없는 칸", DungeonScenery.TileMarker(Tile, Finish.Ember), meshes, materials: indicatorPalette);
             hoverAllowed.gameObject.SetActive(false);
             hoverBlocked.gameObject.SetActive(false);
-            heroMarker = Draw("도움 대상", DungeonScenery.TileMarker(Tile*.8f, Finish.Gold), meshes);
+            heroMarker = Draw("도움 대상", DungeonScenery.TileMarker(Tile*.8f, Finish.Gold), meshes, materials: indicatorPalette);
             heroMarker.gameObject.SetActive(false);
             CreateWarnings();
             effects = new PatternEffects(transform, Tile, palette, TileCenter,
@@ -349,32 +350,35 @@ namespace DungeonTycoon.Unity
             var obj = new GameObject(objectName);
             obj.transform.SetParent(parent ? parent : transform, false);
             owner.Add(geometry.Attach(obj, materials ?? palette));
+            if (ReferenceEquals(materials, indicatorPalette) && materials != null)
+                obj.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             return obj.transform;
         }
 
-        private void StageLight(string objectName, Vector3 position, Color color, float range)
+        private void StageLight(string objectName, Vector3 position, Color color, float range, float intensity = 2.4f,
+            Transform parent = null)
         {
             var lamp = new GameObject(objectName);
-            lamp.transform.SetParent(scenery,false);
+            lamp.transform.SetParent(parent ? parent : scenery,false);
             lamp.transform.localPosition = position;
             var light = lamp.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = color;
             light.range = range;
-            light.intensity = 2.4f;
+            light.intensity = intensity;
             light.shadows = LightShadows.None;
         }
 
         private static void ConfigureLight()
         {
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(.70f,.77f,.86f);
-            RenderSettings.ambientEquatorColor = new Color(.52f,.57f,.62f);
-            RenderSettings.ambientGroundColor = new Color(.37f,.34f,.32f);
+            RenderSettings.ambientSkyColor = new Color(.53f,.58f,.65f);
+            RenderSettings.ambientEquatorColor = new Color(.39f,.43f,.47f);
+            RenderSettings.ambientGroundColor = new Color(.28f,.26f,.24f);
             var key = RenderSettings.sun ? RenderSettings.sun : FindFirstObjectByType<Light>();
             if (!key) return;
-            key.transform.rotation = Quaternion.Euler(57,-32,0);
-            key.color = new Color(1,.91f,.78f);
+            key.transform.rotation = Quaternion.Euler(43,-32,0);
+            key.color = new Color(1,.96f,.91f);
             key.intensity = 1.45f;
             key.shadows = LightShadows.Soft;
             key.shadowStrength = .7f;
@@ -388,12 +392,17 @@ namespace DungeonTycoon.Unity
         // ── Pattern warnings ─────────────────────────────────────────────
 
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        // Indexed by CastPhase: a beam still aiming, an area fixed and about to land, the flash where it landed.
+        private static readonly int DashedId = Shader.PropertyToID("_Dashed");
+        private static readonly int BorderOpacityId = Shader.PropertyToID("_BorderOpacity");
+        // 조준, 범위 확정, 착탄 순서로 표시 색을 적용합니다.
         private static readonly Color[] WarnColors =
         {
             new Color(1f,.62f,.25f,1), new Color(1f,.22f,.18f,1), new Color(1f,.93f,.72f,1)
         };
         private readonly List<MeshRenderer> warnTiles = new List<MeshRenderer>();
+        private readonly List<Transform> corridorWalls = new List<Transform>();
+        private readonly Ray[] partySightlines = new Ray[4];
+        private Material[] indicatorPalette;
         private MaterialPropertyBlock warnBlock;
         private Material warnMaterial;
         private Mesh warnMesh;
@@ -409,8 +418,10 @@ namespace DungeonTycoon.Unity
             warnMesh = new Mesh { name = "예고 칸" };
             warnMesh.SetVertices(new[] { new Vector3(-h,0,-h), new Vector3(-h,0,h), new Vector3(h,0,h), new Vector3(h,0,-h) });
             warnMesh.SetTriangles(new[] { 0,1,2, 0,2,3 },0);
+            warnMesh.uv = new[] { Vector2.zero, Vector2.up, Vector2.one, Vector2.right };
             warnMesh.RecalculateNormals();
-            warnMaterial = Overlay("Warning") ?? palette[(int)Finish.Ember];
+            var shader = Resources.Load<Shader>("DungeonWarning");
+            warnMaterial = shader ? new Material(shader) : Overlay("Warning") ?? palette[(int)Finish.Ember];
         }
 
         /// <summary>A see-through unlit material for marks painted over the floor; null without the URP unlit shader.</summary>
@@ -503,8 +514,18 @@ namespace DungeonTycoon.Unity
                 {
                     float progress = Mathf.Clamp01((float)(ticks-cast.StartTick)/Mathf.Max(1,cast.FireTick-cast.StartTick));
                     var color = WarnColors[(int)cast.Phase];
-                    color.a = cast.Phase == CastPhase.Fired ? .75f : Mathf.Lerp(.22f,.55f,progress);
+                    bool fired = cast.Phase == CastPhase.Fired;
+                    float flash = fired ? 1f - Mathf.Clamp01((ticks - cast.FireTick) / 5f) : 0f;
+                    color.a = fired ? Mathf.Lerp(.15f,.55f,flash) : Mathf.Lerp(.25f,.35f,progress);
+                    if (fired)
+                    {
+                        color.r *= 1f + flash*.55f;
+                        color.g *= 1f + flash*.55f;
+                        color.b *= 1f + flash*.55f;
+                    }
                     warnBlock.SetColor(BaseColorId,color);
+                    warnBlock.SetFloat(DashedId, cast.Phase == CastPhase.Aiming ? 1f : 0f);
+                    warnBlock.SetFloat(BorderOpacityId, fired ? Mathf.Lerp(.4f,.95f,flash) : .92f);
                     foreach (var tile in cast.Area)
                     {
                         var renderer = WarnTile(used++);
@@ -683,18 +704,31 @@ namespace DungeonTycoon.Unity
             if (scenery) Destroy(scenery.gameObject);
             foreach (var mesh in stageMeshes) if (mesh) Destroy(mesh);
             stageMeshes.Clear();
+            corridorWalls.Clear();
             fog = null;
             scenery = new GameObject("던전").transform;
             scenery.SetParent(transform,false);
-            Draw("바닥과 벽", DungeonScenery.Dungeon(map, Tile, TileCenter, !bossGatePrefab, out var gatePosition), stageMeshes, scenery);
+            var flamePositions = new List<Vector3>();
+            var dungeon = DungeonScenery.Dungeon(map, Tile, TileCenter, !bossGatePrefab, (position, geometry) =>
+            {
+                var wall = Draw("복도 앞벽", geometry, stageMeshes, scenery);
+                wall.localPosition = position;
+                corridorWalls.Add(wall);
+            }, flamePositions, out var gatePosition);
+            Draw("바닥과 벽", dungeon, stageMeshes, scenery);
             if (bossGatePrefab)
                 InstantiateProp(bossGatePrefab, "보스방 입구", scenery).localPosition = gatePosition;
             entranceZone = Draw("입구 보호 구역",
-                DungeonScenery.EntranceZone(map, Tile, TileCenter, tile => !placeable(tile)), stageMeshes, scenery);
-            StageLight("입구 수정빛", TileCenter(map.Entrance)+new Vector3(0,1.3f,.2f), new Color32(113,222,204,255), 4.5f);
-            StageLight("왕좌 화로", TileCenter(map.BossTile)+new Vector3(0,1.6f,.4f), new Color32(255,149,73,255), 6.5f);
+                DungeonScenery.EntranceZone(map, Tile, TileCenter, tile => !placeable(tile)), stageMeshes, scenery, indicatorPalette);
+            StageLight("입구 수정빛", TileCenter(map.Entrance)+new Vector3(0,.85f,.35f), new Color32(113,222,204,255), 3.6f);
+            StageLight("왕좌 조명", TileCenter(map.BossTile)+new Vector3(0,1.8f,-.65f), new Color32(255,199,136,255), 5.2f, 3f);
+            var amber = new Color32(255,170,98,255);
+            foreach (var position in flamePositions)
+                StageLight("불빛", position, amber, 2.9f, 2.6f);
             BuildFeatures(chestProps, map.Chests, chestPrototype, openChestPrototype, "보물 상자");
             BuildFeatures(springProps, map.Springs, springPrototype, drySpringPrototype, "샘물");
+            foreach (var spring in springProps)
+                StageLight("샘물 빛", Vector3.up*.65f, new Color32(113,222,204,255), 2.8f, 1.8f, spring.Fresh);
             if (patrols == null) return;
             foreach (var squad in patrols)
             {
@@ -1059,15 +1093,15 @@ namespace DungeonTycoon.Unity
         {
             var back = new DungeonMesh();
             back.Box(0,0,0,1f,.13f,.035f,Finish.Ink);
-            barPrototype = Draw("체력 막대",back,meshes,stock);
+            barPrototype = Draw("체력 막대",back,meshes,stock,indicatorPalette);
             var fill = new DungeonMesh();
             fill.Box(0,0,0,.93f,.075f,.032f,Finish.Ember);
-            Draw("남은 체력",fill,meshes,barPrototype);
+            Draw("남은 체력",fill,meshes,barPrototype,indicatorPalette);
             barPrototype.localScale = Vector3.one*.8f;
 
             var arrow = new DungeonMesh();
             arrow.Rod(Vector3.left*.20f, Vector3.right*.14f,.046f,Finish.Ivory);
-            arrow.Rod(Vector3.right*.08f,Vector3.right*.27f,.105f,Finish.Mint,0);
+            arrow.Rod(Vector3.right*.08f,Vector3.right*.27f,.105f,Finish.Steel,0);
             arrowPrototype = Draw("화살",arrow,meshes,stock);
             var orb = new DungeonMesh();
             DungeonFigures.Jewel(orb,0,0,0,.2f,.3f,Finish.Mint);
@@ -1192,6 +1226,7 @@ namespace DungeonTycoon.Unity
 
         private void LateUpdate()
         {
+            LowerObstructingWalls();
             foreach (var foe in foes)
             {
                 if (!foe.ShowProps || foe.AttackState != MeteorState) continue;
@@ -1207,6 +1242,37 @@ namespace DungeonTycoon.Unity
                 head.Animator.Play("Base Layer.HeadRoll", 0, Mathf.Clamp01(head.Age * 24f / 23f));
                 head.Animator.Play("Jaw.HeadTick", 1, Mathf.Repeat(head.Age * 3, 1));
                 head.Animator.Update(0);
+            }
+        }
+
+        private void LowerObstructingWalls()
+        {
+            int count = 0;
+            if (!planningView && boardCamera && map != null && zoom < MaxZoom()*.85f)
+            {
+                Vector3 towardCamera = transform.InverseTransformDirection(-boardCamera.transform.forward);
+                Vector3 towardFront = new Vector3(towardCamera.x,0,towardCamera.z).normalized;
+                for (int i = 0; i < heroes.Length; i++)
+                    if (living[i] && heroes[i])
+                    {
+                        // 받침대에서 카메라에 가까운 쪽을 기준으로 가림 여부를 계산합니다.
+                        var origin = heroes[i].localPosition + towardFront*.24f;
+                        origin.y = .07f;
+                        partySightlines[count++] = new Ray(origin, towardCamera);
+                    }
+            }
+
+            foreach (var wall in corridorWalls)
+            {
+                var bounds = new Bounds(wall.localPosition + Vector3.up*(DungeonScenery.WallHeight*.5f),
+                    new Vector3(Tile, DungeonScenery.WallHeight, Tile));
+                bool obstructing = false;
+                for (int i = 0; i < count && !obstructing; i++)
+                    obstructing = bounds.IntersectRay(partySightlines[i]);
+                float height = Mathf.MoveTowards(wall.localScale.y, obstructing ? .22f : 1f,
+                    7f*Time.unscaledDeltaTime);
+                if (!Mathf.Approximately(wall.localScale.y,height))
+                    wall.localScale = new Vector3(1,height,1);
             }
         }
 
@@ -1385,25 +1451,41 @@ namespace DungeonTycoon.Unity
         {
             string[] colors =
             {
-                "20242B","414B58","596674","77818A","87919A","E9DFC3","90704B",
+                "24232D","474552","646572","747782","7C808E","E9DFC3","90704B",
                 "D5AA60","76583F","6D4738","9CB0BC","287777","66D5C0","688957",
-                "60495E","9E4751","EA7745","FFBE6E","D6A77E"
+                "60495E","754552","EA7745","FFBE6E","D6A77E"
             };
-            Material source = Resources.Load<Material>("DungeonMiniature");
+            Material source = Resources.Load<Material>("DungeonMiniatureToon");
             var materials = new Material[colors.Length];
             for (int i = 0; i < materials.Length; i++)
             {
                 ColorUtility.TryParseHtmlString("#"+colors[i],out var color);
-                var mat = new Material(source) { name = ((Finish)i).ToString(), color = color };
-                mat.SetFloat("_Smoothness",.26f);
-                if (i == (int)Finish.Brass || i == (int)Finish.Gold || i == (int)Finish.Steel)
-                    mat.SetFloat("_Metallic",.33f);
-                if (i == (int)Finish.Mint || i == (int)Finish.Flame || i == (int)Finish.Ember)
+                var mat = new Material(source) { name = ((Finish)i).ToString() };
+                mat.SetColor(BaseColorId, color);
+                mat.SetColor("_1st_ShadeColor", color * new Color(.75f,.72f,.80f,1));
+                mat.SetColor("_2nd_ShadeColor", color * new Color(.56f,.51f,.65f,1));
+                mat.SetFloat("_SystemShadowsToLightColor", .55f);
+                if (i == (int)Finish.Mint || i == (int)Finish.Flame)
                 {
-                    mat.EnableKeyword("_EMISSION");
-                    mat.SetColor("_EmissionColor",color.linear*.55f);
+                    var emission = color.linear * (i == (int)Finish.Flame ? 2.7f : 2.2f);
+                    emission.a = 1f;
+                    mat.SetColor("_Emissive_Color", emission);
                 }
                 materials[i] = mat;
+            }
+            return materials;
+        }
+
+        private static Material[] MakeIndicatorPalette(Material[] colors)
+        {
+            var source = Resources.Load<Material>("DungeonIndicator");
+            var materials = new Material[colors.Length];
+            foreach (var finish in new[] { Finish.Ink, Finish.Gold, Finish.Mint, Finish.Ember })
+            {
+                int index = (int)finish;
+                var material = new Material(source) { name = "표시 " + finish };
+                material.SetColor(BaseColorId, colors[index].GetColor(BaseColorId));
+                materials[index] = material;
             }
             return materials;
         }
@@ -1444,6 +1526,8 @@ namespace DungeonTycoon.Unity
                 if (material && (palette == null || Array.IndexOf(palette, material) < 0)) Destroy(material);
             if (palette == null) return;
             foreach (var material in palette) if (material) Destroy(material);
+            if (indicatorPalette != null)
+                foreach (var material in indicatorPalette) if (material) Destroy(material);
         }
     }
 }

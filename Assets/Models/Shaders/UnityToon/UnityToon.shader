@@ -414,6 +414,7 @@ Shader "ModelPreviews/Unity Toon" {
 #endif
 
             #pragma multi_compile_fragment _ _SCREEN_SPACE_IRRADIANCE
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
 
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
 

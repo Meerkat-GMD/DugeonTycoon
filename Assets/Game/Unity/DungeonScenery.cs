@@ -11,7 +11,8 @@ namespace DungeonTycoon.Unity
 
         /// <summary>Floor, walls and props for a stage. Positions come from <paramref name="center"/>.</summary>
         internal static DungeonMesh Dungeon(DungeonMap map, float tile, Func<TilePoint, Vector3> center,
-            bool includeGate, out Vector3 gatePosition)
+            bool includeGate, Action<Vector3, DungeonMesh> addCutawayWall, List<Vector3> flamePositions,
+            out Vector3 gatePosition)
         {
             var m = new DungeonMesh();
             int bossLeft = int.MaxValue, bossRight = int.MinValue, bossTop = int.MaxValue, bossBottom = int.MinValue;
@@ -26,7 +27,7 @@ namespace DungeonTycoon.Unity
                     Finish stone;
                     if (map.IsBossRoom(point))
                     {
-                        stone = x == map.BossTile.X ? Finish.Crimson : (x+y)%2 == 0 ? Finish.Slate : Finish.Basalt;
+                        stone = x == map.BossTile.X ? Finish.Crimson : (x+y)%2 == 0 ? Finish.Slate : Finish.Flagstone;
                         bossLeft = Math.Min(bossLeft,x); bossRight = Math.Max(bossRight,x);
                         bossTop = Math.Min(bossTop,y); bossBottom = Math.Max(bossBottom,y);
                     }
@@ -37,13 +38,20 @@ namespace DungeonTycoon.Unity
                     continue;
                 }
                 if (!TouchesFloor(map,point)) continue;
-                // Dark wall caps keep rooms readable against the lighter flagstones from above.
-                m.Box(c.x,WallHeight*.5f-.05f,c.z,tile,WallHeight,tile,Finish.Basalt);
-                m.Box(c.x,WallHeight-.03f,c.z,tile-.06f,.08f,tile-.06f,variation%4 == 0 ? Finish.Basalt : Finish.Ink);
-                WallCoping(m,map,point,c,tile);
-                // Sconces hang on walls that face the viewer across an open floor.
+                // 한 칸 폭의 가로 복도를 가릴 수 있는 벽만 따로 그립니다.
+                bool cutaway = map.IsFloor(new TilePoint(x,y-1)) && !map.IsFloor(new TilePoint(x,y-2));
+                var wall = cutaway ? new DungeonMesh() : m;
+                var position = cutaway ? Vector3.zero : c;
+                wall.Box(position.x,WallHeight*.5f-.05f,position.z,tile,WallHeight,tile,Finish.Basalt);
+                wall.Box(position.x,WallHeight-.03f,position.z,tile-.06f,.08f,tile-.06f,
+                    variation%4 == 0 ? Finish.Basalt : Finish.Ink);
+                WallCoping(wall,map,point,position,tile);
                 if (map.IsFloor(new TilePoint(x,y+1)) && variation%6 == 1)
-                    Sconce(m,c.x,c.z-tile*.5f);
+                {
+                    Sconce(wall,position.x,position.z-tile*.5f);
+                    if (!cutaway) flamePositions.Add(c + new Vector3(0,.88f,-tile*.5f-.22f));
+                }
+                if (cutaway) addCutawayWall(c,wall);
             }
 
             var door = center(map.Entrance);
@@ -62,6 +70,8 @@ namespace DungeonTycoon.Unity
             var nearRight = center(new TilePoint(bossRight,bossBottom));
             Torch(m,nearLeft.x,nearLeft.z,.63f);
             Torch(m,nearRight.x,nearRight.z,.63f);
+            flamePositions.Add(nearLeft + Vector3.up*.98f);
+            flamePositions.Add(nearRight + Vector3.up*.98f);
             return m;
         }
 

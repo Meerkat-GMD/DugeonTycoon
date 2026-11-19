@@ -27,14 +27,14 @@ namespace DungeonTycoon.Unity
         private PanelSettings panel;
         private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
         private VisualElement gameOver, gameOverLayout, victoryPage, victoryLayout, confetti;
-        private Button defeatRestart, victoryTitle;
+        private Button defeatRestart, victoryTitle, stageContinue;
         internal bool DungeonVisible => hud != null && titleScreen.style.display == DisplayStyle.None;
         private VisualElement interventionPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label hint, budget, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
-        private VisualElement stageClearPage;
+        private VisualElement stageClearPage, stageClearLayout;
         private Label stageClearTitle;
-        private Button follow, primary, collapse, removeCard, blessCard;
+        private Button follow, whole, primary, collapse, removeCard, blessCard;
         private Label summaryNote;
         private VisualElement planningTip;
         private VisualElement audioPanel;
@@ -155,6 +155,7 @@ namespace DungeonTycoon.Unity
             bossFill = root.Q("boss-fill");
             pauseBanner = root.Q<Label>("pause-banner");
             follow = root.Q<Button>("follow");
+            whole = root.Q<Button>("whole");
             party = root.Q("party");
             aiMode = root.Q<Label>("ai-mode");
             bottom = root.Q("bottom");
@@ -191,8 +192,10 @@ namespace DungeonTycoon.Unity
                 newGame.Focus();
             }
             stageClearPage = root.Q("stage-clear");
+            stageClearLayout = stageClearPage.Q("stage-clear-layout");
             stageClearTitle = root.Q<Label>("stage-clear-title");
-            root.Q<Button>("stage-continue").clicked += game.AdvanceToNextStage;
+            stageContinue = stageClearPage.Q<Button>("stage-continue");
+            stageContinue.clicked += game.AdvanceToNextStage;
             foreach (var (kind, cardName) in Brushes)
             {
                 var card = root.Q<Button>(cardName);
@@ -267,7 +270,7 @@ namespace DungeonTycoon.Unity
             }
 
             follow.clicked += () => game.Board.SetFollowParty(!game.Board.FollowParty);
-            root.Q<Button>("whole").clicked += () => game.Board.ShowWholeDungeon();
+            whole.clicked += () => game.Board.ShowWholeDungeon();
             root.Q<Button>("history-open").clicked += OpenHistory;
             audioPanel = root.Q("audio-panel");
             audioToggle = root.Q<Button>("audio-toggle");
@@ -392,6 +395,8 @@ namespace DungeonTycoon.Unity
             UpdateClearArea(run);
             if (run.Phase == RunPhase.Victory && scale > 0)
                 victoryLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
+            else if (stageClearPage.style.display == DisplayStyle.Flex && scale > 0)
+                stageClearLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
             else if (run.Phase != RunPhase.Defeat) BoardInput(run);
             else if (scale > 0) gameOverLayout.style.scale = new Scale(Vector3.one * (designScale / scale));
         }
@@ -478,6 +483,8 @@ namespace DungeonTycoon.Unity
             bool planning = run.Phase == RunPhase.Planning;
             bool victory = run.Phase == RunPhase.Victory;
             bool exploring = Exploring(run);
+            bool presenting = game.Presenting;
+            bool showExpeditionControls = exploring && !presenting;
 
             stageNumber.text = "스테이지 "+run.Stage+" / "+DungeonRun.FinalStage;
             stageName.text = run.Stage < StageNames.Length ? StageNames[run.Stage] : "";
@@ -495,7 +502,8 @@ namespace DungeonTycoon.Unity
             Show(pauseBanner,banner.Length > 0);
             pauseBanner.text = banner;
 
-            Show(follow,exploring);
+            Show(follow,showExpeditionControls);
+            Show(whole,!presenting);
             follow.text = game.Board.FollowParty ? "따라가기  켬" : "따라가기  끔";
             follow.EnableInClassList("on",game.Board.FollowParty);
 
@@ -516,37 +524,42 @@ namespace DungeonTycoon.Unity
             budget.text = run.Budget.ToString();
             if (!game.Presenting) faith.text = run.Faith.ToString();
 
-            Show(speedGroup,exploring && !game.Presenting);
+            bool bottomCollapsed = bottom.ClassListContains("collapsed");
+            hud.EnableInClassList("with-speed",showExpeditionControls);
+            hud.EnableInClassList("with-collapsed-planning-panel",planning && bottomCollapsed);
+            Show(speedGroup,showExpeditionControls);
             for (int speed = 0; speed < speedButtons.Length; speed++)
                 speedButtons[speed].EnableInClassList("on",game.Speed == speed);
             primary.text = run.CanEditFormation ? "편성 · 출발  ›" : "원정 출발  ›";
-            collapse.text = bottom.ClassListContains("collapsed") ? "▲" : "▼";
+            collapse.text = bottomCollapsed ? "▲" : "▼";
 
-            Show(bottom,planning && !game.Presenting);
-            Show(interventionPage,exploring && !game.Presenting);
-            if (!exploring || game.Presenting) Show(blessPicker,false);
-            bool showClear = run.Phase == RunPhase.StageCleared && run.PendingLoot == null && !game.Presenting;
-            Show(stageClearPage,showClear);
-            if (showClear) stageClearTitle.text = $"{run.Stage}스테이지 클리어";
-            bool showVictory = victory && !game.Presenting;
-            if (showVictory != (victoryPage.style.display == DisplayStyle.Flex))
+            Show(bottom,planning && !presenting);
+            Show(interventionPage,showExpeditionControls);
+            if (!showExpeditionControls) Show(blessPicker,false);
+            bool showVictory = victory && !presenting;
+            bool showClear = run.Phase == RunPhase.StageCleared && run.PendingLoot == null && !presenting;
+            bool defeated = run.Phase == RunPhase.Defeat && !presenting;
+            if (showClear != (stageClearPage.style.display == DisplayStyle.Flex) ||
+                showVictory != (victoryPage.style.display == DisplayStyle.Flex) ||
+                defeated != (gameOver.style.display == DisplayStyle.Flex))
             {
+                Show(stageClearPage,showClear);
+                Show(gameOver,defeated);
                 Show(victoryPage,showVictory);
-                hud.SetEnabled(!showVictory);
-                if (showVictory)
+                hud.SetEnabled(!showClear && !defeated && !showVictory);
+                if (showClear)
+                {
+                    stageClearTitle.text = $"{run.Stage}스테이지 클리어";
+                    stageContinue.Focus();
+                }
+                else if (defeated) defeatRestart.Focus();
+                else if (showVictory)
                 {
                     celebrationStart = Time.unscaledTime;
                     victoryTitle.Focus();
                 }
             }
             if (showVictory) confetti.MarkDirtyRepaint();
-            bool defeated = run.Phase == RunPhase.Defeat && !game.Presenting;
-            if (defeated != (gameOver.style.display == DisplayStyle.Flex))
-            {
-                Show(gameOver,defeated);
-                hud.SetEnabled(!defeated);
-                if (defeated) defeatRestart.Focus();
-            }
             if (planning) RefreshPlanning(run);
             else if (exploring && !game.Presenting) RefreshIntervention(run);
 
@@ -858,7 +871,7 @@ namespace DungeonTycoon.Unity
             bool empty = run.Placements.Count == 0;
             summaryTitle.text = "배치 "+run.Placements.Count+"마리";
             summaryDetail.text = empty ? ""
-                : string.Join("  ·  ",run.Roster.Select(kind => DungeonRun.MonsterName(kind)+" "+Placed(kind)));
+                : string.Join("  ·  ",run.Roster.Select(kind => PlacementMonsterName(kind)+" "+Placed(kind)));
             summaryNote.text = FeatureNote(run);
         }
 
@@ -1149,10 +1162,13 @@ namespace DungeonTycoon.Unity
                 DungeonBoard.PlanningKind.Statue => ("조우 · 고정 배치", "금이 간 조각상", "봉인을 깨면 금화를 얻고 파티에 축복이나 저주가 깃듭니다.", "효과 지속　이번 스테이지"),
                 DungeonBoard.PlanningKind.Boss => ("적 · 스테이지 보스", run.BossName, "보스방을 지키다가 용사를 발견하면 방 밖까지 추격합니다.", $"최대 체력　{run.BossMaxHp}"),
                 _ => (kind == DungeonBoard.PlanningKind.Patrol ? "적 · 고정 순회조" : "적 · 배치 몬스터",
-                    DungeonRun.MonsterName(target.Monster), brushCards[target.Monster].Q<Label>(className:"placement-description").text,
+                    PlacementMonsterName(target.Monster), brushCards[target.Monster].Q<Label>(className:"placement-description").text,
                     kind == DungeonBoard.PlanningKind.Patrol ? "위협 예산 소모 없음" : $"위협 비용　{DungeonRun.Cost(target.Monster)}")
             };
         }
+
+        private string PlacementMonsterName(MonsterKind kind) =>
+            brushCards[kind].Q<Label>(className:"skill-title").text;
 
         private void Paint(TilePoint tile)
         {
@@ -1163,7 +1179,7 @@ namespace DungeonTycoon.Unity
                 case PlacementCheck.NotFloor: notice = "벽에는 몬스터를 둘 수 없습니다."; break;
                 case PlacementCheck.NothingToRemove: notice = "이 칸에는 되돌릴 몬스터가 없습니다."; break;
                 case PlacementCheck.NotInRoster:
-                    notice = $"{HeroTraits.Particle(DungeonRun.MonsterName(brush),"은","는")} 이 스테이지에 배치할 수 없습니다.";
+                    notice = $"{HeroTraits.Particle(PlacementMonsterName(brush),"은","는")} 이 스테이지에 배치할 수 없습니다.";
                     break;
                 default: notice = ""; break;
             }

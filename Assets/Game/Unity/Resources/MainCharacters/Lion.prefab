@@ -51,7 +51,7 @@ PrefabInstance:
     - target: {fileID: -7256004238028004464, guid: c378bda0ee3a5cc4cb0adecca884af7e, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 678ab6963bec8374da43727561b34aa1, type: 2}
+      objectReference: {fileID: 2100000, guid: 885614961799a4f429d65738070b98e2, type: 2}
     - target: {fileID: 919132149155446097, guid: c378bda0ee3a5cc4cb0adecca884af7e, type: 3}
       propertyPath: m_Name
       value: Lion
@@ -63,11 +63,11 @@ PrefabInstance:
     - target: {fileID: 1630794972795428178, guid: c378bda0ee3a5cc4cb0adecca884af7e, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 6086ffc4a6d504540a92695f2796cd45, type: 2}
+      objectReference: {fileID: 2100000, guid: 7beeb6de72ec0c74d9e1f4fa79c75f0e, type: 2}
     - target: {fileID: 2813317958808142628, guid: c378bda0ee3a5cc4cb0adecca884af7e, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 2f4ca7dc278acb044861a80a54e5db2b, type: 2}
+      objectReference: {fileID: 2100000, guid: 24d81edacb26e494989dedcdb3c81b9d, type: 2}
     - target: {fileID: 5866666021909216657, guid: c378bda0ee3a5cc4cb0adecca884af7e, type: 3}
       propertyPath: m_Controller
       value: 

@@ -112,7 +112,7 @@
     position: absolute;
     left: 12px;
     top: 6px;
-    width: 280px;
+    width: 216px;
 }
 
 .hud .stage-number {
@@ -131,7 +131,6 @@
     top: 8px;
     left: 50%;
     width: 42%;
-    min-width: 300px;
     max-width: 560px;
     height: 38px;
     translate: -50% 0;
@@ -210,15 +209,11 @@
     -unity-text-align: middle-center;
 }
 
-.hud .view-buttons {
+.hud .top-buttons {
     position: absolute;
     top: 14px;
     right: 10px;
     flex-direction: row;
-}
-
-.hud .follow {
-    min-width: 94px;
 }
 
 .hud .audio-panel {
@@ -797,7 +792,7 @@
 .hud .skill-description {
     display: none;
     position: absolute;
-    bottom: 112px;
+    bottom: 176px;
     right: 0;
     padding: 6px 8px;
     background-color: #202a30;
@@ -805,13 +800,32 @@
 .hud .skill-slot:hover .skill-description { display: flex; }
 .hud .skill-description Label { font-size: 12px; white-space: nowrap; color: var(--paper); }
 
-.hud .speed {
+.hud .camera-controls {
     position: absolute;
     right: 10px;
+    bottom: 166px;
+    align-items: flex-end;
+}
+
+.hud.with-speed .camera-controls {
     bottom: 123px;
+}
+
+.hud.with-collapsed-planning-panel .camera-controls {
+    bottom: 50px;
+}
+
+.hud .view-buttons,
+.hud .speed {
     flex-direction: row;
-    flex-shrink: 0;
-    margin-left: 12px;
+}
+
+.hud .follow {
+    min-width: 94px;
+}
+
+.hud .speed {
+    margin-top: 6px;
 }
 
 .hud .speed .chip {
@@ -861,14 +875,15 @@
 .hud .placement-button.chosen .skill-title { color: var(--teal); }
 .hud .placement-description { font-size: 11px; color: var(--muted); }
 .hud .placement-cost { font-size: 12px; color: var(--gold); }
-.hud .brush-skeleton-art { background-image: url("SkeletonPortrait.png"); }
-.hud .brush-ghost-art { background-image: url("GhostPortrait.png"); }
-.hud .brush-zombie-art { background-image: url("ZombiePortrait.png"); }
-.hud .brush-archer-art { background-image: url("ArcherPortrait.png"); }
+.hud .brush-skeleton-art { background-image: url("SkeletonSwordsmanPortrait.png"); }
+.hud .brush-ghost-art { background-image: url("SkeletonAstrologerPortrait.png"); }
+.hud .brush-zombie-art { background-image: url("SkeletonShieldbearerPortrait.png"); }
+.hud .brush-archer-art { background-image: url("SkeletonGrenadierPortrait.png"); }
 .hud .brush-remove-art { background-image: url("ErasePlacement.png"); }
 
 .hud .summary {
     flex-grow: 1;
+    min-width: 0;
     align-items: flex-end;
 }
 
@@ -884,9 +899,12 @@
 }
 
 .hud .summary-detail {
+    max-width: 100%;
     margin-top: 6px;
     font-size: 13px;
     color: var(--muted);
+    white-space: normal;
+    -unity-text-align: middle-right;
 }
 
 .hud .summary-note {
@@ -907,36 +925,6 @@
     font-size: 22px;
     -unity-font-style: bold;
     color: var(--gold);
-}
-
-.hud .stage-clear {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    translate: -50% -50%;
-    width: 360px;
-    max-width: 90%;
-    padding: 28px 20px;
-    align-items: center;
-    background-color: var(--card);
-}
-
-.hud .stage-clear .result-title {
-    max-width: 100%;
-    white-space: normal;
-    -unity-text-align: middle-center;
-    font-size: 34px;
-}
-
-.hud .stage-clear .primary {
-    width: auto;
-    max-width: 100%;
-    height: auto;
-    min-height: 44px;
-    margin: 18px 0 0;
-    padding: 6px 24px;
-    white-space: normal;
-    font-size: 18px;
 }
 
 /* ── History overlay ─────────────────────────────────────────────── */
@@ -1080,16 +1068,41 @@
     position: absolute;
     left: 0; right: 0; top: 0; bottom: 0;
 }
-#game-over-art {
+.outcome-art {
     position: absolute;
-    left: 381px; top: 177px;
+    left: 50%; top: 50%;
+    translate: -50% -50%;
+}
+#stage-clear-art {
+    width: 1194px; height: 512px;
+    background-image: url("StageClear.png");
+}
+.stage-clear-content {
+    position: absolute;
+    left: 0; right: 0; top: 234px;
+    align-items: center;
+}
+#stage-clear-title {
+    margin: 0 0 20px;
+    padding: 0;
+    color: #f7f9fa;
+    font-size: 34px;
+    -unity-font-style: bold;
+    -unity-text-outline-color: #151619;
+    -unity-text-outline-width: 2px;
+}
+#stage-continue {
+    width: 282px;
+}
+#game-over-art {
     width: 1222px; height: 478px;
     background-image: url("GameOver.png");
 }
 .game-over-actions {
     position: absolute;
-    left: 636px; top: 438px;
-    width: 648px;
+    left: 50%; top: 251px;
+    width: 650px;
+    translate: -50% 0;
     flex-direction: row;
     justify-content: space-between;
 }
@@ -1103,7 +1116,7 @@
     background-image: url("TitleButton.png");
     background-color: transparent;
     color: #f7f9fa;
-    font-size: 26px;
+    font-size: 28px;
     -unity-font-style: bold;
     -unity-text-outline-color: #151619;
     -unity-text-outline-width: 2px;

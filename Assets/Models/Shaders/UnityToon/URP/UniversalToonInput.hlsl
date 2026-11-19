@@ -11,6 +11,7 @@
 
 CBUFFER_START(UnityPerMaterial)
 float _utsTechnique;
+float _TransparentEnabled;
 float4 _MainTex_ST;
 
 float4 _Color;
