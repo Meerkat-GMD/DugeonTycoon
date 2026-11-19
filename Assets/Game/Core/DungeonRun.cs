@@ -86,6 +86,7 @@ namespace DungeonTycoon.Core
         /// <summary>Maximum health every hero gains per party level. From <see cref="BalanceTable"/>.</summary>
         public static int LevelHpGain => BalanceTable.Current.levelHpGain;
         public int Level => 1 + Experience / ExperiencePerLevel;
+        public int LevelAttackBonus => BalanceTable.Current.AttackGrowth(Level);
         /// <summary>Experience gathered toward the next level, from 0 up to ExperiencePerLevel - 1.</summary>
         public int ExperienceIntoLevel => Experience % ExperiencePerLevel;
         /// <summary>This stage's boss as it waits in its room. Before departure there is no live Boss yet.</summary>
@@ -439,14 +440,16 @@ namespace DungeonTycoon.Core
         {
             int previous = Level;
             Experience += amount;
-            int gain = Level - previous;
-            if (gain == 0) return;
+            if (Level == previous) return;
+            var balance = BalanceTable.Current;
+            int healthGain = balance.HealthGrowth(Level) - balance.HealthGrowth(previous);
+            int attackGain = LevelAttackBonus - balance.AttackGrowth(previous);
             foreach (var hero in party)
             {
-                hero.MaxHp += LevelHpGain * gain;
-                if (hero.Hp > 0) hero.Hp += LevelHpGain * gain;
+                hero.MaxHp += healthGain;
+                if (hero.Hp > 0) hero.Hp += healthGain;
             }
-            log.Add($"파티 레벨 {Level} • 공격력 +{LevelAttackGain * gain} / 최대 체력 +{LevelHpGain * gain}");
+            log.Add($"파티 레벨 {Level} • 공격력 +{attackGain} / 최대 체력 +{healthGain}");
         }
 
         private void ClearStage()

@@ -362,16 +362,49 @@ namespace DungeonTycoon.Core.Tests
             Assert.That(run.ExperienceIntoLevel, Is.EqualTo(run.Experience % DungeonRun.ExperiencePerLevel));
         }
 
-        /// <summary>
-        /// The first-play balance check: with all faith spent on blessings, an empty dungeon
-        /// (only the fixed patrols) still loses to the final boss, while monsters placed along the main roads grow the
-        /// party enough to win. Both use the real maps with patrols, chests and springs.
-        /// </summary>
+        [Test]
+        public void GrowthAcrossTheThresholdHealsLivingHeroesByTheActualMaximumHealthGain()
+        {
+            var run = DungeonRun.Sandbox();
+            var balance = BalanceTable.Current;
+            var living = run.Party[0];
+            var fallen = run.Party[1];
+            run.GrantExperience((balance.reducedGrowthLevel - 3) * DungeonRun.ExperiencePerLevel);
+            living.Hp -= 6;
+            fallen.Hp = 0;
+            int startAttack = run.LevelAttackBonus;
+            int startHealth = living.MaxHp;
+            int fallenMaxHp = fallen.MaxHp;
+
+            run.GrantExperience(3 * DungeonRun.ExperiencePerLevel);
+
+            int healthGain = balance.levelHpGain + 2 * balance.lateLevelHpGain;
+            Assert.That(run.Level, Is.EqualTo(balance.reducedGrowthLevel + 1));
+            Assert.That(run.LevelAttackBonus - startAttack, Is.EqualTo(balance.levelAttackGain + 2 * balance.lateLevelAttackGain));
+            Assert.That(living.MaxHp, Is.EqualTo(startHealth + healthGain));
+            Assert.That(living.Hp, Is.EqualTo(living.MaxHp - 6));
+            Assert.That(fallen.MaxHp, Is.EqualTo(fallenMaxHp + healthGain));
+            Assert.That(fallen.Hp, Is.Zero);
+        }
+
+        [Test]
+        public void FirstStageGuideTilesArePlaceableOutsidePatrolSight()
+        {
+            var run = new DungeonRun();
+            foreach (var tile in new[] { new TilePoint(10, 23), new TilePoint(28, 6) })
+            {
+                Assert.That(run.IsWithinPatrolSight(tile), Is.False, tile.ToString());
+                Assert.That(run.Place(tile, MonsterKind.Skeleton), Is.True, tile.ToString());
+            }
+            Assert.That(run.IsWithinPatrolSight(run.Patrols[0].Route[0]), Is.True);
+        }
+
+        /// <summary>같은 시드에서 전열 생존 편성으로 길목 배치의 성장 효과를 검증합니다.</summary>
         [TestCase(true, RunPhase.Victory)]
         [TestCase(false, RunPhase.Defeat)]
         public void PlannedExpeditionCanWinButEmptyExpeditionLosesWithBlessings(bool placeMonsters, RunPhase expected)
         {
-            var (phase, stages, run) = BalanceProbe.Play(20261118, placeMonsters);
+            var (phase, stages, run) = BalanceProbe.Play(20261118, placeMonsters, formation: BalanceProbe.BuildFrontline);
             foreach (var s in stages)
                 TestContext.Out.WriteLine($"stage {s.Stage}: level at boss {s.LevelAtBoss}, boss fight {s.BossTicks / 10.0:0.#}s, chests {s.Chests}");
             Assert.That(run.Stage, Is.EqualTo(DungeonRun.FinalStage));

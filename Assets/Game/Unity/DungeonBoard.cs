@@ -63,8 +63,6 @@ namespace DungeonTycoon.Unity
             public Transform Body;
             public Vector3 From, To;
             public float Start;
-            public Stack<Transform> Pool;
-            public bool Spin;
         }
 
         /// <summary>A chest or spring fixed on the map: drawn fresh until opened or drunk dry, then spent.</summary>
@@ -79,7 +77,6 @@ namespace DungeonTycoon.Unity
         private readonly List<Mesh> stageMeshes = new List<Mesh>();
         private readonly List<Foe> foes = new List<Foe>();
         private readonly List<Flight> flights = new List<Flight>();
-        private readonly Stack<Transform> arrows = new Stack<Transform>();
         private readonly Stack<Transform> orbs = new Stack<Transform>();
         private readonly List<GrenadierHead> heads = new List<GrenadierHead>();
         private GameObject headPrefab;
@@ -122,16 +119,119 @@ namespace DungeonTycoon.Unity
                 }
             return picked;
         }
-        // Patrol routes are painted on the floor in one colour per squad: clear while the GM plans around them,
-        // faint during the expedition so the GM can still read where a squad is heading.
+        private sealed class PatrolRouteView
+        {
+            private const float TilesPerSecond = 1.25f;
+            private const float TurnDistance = .2f;
+            private const float OverlapDistance = Tile*.36f;
+            private const float FadeDistance = Tile*.64f;
+            private readonly Vector3[] points;
+            private readonly float[] headings;
+            private readonly Transform[] arrows;
+            private readonly Vector3[] arrowPositions;
+            private readonly MeshRenderer[] arrowRenderers;
+            private readonly float[] arrowOpacities;
+            private readonly MaterialPropertyBlock arrowTint = new MaterialPropertyBlock();
+            private readonly Color arrowColor;
+            private readonly bool hasSharedTiles;
+            private float distance;
+
+            public PatrolRouteView(IReadOnlyList<TilePoint> route, Func<TilePoint, Vector3> center, Transform[] arrows, Color color)
+            {
+                this.arrows = arrows;
+                arrowColor = color;
+                points = new Vector3[route.Count];
+                headings = new float[route.Count];
+                var tiles = new HashSet<TilePoint>();
+                for (int i = 0; i < route.Count; i++)
+                {
+                    var from = route[i];
+                    var to = route[(i+1)%route.Count];
+                    points[i] = center(from);
+                    var direction = center(to)-points[i];
+                    headings[i] = Mathf.Atan2(direction.x, direction.z)*Mathf.Rad2Deg;
+                    if (!tiles.Add(from)) hasSharedTiles = true;
+                }
+                if (hasSharedTiles)
+                {
+                    arrowPositions = new Vector3[arrows.Length];
+                    arrowRenderers = new MeshRenderer[arrows.Length];
+                    arrowOpacities = new float[arrows.Length];
+                    for (int i = 0; i < arrows.Length; i++)
+                    {
+                        arrowRenderers[i] = arrows[i].GetComponent<MeshRenderer>();
+                        arrowOpacities[i] = 1f;
+                    }
+                }
+                Animate(0);
+            }
+
+            public void Animate(float deltaTime)
+            {
+                // 순회로는 인접한 타일을 한 칸씩 연결하므로 타일 수를 거리로 쓸 수 있습니다.
+                distance = Mathf.Repeat(distance+deltaTime*TilesPerSecond, points.Length);
+                float spacing = (float)points.Length/arrows.Length;
+                for (int i = 0; i < arrows.Length; i++)
+                {
+                    float step = Mathf.Repeat(distance+i*spacing, points.Length);
+                    int edge = Mathf.FloorToInt(step);
+                    int next = (edge+1)%points.Length;
+                    float progress = step-edge;
+                    float heading = headings[edge];
+                    if (progress < TurnDistance)
+                    {
+                        int previous = (edge+points.Length-1)%points.Length;
+                        heading = Mathf.LerpAngle(headings[previous], heading, .5f+.5f*progress/TurnDistance);
+                    }
+                    else if (progress > 1-TurnDistance)
+                    {
+                        float turn = (progress-(1-TurnDistance))/TurnDistance;
+                        heading = Mathf.LerpAngle(heading, headings[next], .5f*turn);
+                    }
+                    var rotation = Quaternion.Euler(0, heading, 0);
+                    var position = Vector3.Lerp(points[edge], points[next], progress);
+                    arrows[i].SetLocalPositionAndRotation(position, rotation);
+                    if (hasSharedTiles) arrowPositions[i] = position;
+                }
+                if (hasSharedTiles) FadeOverlappingArrows();
+            }
+
+            private void FadeOverlappingArrows()
+            {
+                for (int i = 1; i < arrows.Length; i++)
+                {
+                    // 화살표의 순서로 우선순위를 정해 마주치는 동안 같은 화살표가 양보합니다.
+                    float nearest = FadeDistance*FadeDistance;
+                    for (int j = 0; j < i; j++)
+                    {
+                        float separation = (arrowPositions[i]-arrowPositions[j]).sqrMagnitude;
+                        nearest = Mathf.Min(nearest, separation);
+                    }
+                    float opacity = Mathf.SmoothStep(0f, 1f,
+                        Mathf.InverseLerp(OverlapDistance, FadeDistance, Mathf.Sqrt(nearest)));
+                    if (Mathf.Approximately(arrowOpacities[i], opacity)) continue;
+
+                    arrowOpacities[i] = opacity;
+                    var color = arrowColor;
+                    color.a *= opacity;
+                    arrowTint.SetColor(BaseColorId, color);
+                    arrowRenderers[i].SetPropertyBlock(arrowTint);
+                    arrowRenderers[i].enabled = opacity > 0;
+                }
+            }
+        }
+
         private static readonly Color[] PatrolColors = { new Color(.74f,.55f,1f,1), new Color(.45f,.75f,1f,1) };
         private const float PatrolPlanningAlpha = .6f, PatrolExpeditionAlpha = .2f;
         private readonly List<Material> patrolMaterials = new List<Material>();
+        private readonly List<PatrolRouteView> patrolRoutes = new List<PatrolRouteView>();
+        private Transform patrolRouteRoot;
         private Transform chestPrototype, openChestPrototype, springPrototype, drySpringPrototype, haloPrototype;
         private GameObject merchantPrefab, statuePrefab, bossGatePrefab;
         private bool planningView = true;
         private readonly Transform[] heroes = new Transform[4];
         private readonly Animator[] heroAnimators = new Animator[4];
+        private HeroCombatEffects heroEffects;
         private static readonly string[] HeroModels = { "Lion", "Rabbit", "Bear", "Crow" };
         private static readonly string[] HeroActions = { "Block", "Heal", "Slash", "Shoot" };
         private static readonly int IdleParameter = Animator.StringToHash("PreviewIdle");
@@ -151,7 +251,7 @@ namespace DungeonTycoon.Unity
         private readonly int[] attackStates = new int[DungeonFigures.TierCount];
         private DungeonMap map;
         private int stage;
-        private Transform scenery, entranceZone, fog, hoverAllowed, hoverBlocked;
+        private Transform scenery, entranceZone, fog, hoverAllowed, hoverBlocked, hoverPatrol;
         private Transform placementLimitArea, placementLimitAttempt;
         private readonly List<Transform> placementLimitSuggestions = new List<Transform>(2);
         private readonly List<Mesh> placementLimitMeshes = new List<Mesh>(1);
@@ -162,7 +262,7 @@ namespace DungeonTycoon.Unity
         private MaterialPropertyBlock tutorialMarkerBlock;
         private float tutorialMarkerStart;
         private Material tutorialGhostMaterial;
-        private Transform barPrototype, arrowPrototype, orbPrototype, die;
+        private Transform barPrototype, orbPrototype, die;
         private float tauntAt = -1000;
         private float adversityStarted = -1000;
         private bool blessing;
@@ -276,8 +376,10 @@ namespace DungeonTycoon.Unity
 
             hoverAllowed = Draw("놓을 수 있는 칸", DungeonScenery.TileMarker(Tile, Finish.Mint), meshes, materials: indicatorPalette);
             hoverBlocked = Draw("놓을 수 없는 칸", DungeonScenery.TileMarker(Tile, Finish.Ember), meshes, materials: indicatorPalette);
+            hoverPatrol = Draw("순회조 합류 가능 구역", DungeonScenery.TileMarker(Tile, Finish.Gold), meshes, materials: indicatorPalette);
             hoverAllowed.gameObject.SetActive(false);
             hoverBlocked.gameObject.SetActive(false);
+            hoverPatrol.gameObject.SetActive(false);
             heroMarker = Draw("도움 대상", DungeonScenery.TileMarker(Tile*.8f, Finish.Gold), meshes, materials: indicatorPalette);
             heroMarker.gameObject.SetActive(false);
             CreateWarnings();
@@ -329,6 +431,7 @@ namespace DungeonTycoon.Unity
             var halo = new DungeonMesh();
             halo.Ring(0,.01f,0,1.2f,1.2f,.01f,Finish.Ink,16);
             haloPrototype = Draw("순회조 표시", halo, meshes, stock.transform);
+            heroEffects = new HeroCombatEffects(transform);
             for (int i = 0; i < heroes.Length; i++)
             {
                 var stand = new DungeonMesh();
@@ -343,6 +446,7 @@ namespace DungeonTycoon.Unity
                 heroAnimators[i] = model.GetComponentInChildren<Animator>();
                 heroAnimators[i].applyRootMotion = false;
                 heroAnimators[i].SetBool(IdleParameter, true);
+                heroEffects.Bind((HeroRole)i, heroes[i], model.transform, heroAnimators[i]);
             }
             CreateFeedback(stock.transform);
         }
@@ -454,7 +558,7 @@ namespace DungeonTycoon.Unity
             return mat;
         }
 
-        /// <summary>The see-through paint for one patrol squad's route and the rings under its members.</summary>
+        /// <summary>순회조마다 길과 조원 발밑 고리에 같은 색을 씁니다.</summary>
         private Material PatrolMaterial(int squad)
         {
             while (patrolMaterials.Count <= squad)
@@ -558,6 +662,7 @@ namespace DungeonTycoon.Unity
         {
             if (map == null) throw new ArgumentNullException(nameof(map));
             ClearPlacementLimit();
+            heroEffects.Clear();
             if (!ReferenceEquals(this.map, map))
             {
                 this.map = map;
@@ -712,6 +817,8 @@ namespace DungeonTycoon.Unity
 
         private void BuildScenery(Func<TilePoint,bool> placeable, IReadOnlyList<PatrolSquad> patrols)
         {
+            if (patrolRouteRoot) patrolRouteRoot.gameObject.SetActive(false);
+            patrolRoutes.Clear();
             if (scenery) Destroy(scenery.gameObject);
             foreach (var mesh in stageMeshes) if (mesh) Destroy(mesh);
             stageMeshes.Clear();
@@ -740,17 +847,35 @@ namespace DungeonTycoon.Unity
             BuildFeatures(springProps, map.Springs, springPrototype, drySpringPrototype, "샘물");
             foreach (var spring in springProps)
                 StageLight("샘물 빛", Vector3.up*.65f, new Color32(113,222,204,255), 2.8f, 1.8f, spring.Fresh);
+            patrolRouteRoot = new GameObject("순회로 표시").transform;
+            patrolRouteRoot.SetParent(scenery,false);
+            patrolRouteRoot.gameObject.SetActive(planningView);
             if (patrols == null) return;
             foreach (var squad in patrols)
             {
+                if (squad.Route.Count < 2) continue;
                 var paint = PatrolMaterial(squad.Index);
                 var materials = new Material[palette.Length];
-                for (int i = 0; i < materials.Length; i++) materials[i] = paint;
+                materials[(int)Finish.Ink] = paint;
                 var route = Draw("순회로 "+(squad.Index+1), DungeonScenery.PatrolRoute(squad.Route, Tile, TileCenter),
-                    stageMeshes, scenery, materials);
+                    stageMeshes, patrolRouteRoot, materials);
                 var renderer = route.GetComponent<MeshRenderer>();
                 renderer.shadowCastingMode = ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+                var color = PatrolColors[squad.Index % PatrolColors.Length];
+                color.a = .25f;
+                var lineTint = new MaterialPropertyBlock();
+                lineTint.SetColor(BaseColorId, color);
+                renderer.SetPropertyBlock(lineTint);
+
+                var arrows = new Transform[Mathf.Max(1, Mathf.RoundToInt(squad.Route.Count/2f))];
+                arrows[0] = Draw("순회 화살표", DungeonScenery.PatrolArrow(Tile), stageMeshes, route, materials);
+                var arrowRenderer = arrows[0].GetComponent<MeshRenderer>();
+                arrowRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                arrowRenderer.receiveShadows = false;
+                for (int i = 1; i < arrows.Length; i++) arrows[i] = Instantiate(arrows[0],route,false);
+                color.a = PatrolPlanningAlpha;
+                patrolRoutes.Add(new PatrolRouteView(squad.Route, TileCenter, arrows, color));
             }
         }
 
@@ -816,6 +941,7 @@ namespace DungeonTycoon.Unity
         public void SetPlanning(bool planning)
         {
             if (entranceZone) entranceZone.gameObject.SetActive(planning);
+            if (patrolRouteRoot) patrolRouteRoot.gameObject.SetActive(planning);
             if (fog) fog.gameObject.SetActive(!planning);
             if (!planning)
             {
@@ -863,12 +989,14 @@ namespace DungeonTycoon.Unity
             }
         }
 
-        public void SetHover(TilePoint? tile, bool allowed)
+        public void SetHover(TilePoint? tile, bool allowed, bool nearPatrol = false)
         {
             bool visible = tile.HasValue && map != null && map.Contains(tile.Value);
-            hoverAllowed.gameObject.SetActive(visible && allowed);
-            hoverBlocked.gameObject.SetActive(visible && !allowed);
-            if (visible) (allowed ? hoverAllowed : hoverBlocked).localPosition = TileCenter(tile.Value);
+            var marker = allowed ? (nearPatrol ? hoverPatrol : hoverAllowed) : hoverBlocked;
+            hoverAllowed.gameObject.SetActive(visible && marker == hoverAllowed);
+            hoverBlocked.gameObject.SetActive(visible && marker == hoverBlocked);
+            hoverPatrol.gameObject.SetActive(visible && marker == hoverPatrol);
+            if (visible) marker.localPosition = TileCenter(tile.Value);
         }
 
         internal void ShowPlacementLimit(TilePoint attempted, IReadOnlyList<TilePoint> blocked,
@@ -1108,7 +1236,7 @@ namespace DungeonTycoon.Unity
             }
         }
 
-        /// <summary>Turns rule events into lunges, arrows, heal orbs and the tank's taunt hop.</summary>
+        /// <summary>전투 판정에 맞춰 용사와 몬스터의 동작과 효과를 재생합니다.</summary>
         public void PlayEvents(IReadOnlyList<CombatEvent> events)
         {
             if (events == null) return;
@@ -1125,19 +1253,21 @@ namespace DungeonTycoon.Unity
                 if (e.FromHero && living[e.Source] && (e.Kind == CombatEventKind.Attack || e.Kind == CombatEventKind.Heal ||
                                    e.Kind == CombatEventKind.Taunt))
                     heroAnimators[e.Source].SetTrigger(HeroActions[e.Source]);
-                Vector3 to = e.ToHero
-                    ? (e.Target >= 0 && e.Target < heroes.Length ? heroes[e.Target].localPosition : Vector3.zero)
-                    : (e.Target >= 0 && e.Target < foes.Count ? foes[e.Target].Body.localPosition : Vector3.zero);
+                Transform target = e.ToHero
+                    ? (e.Target >= 0 && e.Target < heroes.Length ? heroes[e.Target] : null)
+                    : (e.Target >= 0 && e.Target < foes.Count ? foes[e.Target].Body : null);
+                Vector3 to = target ? target.localPosition : Vector3.zero;
                 switch (e.Kind)
                 {
                     case CombatEventKind.Drop:
                     case CombatEventKind.Skill:
+                    case CombatEventKind.PatternFired:
                         break;
                     case CombatEventKind.Taunt:
                         tauntAt = Time.time;
                         break;
                     case CombatEventKind.Heal:
-                        Launch(heroes[e.Source].localPosition, to, true);
+                        heroEffects.Queue(e.Source, target);
                         break;
                     default:
                         if (!e.FromHero)
@@ -1164,8 +1294,10 @@ namespace DungeonTycoon.Unity
                         {
                             heroLungeAt[e.Source] = Time.time;
                             heroLungeDirection[e.Source] = Flat(to-heroes[e.Source].localPosition);
+                            if (e.Source == (int)HeroRole.MeleeDamage) heroEffects.Queue(e.Source, target);
                         }
-                        else Launch(heroes[e.Source].localPosition, to, e.Source == (int)HeroRole.Healer);
+                        else if (e.Source == (int)HeroRole.RangedDamage) heroEffects.Queue(e.Source, target);
+                        else LaunchOrb(heroes[e.Source].localPosition, to);
                         break;
                 }
             }
@@ -1177,15 +1309,11 @@ namespace DungeonTycoon.Unity
             return v.sqrMagnitude > .0001f ? v.normalized : Vector3.zero;
         }
 
-        private void Launch(Vector3 from, Vector3 to, bool orb) =>
-            Launch(from, to, orb ? orbPrototype : arrowPrototype, orb ? orbs : arrows, orb);
-
-        private void Launch(Vector3 from, Vector3 to, Transform prototype, Stack<Transform> pool, bool spin)
+        private void LaunchOrb(Vector3 from, Vector3 to)
         {
-            var body = pool.Count > 0 ? pool.Pop() : Instantiate(prototype, transform, false);
+            var body = orbs.Count > 0 ? orbs.Pop() : Instantiate(orbPrototype, transform, false);
             body.gameObject.SetActive(true);
-            flights.Add(new Flight { Body = body, From = from+Vector3.up*.9f, To = to+Vector3.up*.86f, Start = Time.time,
-                Pool = pool, Spin = spin });
+            flights.Add(new Flight { Body = body, From = from+Vector3.up*.9f, To = to+Vector3.up*.86f, Start = Time.time });
         }
 
         /// <summary>
@@ -1202,7 +1330,7 @@ namespace DungeonTycoon.Unity
             if (!spring) return;
             var from = prop.Fresh.localPosition+Vector3.down*.5f;
             for (int i = 0; i < heroes.Length; i++)
-                if (living[i]) Launch(from, heroes[i].localPosition, true);
+                if (living[i]) LaunchOrb(from, heroes[i].localPosition);
         }
 
         public void PlayAdversity(bool success)
@@ -1221,10 +1349,6 @@ namespace DungeonTycoon.Unity
             Draw("남은 체력",fill,meshes,barPrototype,indicatorPalette);
             barPrototype.localScale = Vector3.one*.8f;
 
-            var arrow = new DungeonMesh();
-            arrow.Rod(Vector3.left*.20f, Vector3.right*.14f,.046f,Finish.Ivory);
-            arrow.Rod(Vector3.right*.08f,Vector3.right*.27f,.105f,Finish.Steel,0);
-            arrowPrototype = Draw("화살",arrow,meshes,stock);
             var orb = new DungeonMesh();
             DungeonFigures.Jewel(orb,0,0,0,.2f,.3f,Finish.Mint);
             orbPrototype = Draw("치유 빛",orb,meshes,stock);
@@ -1348,6 +1472,7 @@ namespace DungeonTycoon.Unity
 
         private void LateUpdate()
         {
+            heroEffects?.Update(AttackSpeed);
             if (placementLimitUntil > 0 && Time.unscaledTime >= placementLimitUntil) ClearPlacementLimit();
             LowerObstructingWalls();
             foreach (var foe in foes)
@@ -1402,6 +1527,8 @@ namespace DungeonTycoon.Unity
         private void Update()
         {
             if (!boardCamera || map == null) return;
+            if (planningView)
+                foreach (var route in patrolRoutes) route.Animate(Time.unscaledDeltaTime);
             effects?.Animate();
             if (lastWidth != Screen.width || lastHeight != Screen.height) ApplyCamera();
 
@@ -1490,13 +1617,12 @@ namespace DungeonTycoon.Unity
                 if (t >= 1)
                 {
                     flight.Body.gameObject.SetActive(false);
-                    flight.Pool.Push(flight.Body);
+                    orbs.Push(flight.Body);
                     flights.RemoveAt(i);
                     continue;
                 }
                 flight.Body.localPosition = Vector3.Lerp(flight.From,flight.To,t)+Vector3.up*(.26f*Mathf.Sin(t*Mathf.PI));
-                if (flight.Spin) flight.Body.localRotation = Quaternion.Euler(0,t*360,0);
-                else flight.Body.localRotation = Quaternion.FromToRotation(Vector3.right,flight.To-flight.From);
+                flight.Body.localRotation = Quaternion.Euler(0,t*360,0);
             }
             AnimateFeatures(chestProps);
             AnimateFeatures(springProps);

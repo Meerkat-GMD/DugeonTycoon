@@ -12,7 +12,9 @@ namespace DungeonTycoon.Unity
         Taunt, ShieldWall, PowerStrike, Whirlwind, PiercingShot, RapidFire, MassHeal, Revive,
         WarnSlam, WarnSoulBolt, WarnBeam, WarnMeteor, WarnCleave, WarnShove, WarnTombstones, WarnBomb,
         Reward, ChestLatch, ChestReward, Spring, Step, Click, Down, Clear, Defeat, LevelRise, SkillAwaken,
-        PrayerAnswer, OracleSign, NecromancerMarch, VictoryReprise
+        PrayerAnswer, OracleSign, NecromancerMarch, VictoryReprise,
+        SwordSwing, HeavySwordSwing, Coin, PlacePiece, ChestLid, Title,
+        StartGame, PageTurn, StepSurface, SlamImpact, TombstonesImpact, Prologue
     }
 
     internal sealed class DungeonAudio
@@ -24,26 +26,36 @@ namespace DungeonTycoon.Unity
         private readonly Dictionary<SoundKey, float> levels = new();
         private readonly Dictionary<AudioGroup, int> mix = new();
         private readonly Dictionary<SoundKey, float> nextEffect = new();
-        private readonly SoundKey[] music = { SoundKey.Planning, SoundKey.Exploration, SoundKey.BossBattle,
+        private readonly AudioClip[] stepClips;
+        private readonly AudioClip[] grassSteps;
+        private readonly AudioClip[] stoneSteps;
+        private int nextStep;
+        private readonly SoundKey[] music = { SoundKey.Title, SoundKey.Prologue, SoundKey.Planning, SoundKey.Exploration, SoundKey.BossBattle,
             SoundKey.NecromancerMarch, SoundKey.CryptAmbience };
 
         public DungeonAudio(GameObject owner)
         {
             foreach (AudioGroup group in System.Enum.GetValues(typeof(AudioGroup)))
                 mix[group] = Mathf.Clamp(PlayerPrefs.GetInt("Volume." + group, 100), 0, 200);
+            Register(SoundKey.Title, "cave_in_game", true);
+            Register(SoundKey.Prologue, "PrologueExploration", true);
             Register(SoundKey.Planning, "whispers_in_the_fog", true);
-            Register(SoundKey.Exploration, "rpg_ambience_-_dungeon", true);
+            Register(SoundKey.Exploration, "great_labyrinth_bpm160", true);
             Register(SoundKey.BossBattle, "ghosts_n_heroes_2025_loop", true);
             Register(SoundKey.LootDice, "dice-throw-1", false);
             Register(SoundKey.CryptAmbience, "dark_cavern_ambient_002", true);
-            Register(SoundKey.ShieldImpact, "impactMetal_heavy_000", false, .56f);
-            Register(SoundKey.Hit, "impactGeneric_light_000", false, .16f);
+            Register(SoundKey.ShieldImpact, "Kenney/impactMetal_heavy_003", false, .42f);
+            Register(SoundKey.SlamImpact, "Kenney/impactMining_002", false, .39f);
+            Register(SoundKey.TombstonesImpact, "Kenney/impactMining_004", false, .33f);
+            Register(SoundKey.Hit, "Combat/BodyImpact", false, .23f);
+            Register(SoundKey.SwordSwing, "Combat/SwordSwing", false, .20f);
+            Register(SoundKey.HeavySwordSwing, "Combat/HeavySwordSwing", false, .25f);
             Register(SoundKey.Shot, "impactWood_light_000", false, .16f);
             Register(SoundKey.Heal, "impactGlass_light_000", false, .16f);
             Register(SoundKey.Taunt, "impactBell_heavy_000", false, .28f);
             Register(SoundKey.ShieldWall, "impactMetal_light_000", false, .32f);
-            Register(SoundKey.PowerStrike, "impactPunch_heavy_000", false, .38f);
-            Register(SoundKey.Whirlwind, "impactTin_medium_000", false, .30f);
+            Register(SoundKey.PowerStrike, "Combat/PowerStrike", false, .33f);
+            Register(SoundKey.Whirlwind, "Combat/Whirlwind", false, .31f);
             Register(SoundKey.PiercingShot, "impactPlank_medium_000", false, .30f);
             Register(SoundKey.RapidFire, "impactPlate_light_000", false, .30f);
             Register(SoundKey.MassHeal, "impactGlass_medium_000", false, .30f);
@@ -51,21 +63,39 @@ namespace DungeonTycoon.Unity
             foreach (var key in new[] { SoundKey.WarnSlam, SoundKey.WarnSoulBolt, SoundKey.WarnBeam,
                 SoundKey.WarnMeteor, SoundKey.WarnCleave, SoundKey.WarnShove, SoundKey.WarnTombstones, SoundKey.WarnBomb })
                 Register(key, key.ToString(), false, .26f);
-            Register(SoundKey.ChestLatch, "ChestLatch", false, .33f);
-            Register(SoundKey.ChestReward, "powerup-get", false, .30f);
+            Register(SoundKey.ChestLatch, "Kenney/metalLatch", false, .35f);
+            Register(SoundKey.ChestLid, "Kenney/doorOpen_1", false, .30f);
+            Register(SoundKey.ChestReward, "Kenney/handleCoins", false, .34f);
             Register(SoundKey.LevelRise, "LevelRise", false, .32f);
             Register(SoundKey.SkillAwaken, "SkillAwaken", false, .36f);
             Register(SoundKey.PrayerAnswer, "PrayerAnswer", false, .42f);
             Register(SoundKey.OracleSign, "OracleSign", false, .38f);
             Register(SoundKey.VictoryReprise, "VictoryReprise", false, .48f);
             Register(SoundKey.NecromancerMarch, "NecromancerMarch", true);
-            Register(SoundKey.Reward, "powerup-get", false, .30f);
+            Register(SoundKey.Reward, "Kenney/metalPot1", false, .23f);
+            Register(SoundKey.Coin, "Kenney/handleCoins2", false, .34f);
             Register(SoundKey.Spring, "impactGlass_light_000", false, .24f);
-            Register(SoundKey.Step, "footstep_concrete_000", false, .10f);
-            Register(SoundKey.Click, "ui-click", false, .24f);
-            Register(SoundKey.Down, "life-lost", false, .26f);
-            Register(SoundKey.Clear, "level-complete", false, .36f);
-            Register(SoundKey.Defeat, "game-over", false, .36f);
+            Register(SoundKey.Step, "Kenney/footstep01", false, .14f);
+            stepClips = new[] { sources[SoundKey.Step].clip,
+                Resources.Load<AudioClip>("Audio/Kenney/footstep03"),
+                Resources.Load<AudioClip>("Audio/Kenney/footstep06") };
+            Register(SoundKey.StepSurface, "Kenney/footstep_grass_001", false, .055f);
+            grassSteps = LoadSurfaceSteps("grass");
+            stoneSteps = LoadSurfaceSteps("concrete");
+            Register(SoundKey.Click, "ui-click", false, .18f);
+            Register(SoundKey.StartGame, "Kenney/jingles_PIZZI08", false, .29f);
+            Register(SoundKey.PageTurn, "Kenney/bookFlip3", false, .27f);
+            Register(SoundKey.PlacePiece, "Kenney/bookPlace3", false, .32f);
+            Register(SoundKey.Down, "Combat/HeroFall", false, .39f);
+            Register(SoundKey.Clear, "Kenney/jingles_PIZZI02", false, .36f);
+            Register(SoundKey.Defeat, "Kenney/jingles_PIZZI07", false, .36f);
+
+            AudioClip[] LoadSurfaceSteps(string surface) => new[]
+            {
+                Resources.Load<AudioClip>($"Audio/Kenney/footstep_{surface}_001"),
+                Resources.Load<AudioClip>($"Audio/Kenney/footstep_{surface}_002"),
+                Resources.Load<AudioClip>($"Audio/Kenney/footstep_{surface}_003")
+            };
 
             void Register(SoundKey key, string file, bool loop, float volume = .65f)
             {
@@ -99,27 +129,68 @@ namespace DungeonTycoon.Unity
                 if (GroupOf(key) == group) ApplyVolume(key);
         }
 
-        public void PlayEffect(SoundKey key)
+        private bool CanPlayEffect(SoundKey key, float interval)
         {
             float now = Time.unscaledTime;
-            if (nextEffect.TryGetValue(key, out float next) && now < next) return;
-            nextEffect[key] = now + (key == SoundKey.Step ? .24f : .08f);
-            sources[key].Play();
+            if (nextEffect.TryGetValue(key, out float next) && now < next) return false;
+            nextEffect[key] = now + interval;
+            return true;
+        }
+
+        public void PlayFootstep(int stage)
+        {
+            if (!CanPlayEffect(SoundKey.Step, .24f)) return;
+            var step = sources[SoundKey.Step];
+            var surface = sources[SoundKey.StepSurface];
+            step.clip = stepClips[nextStep];
+            surface.clip = (stage == 1 ? grassSteps : stoneSteps)[nextStep];
+            nextStep = (nextStep + 1) % stepClips.Length;
+            step.Play();
+            surface.Play();
+        }
+
+        public void PlayEffect(SoundKey key)
+        {
+            if (!CanPlayEffect(key, .08f)) return;
+            var source = sources[key];
+            source.Play();
+            if (key == SoundKey.ChestLatch)
+            {
+                var lid = sources[SoundKey.ChestLid];
+                lid.PlayDelayed(source.clip.length);
+                sources[SoundKey.ChestReward].PlayDelayed(source.clip.length + lid.clip.length);
+            }
         }
 
         public void PlayEvents(IReadOnlyList<CombatEvent> events)
         {
+            bool meleeSkillPlayed = false;
             foreach (var e in events)
             {
+                if (e.Kind == CombatEventKind.Attack && e.FromHero)
+                {
+                    switch ((HeroRole)e.Source)
+                    {
+                        case HeroRole.Tank: PlayEffect(SoundKey.SwordSwing); break;
+                        case HeroRole.MeleeDamage when !meleeSkillPlayed: PlayEffect(SoundKey.HeavySwordSwing); break;
+                        case HeroRole.RangedDamage: PlayEffect(SoundKey.Shot); break;
+                    }
+                }
+
                 SoundKey? key = e.Kind switch
                 {
                     CombatEventKind.Attack when e.PushedHero => SoundKey.ShieldImpact,
-                    CombatEventKind.Attack when e.FromHero && e.Source == (int)HeroRole.RangedDamage => SoundKey.Shot,
                     CombatEventKind.Attack => SoundKey.Hit,
                     CombatEventKind.Heal => SoundKey.Heal,
                     CombatEventKind.Chest => SoundKey.ChestLatch,
                     CombatEventKind.Drop => SoundKey.Reward,
                     CombatEventKind.Spring => SoundKey.Spring,
+                    CombatEventKind.PatternFired => (MonsterPattern)e.Amount switch
+                    {
+                        MonsterPattern.Slam => SoundKey.SlamImpact,
+                        MonsterPattern.Tombstones => SoundKey.TombstonesImpact,
+                        _ => null
+                    },
                     CombatEventKind.Pattern => (MonsterPattern)e.Amount switch
                     {
                         MonsterPattern.Slam => SoundKey.WarnSlam,
@@ -148,8 +219,7 @@ namespace DungeonTycoon.Unity
                     _ => null
                 };
                 if (key.HasValue) PlayEffect(key.Value);
-                if (e.Kind == CombatEventKind.Chest)
-                    sources[SoundKey.ChestReward].PlayDelayed(sources[SoundKey.ChestLatch].clip.length);
+                if (key is SoundKey.PowerStrike or SoundKey.Whirlwind) meleeSkillPlayed = true;
             }
         }
 
@@ -162,7 +232,7 @@ namespace DungeonTycoon.Unity
                 {
                     var cast = casts[i];
                     if (cast.Pattern != MonsterPattern.TrackingBeam || cast.Phase != CastPhase.Aiming || !cast.Caster.Alive) continue;
-                    source.pitch = Mathf.Lerp(.85f, 1.8f, Mathf.InverseLerp(cast.StartTick, cast.LockTick, tick));
+                    source.pitch = Mathf.Lerp(.95f, 1.05f, Mathf.InverseLerp(cast.StartTick, cast.LockTick, tick));
                     if (!source.isPlaying) source.Play();
                     return;
                 }
@@ -176,7 +246,12 @@ namespace DungeonTycoon.Unity
             {
                 var source = sources[key];
                 bool ambient = key == SoundKey.CryptAmbience;
-                float volume = ambient ? .085f : MusicVolume;
+                float volume = key switch
+                {
+                    SoundKey.CryptAmbience => .085f,
+                    SoundKey.Exploration => .28f,
+                    _ => MusicVolume
+                };
                 bool active = ambient ? stage == 2 && target == SoundKey.Exploration : key == target;
                 if (active && !source.isPlaying) source.Play();
                 bool duck = !ambient && (praying || sources[SoundKey.PrayerAnswer].isPlaying || sources[SoundKey.OracleSign].isPlaying);

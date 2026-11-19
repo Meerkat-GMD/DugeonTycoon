@@ -50,6 +50,9 @@ namespace DungeonTycoon.Core
         public int experiencePerLevel = 12;
         public int levelAttackGain = 2;
         public int levelHpGain = 5;
+        public int reducedGrowthLevel = 8;
+        public int lateLevelAttackGain = 1;
+        public int lateLevelHpGain = 3;
         public int[] budget = { 6, 9, 12 };
         public int[] placementLimit = { 6, 7, 8 };
         public int[] nearbyPlacementLimit = { 3, 3, 4 };
@@ -78,7 +81,7 @@ namespace DungeonTycoon.Core
 
         public BossBalance graveKnight = new BossBalance { hp = 520, attack = 22, armor = 4, experience = 5, moveTicks = 4, attackTicks = 15 };
         public BossBalance cryptPriest = new BossBalance { hp = 1050, attack = 28, armor = 6, experience = 6, moveTicks = 4, attackTicks = 15 };
-        public BossBalance necromancer = new BossBalance { hp = 3050, attack = 38, armor = 8, experience = 0, moveTicks = 4, attackTicks = 15 };
+        public BossBalance necromancer = new BossBalance { hp = 3800, attack = 48, armor = 8, experience = 0, moveTicks = 4, attackTicks = 15 };
 
         public int[] chestRarePercent = { 15, 30, 50 };
         public int springRelief = 40;
@@ -119,6 +122,17 @@ namespace DungeonTycoon.Core
             }
         }
 
+        internal int AttackGrowth(int level) => Growth(level, levelAttackGain, lateLevelAttackGain);
+
+        internal int HealthGrowth(int level) => Growth(level, levelHpGain, lateLevelHpGain);
+
+        private int Growth(int level, int earlyGain, int lateGain)
+        {
+            int earlyLevels = Math.Min(level, reducedGrowthLevel - 1) - 1;
+            int lateLevels = level - 1 - earlyLevels;
+            return earlyLevels * earlyGain + lateLevels * lateGain;
+        }
+
         /// <summary>A blow of <paramref name="attack"/> against <paramref name="armor"/>, rounded; at least 1 for any attack above 0.</summary>
         public int Mitigate(int attack, int armor)
         {
@@ -149,6 +163,9 @@ namespace DungeonTycoon.Core
             Positive(nameof(armorScale), armorScale);
             Positive(nameof(attackPerRoomAlly), attackPerRoomAlly);
             Positive(nameof(experiencePerLevel), experiencePerLevel);
+            if (reducedGrowthLevel < 2) problems.Add("성장 감소 시작 레벨은 2 이상이어야 합니다.");
+            if (levelAttackGain < 0 || levelHpGain < 0 || lateLevelAttackGain < 0 || lateLevelHpGain < 0)
+                problems.Add("레벨당 공격력과 최대 체력 증가량은 0 이상이어야 합니다.");
             Positive(nameof(faithRecoveryTicks), faithRecoveryTicks);
             Positive(nameof(faithRecoveryCap), faithRecoveryCap);
             Stages(nameof(budget), budget, 0);

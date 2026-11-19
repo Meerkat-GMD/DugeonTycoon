@@ -24,7 +24,8 @@ namespace DungeonTycoon.Core
     /// <see cref="DungeonRun.Springs"/>[<see cref="CombatEvent.Source"/>] and shed <see cref="CombatEvent.Amount"/> steps of
     /// fatigue. Both have Target -1.
     /// </summary>
-    public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill, Pattern, Chest, Spring }
+    /// <remarks>PatternFired는 패턴이 발동할 때 한 번 발생하며, Amount에는 패턴 종류가 들어간다.</remarks>
+    public enum CombatEventKind { Attack, Heal, Taunt, Drop, Skill, Pattern, Chest, Spring, PatternFired }
 
     public sealed class MonsterPlacement
     {

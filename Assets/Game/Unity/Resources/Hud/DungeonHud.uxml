@@ -248,7 +248,7 @@
                     <ui:Button name="brush-archer" class="skill-button placement-button" focusable="false">
                         <ui:VisualElement class="skill-art brush-archer-art" picking-mode="Ignore" />
                         <ui:Label class="skill-title" text="해골 폭탄병" picking-mode="Ignore" />
-                        <ui:Label class="placement-description" text="머리 투척 · 3×3 폭발" picking-mode="Ignore" />
+                        <ui:Label class="placement-description" text="원거리 · 머리 폭탄 3×3" picking-mode="Ignore" />
                         <ui:Label name="detail" class="placement-cost" picking-mode="Ignore" />
                     </ui:Button>
                     <ui:Button name="brush-remove" class="skill-button placement-button" focusable="false">
@@ -397,7 +397,6 @@
         <ui:VisualElement name="title-logo" class="title-logo" picking-mode="Ignore" />
         <ui:VisualElement class="title-menu">
             <ui:Button name="title-new" text="새로 시작" class="title-action title-primary" />
-            <ui:Button name="title-tutorial" text="가이드 다시 보기" class="title-action tutorial-hidden" />
             <ui:Button name="title-quit" text="게임 종료" class="title-action" />
         </ui:VisualElement>
         <ui:VisualElement name="prologue" focusable="true">

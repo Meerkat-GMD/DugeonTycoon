@@ -217,6 +217,7 @@ namespace DungeonTycoon.Core
         {
             cast.Phase = CastPhase.Fired;
             var caster = cast.Caster;
+            events.Add(new CombatEvent(CombatEventKind.PatternFired, false, caster.Id, false, -1, (int)cast.Pattern));
             caster.AttackReady = Math.Max(caster.AttackReady, Ticks + caster.AttackTicks / 2);
             var struck = new List<string>();
             foreach (var role in MarchOrder)

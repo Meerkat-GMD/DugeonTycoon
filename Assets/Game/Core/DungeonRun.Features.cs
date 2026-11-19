@@ -114,6 +114,11 @@ namespace DungeonTycoon.Core
 
         public IReadOnlyList<PatrolSquad> Patrols => patrols;
         public int PatrolMemberCount => patrols.Sum(squad => squad.Members.Count);
+
+        /// <summary>순회로의 어느 지점에서든 이 칸이 순회조의 감지 범위에 들어오는지 검사합니다.</summary>
+        public bool IsWithinPatrolSight(TilePoint tile) =>
+            Map.IsFloor(tile) && patrols.Any(squad => squad.Route.Any(point => InReach(point, tile, DetectRadius)));
+
         public IReadOnlyList<TreasureChest> Chests => chests;
         public IReadOnlyList<Spring> Springs => springs;
 

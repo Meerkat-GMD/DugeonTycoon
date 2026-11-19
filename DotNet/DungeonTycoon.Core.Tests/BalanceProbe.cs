@@ -58,6 +58,8 @@ namespace DungeonTycoon.Core.Tests
         internal sealed class StageReport
         {
             public int Stage, LevelAtBoss = -1, BossTicks, Steps, Gear, Fallen, Chests, Springs, Placed, PlacedKilled, PatrolKilled;
+            public int LowestBeforeBoss = 100, PeakBeforeBoss, FallenBeforeBoss;
+            public bool Cleared;
             public string HpAtBoss = "", Fatigue = "";
         }
 
@@ -77,9 +79,17 @@ namespace DungeonTycoon.Core.Tests
         }
 
         /// <summary>Plays a whole expedition on local decisions, using blessings like the rule check does.</summary>
-        internal static (RunPhase Phase, List<StageReport> Stages, DungeonRun Run) Play(int seed, bool plan, bool bless = true)
+        internal static (RunPhase Phase, List<StageReport> Stages, DungeonRun Run) Play(
+            int seed, bool plan, bool bless = true, Action<DungeonRun> formation = null) =>
+            Play(seed, plan ? PlaceSteady : null, formation, bless);
+
+        private static void PlaceSteady(DungeonRun run) => PlacePlan(run, SteadyPlan[run.Stage - 1]);
+
+        private static (RunPhase Phase, List<StageReport> Stages, DungeonRun Run) Play(
+            int seed, Action<DungeonRun> place, Action<DungeonRun> formation, bool bless = true)
         {
             var run = new DungeonRun(seed);
+            formation?.Invoke(run);
             var reports = new List<StageReport>();
             StageReport current = null;
             int bossStart = 0;
@@ -95,8 +105,7 @@ namespace DungeonTycoon.Core.Tests
                 if (run.Phase == RunPhase.StageCleared) run.AdvanceToNextStage();
                 if (run.Phase == RunPhase.Planning)
                 {
-                    if (plan)
-                        PlacePlan(run, SteadyPlan[run.Stage - 1]);
+                    place?.Invoke(run);
                     run.Start();
                     current = new StageReport { Stage = run.Stage };
                     reports.Add(current);
@@ -115,6 +124,17 @@ namespace DungeonTycoon.Core.Tests
                 else run.Tick();
                 if (run.Stage != stage) continue;
                 if (current.LevelAtBoss >= 0) current.BossTicks = run.Ticks - bossStart;
+                current.Cleared = run.Phase == RunPhase.StageCleared || run.Phase == RunPhase.Victory;
+                if (current.LevelAtBoss < 0 && !run.FightingBoss)
+                {
+                    current.PeakBeforeBoss = Math.Max(current.PeakBeforeBoss, run.Engaged.Count());
+                    for (int i = 0; i < run.Party.Count; i++)
+                    {
+                        var hero = run.Party[i];
+                        current.LowestBeforeBoss = Math.Min(current.LowestBeforeBoss, hero.Hp * 100 / hero.MaxHp);
+                        if (hero.Hp == 0) current.FallenBeforeBoss |= 1 << i;
+                    }
+                }
                 current.Steps = run.StepsTaken;
                 current.Fallen = run.Party.Count(h => h.Hp == 0);
                 current.Chests = run.Chests.Count(c => c.Opened);
@@ -124,6 +144,84 @@ namespace DungeonTycoon.Core.Tests
                 current.PatrolKilled = run.Monsters.Count(m => m.IsPatrol && !m.Alive);
             }
             return (run.Phase, reports, run);
+        }
+
+        internal static void BuildFrontline(DungeonRun run)
+        {
+            run.SetBuild(HeroRole.Tank, new HeroBuild(CombatTrait.Protector, PersonalityTrait.CautiousGuide, maxHp: 8, armor: 2));
+            run.SetBuild(HeroRole.Healer, new HeroBuild(CombatTrait.Triage, PersonalityTrait.CautiousGuide, maxHp: 6, speed: 4));
+            run.SetBuild(HeroRole.MeleeDamage, new HeroBuild(CombatTrait.Finisher, PersonalityTrait.Challenger, maxHp: 5, attack: 5));
+        }
+
+        private static void BuildRearline(DungeonRun run)
+        {
+            run.SetBuild(HeroRole.Healer, new HeroBuild(CombatTrait.Triage, PersonalityTrait.CautiousGuide, maxHp: 5, speed: 5));
+            run.SetBuild(HeroRole.RangedDamage, new HeroBuild(CombatTrait.QuickFeet, PersonalityTrait.Curious, maxHp: 3, attack: 3, speed: 4));
+        }
+
+        private static void BuildAllAttack(DungeonRun run)
+        {
+            foreach (HeroState hero in run.Party)
+                run.SetBuild(hero.Role, new HeroBuild(hero.Build.Combat, hero.Build.Personality, attack: 10));
+        }
+
+        private static void PlaceRandomly(DungeonRun run)
+        {
+            var random = new Random(unchecked(run.Seed * 7919 + run.Stage));
+            var tiles = DungeonRunTests.PlaceableTiles(run);
+            foreach (var entry in SteadyPlan[run.Stage - 1])
+            {
+                var legal = tiles.Where(tile => run.CheckPlace(tile, entry.Kind) == PlacementCheck.Allowed).ToArray();
+                run.Place(legal[random.Next(legal.Length)], entry.Kind);
+            }
+        }
+
+        private static void PlaceClustered(DungeonRun run, int stage)
+        {
+            if (run.Stage != stage) { PlaceSteady(run); return; }
+            PlacePlan(run, stage == 2
+                ? new[] { (26, 18, MonsterKind.Zombie), (38, 18, MonsterKind.Ghost), (26, 18, MonsterKind.Skeleton),
+                          (26, 19, MonsterKind.Skeleton), (36, 5, MonsterKind.Skeleton), (36, 5, MonsterKind.Skeleton) }
+                : new[] { (26, 17, MonsterKind.Zombie), (26, 16, MonsterKind.Archer), (26, 16, MonsterKind.Ghost),
+                          (17, 30, MonsterKind.Skeleton), (26, 17, MonsterKind.Skeleton), (8, 12, MonsterKind.Skeleton),
+                          (8, 12, MonsterKind.Archer) });
+        }
+
+        private static string Median(IEnumerable<int> values)
+        {
+            var sorted = values.OrderBy(value => value).ToArray();
+            return sorted.Length == 0 ? "-" : ((sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) / 2.0).ToString("0.#");
+        }
+
+        [Test]
+        public void Strategies()
+        {
+            var seeds = Seeds(100);
+            var formations = new (string Name, Action<DungeonRun> Apply)[]
+            {
+                ("기본", null), ("전원 공격력 투자", BuildAllAttack), ("전열 생존", BuildFrontline), ("후열 회피", BuildRearline)
+            };
+            var plans = new (string Name, Action<DungeonRun> Place)[]
+            {
+                ("빈 던전", null), ("무작위", PlaceRandomly), ("길목 분산", PlaceSteady),
+                ("2스테이지 집중", run => PlaceClustered(run, 2)), ("3스테이지 집중", run => PlaceClustered(run, 3))
+            };
+            TestContext.Out.WriteLine($"| 시드 {seeds.Length}개 · 로컬 판단 · 축복 자동 사용 · 스테이지별 수치는 1/2/3 순서");
+            foreach (var plan in plans)
+            foreach (var formation in formations)
+            {
+                var result = PerSeed(seeds, seed => Play(seed, plan.Place, formation.Apply));
+                int unfinished = result.Count(run => run.Phase != RunPhase.Victory && run.Phase != RunPhase.Defeat);
+                var stages = Enumerable.Range(1, DungeonRun.FinalStage)
+                    .Select(stage => result.SelectMany(run => run.Stages).Where(report => report.Stage == stage).ToArray()).ToArray();
+                string PerStage(Func<StageReport[], string> format) => string.Join("/", stages.Select(format));
+                TestContext.Out.WriteLine($"| {plan.Name} · {formation.Name} · 승리 {result.Count(run => run.Phase == RunPhase.Victory)}/{seeds.Length}" +
+                    $" · 미종료 {unfinished} · 통과 {PerStage(group => group.Count(s => s.Cleared).ToString())}" +
+                    $" · 보스전 전 쓰러진 원정 {PerStage(group => group.Count(s => s.FallenBeforeBoss != 0).ToString())}" +
+                    $" · 최저 체력 중앙값 % {PerStage(group => Median(group.Select(s => s.LowestBeforeBoss)))}" +
+                    $" · 동시 교전 최대치 중앙값 {PerStage(group => Median(group.Select(s => s.PeakBeforeBoss)))}" +
+                    $" · 보스 진입 레벨 중앙값 {PerStage(group => Median(group.Where(s => s.LevelAtBoss > 0).Select(s => s.LevelAtBoss)))}");
+            }
         }
 
         internal sealed class FightReport

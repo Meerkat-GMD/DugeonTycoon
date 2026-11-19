@@ -40,6 +40,8 @@ dotnet test DotNet/DungeonTycoon.Core.Tests/DungeonTycoon.Core.Tests.csproj --fi
 
 표 두 개가 나온다. 첫 표는 빈 던전과 길목 배치의 원정 승률, 최종 보스 앞 레벨, 최종 보스전 시간과 승리 시간 중앙값을 보여 준다. 승리 시간은 배치·대화·선택 대기를 제외한 진행 시간이다. 둘째 표는 스테이지마다 예산을 다 쓴 배치에서 가장 약해진 용사의 체력과 쓰러짐·전멸 수다. 시드를 늘려 더 안정된 숫자를 보려면 `-Seeds 12`를 붙인다. 시드별 자세한 기록은 `BalanceProbe`의 `PrintExpeditions`, `PrintFullBudgetFights`를 필터로 실행해 본다.
 
+편성과 배치가 원정에 미치는 영향을 확인하려면 `.\scripts\harness.ps1 strategy -Seeds 100`을 실행한다. 기본·공격력 집중·전열 생존·후열 회피 편성을 같은 시드에서 비교한다. 무작위와 길목 분산은 같은 몬스터와 예산을 쓰고, 특정 스테이지의 집중 배치는 해당 스테이지의 위치만 바꾼다. 표에는 승리와 미종료 원정 수, 스테이지별 통과·쓰러짐과 보스 진입 레벨을 표시한다.
+
 - 키 이름은 [BalanceTable](Assets/Game/Core/BalanceTable.cs)의 필드 이름이다. 예산·배치 한도·역경 난이도·상자 희귀 확률은 1·2·3스테이지 순서의 목록이다. `placementLimit`은 스테이지 전체, `nearbyPlacementLimit`은 걸어서 4칸 이내의 배치 한도다. 일반 몬스터 능력치는 모든 스테이지에 같은 한 값이다. `armorScale`은 피해 공식의 방어 기준값이다. Unity의 JsonUtility가 주석을 읽지 못하므로 파일에 주석을 넣지 않는다.
 - 게임은 새 원정을 시작할 때마다 파일을 다시 읽는다. 에디터에서 파일을 고친 뒤 Unity가 다시 임포트하면 다음 원정부터 적용된다. 파일이 없거나 값이 잘못되면 콘솔에 이유를 남기고 코드의 기본값을 쓴다.
 - Core 테스트도 같은 파일을 읽는다. 값을 바꾸면 `.\scripts\harness.ps1 test`로 규칙 검증(빈 던전 패배·길목 배치 승리 등)을 다시 확인한다. 파일에 빠진 키나 오타가 있으면 `BalanceFileTests`가 실패한다.
@@ -63,6 +65,17 @@ Get-Command unity | Select-Object -ExpandProperty Source
 화면이 뿌옇게 보이면 코드를 고치기 전에 Game 뷰부터 확인한다. 고정 해상도(예: Full HD)가 창보다 크면 Unity가 프레임 전체를 축소해 보여 주고, Windows 배율이 100%가 아닐 때 Low Resolution Aspect Ratios가 켜져 있으면 작게 그린 뒤 늘려서 보여 준다. 선명도를 판단할 때는 Free Aspect에 Low Resolution을 끈 상태로 본다.
 
 Windows의 D3D12 에디터에서 전투가 간헐적으로 멈추면 Unity Profiler에서 느린 프레임의 `WaitForLastPresentation` 시간과 GPU 시간을 함께 본다. 이 대기가 길면 메인 스레드가 이전 프레임의 화면 표시를 기다렸다는 뜻이다. Game 뷰의 `VSync (Game view only)` 설정과 모니터 주사율을 기록하고, Windows 장치 관리자에서 실제 사용 중인 디스플레이 드라이버 버전을 확인한다. 이 프로젝트의 노트북 RTX 2060에서는 144Hz·Game 뷰 VSync 켜짐 조건으로 NVIDIA 431.62에서 약 790ms의 대기를 재현했다. 드라이버를 바꿔 비교할 때는 에디터를 다시 열고 같은 조건에서 개별 프레임이 16.67ms를 넘긴 횟수도 확인한다.
+
+## Windows 플레이어를 빌드할 때
+
+프로젝트를 연 에디터에 공식 Unity CLI로 연결한 뒤 `Windows Release` 프로필을 사용한다. 이 프로필은 Windows 64비트 배포 빌드를 만들며 프로젝트의 공용 씬 목록을 사용한다. 현재 시작 씬은 `Assets/Scenes/SampleScene.unity`다.
+
+```powershell
+unity command --project-path . build run --profile-name 'Windows Release' --output-path 'Builds/Windows/DungeonTycoon.exe' --confirm true
+unity command --project-path . build status
+```
+
+빌드는 비동기로 진행된다. `build status`에서 `completed`와 빌드 결과를 확인한다. 설정만 검증하려면 첫 명령의 `--confirm true`를 `--dry-run true`로 바꾼다.
 
 ## HUD를 고칠 때
 

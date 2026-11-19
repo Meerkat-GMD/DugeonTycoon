@@ -4,6 +4,9 @@
     "experiencePerLevel": 12,
     "levelAttackGain": 2,
     "levelHpGain": 5,
+    "reducedGrowthLevel": 8,
+    "lateLevelAttackGain": 1,
+    "lateLevelHpGain": 3,
     "budget": [6, 9, 12],
     "placementLimit": [6, 7, 8],
     "nearbyPlacementLimit": [3, 3, 4],
@@ -20,7 +23,7 @@
 
     "graveKnight": { "hp": 520, "attack": 22, "armor": 4, "experience": 5, "moveTicks": 4, "attackTicks": 15 },
     "cryptPriest": { "hp": 1050, "attack": 28, "armor": 6, "experience": 6, "moveTicks": 4, "attackTicks": 15 },
-    "necromancer": { "hp": 3050, "attack": 38, "armor": 8, "experience": 0, "moveTicks": 4, "attackTicks": 15 },
+    "necromancer": { "hp": 3800, "attack": 48, "armor": 8, "experience": 0, "moveTicks": 4, "attackTicks": 15 },
 
     "chestRarePercent": [15, 30, 50],
     "springRelief": 40,

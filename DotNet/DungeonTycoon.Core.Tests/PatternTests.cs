@@ -430,10 +430,13 @@ namespace DungeonTycoon.Core.Tests
             Assert.Fail("no layout had a pattern land and a hero dodge");
         }
 
-        [Test]
-        public void TombstonesMarkTwoHeroesAndOnlyHitTheOriginalTiles()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void TombstonesFireOnceAndOnlyHitTheOriginalTiles(bool bothDodged)
         {
             var run = Arena(MonsterKind.Ghost);
+            while (run.Casts.Any(c => c.Phase != CastPhase.Fired))
+                Assert.That(run.Tick(), Is.True);
             var ghost = Foe(run);
             Put(ghost, 33, 4);
             Put(run, HeroRole.RangedDamage, 36, 4);
@@ -441,8 +444,17 @@ namespace DungeonTycoon.Core.Tests
             var cast = run.ForceCast(ghost, MonsterPattern.Tombstones, HeroRole.RangedDamage);
             Assert.That(cast.Area, Is.EquivalentTo(new[] { new TilePoint(36,4), new TilePoint(34,4) }));
             Put(run, HeroRole.Tank, 34, 5);
-            TickUntilFired(run, cast);
-            Assert.That(cast.Hits, Is.EquivalentTo(new[] { (int)HeroRole.RangedDamage }));
+            if (bothDodged) Put(run, HeroRole.RangedDamage, 36, 5);
+            while (run.Ticks < cast.FireTick - 1) run.Tick();
+            run.TakeEvents();
+            run.Tick();
+            Assert.That(cast.Phase, Is.EqualTo(CastPhase.Fired));
+            bool FiredTombstones(CombatEvent e) => e.Kind == CombatEventKind.PatternFired &&
+                e.Source == ghost.Id && e.Amount == (int)MonsterPattern.Tombstones;
+            Assert.That(run.TakeEvents().Count(FiredTombstones), Is.EqualTo(1));
+            Assert.That(cast.Hits, Is.EquivalentTo(bothDodged ? System.Array.Empty<int>() : new[] { (int)HeroRole.RangedDamage }));
+            run.Tick();
+            Assert.That(run.TakeEvents().Any(FiredTombstones), Is.False);
         }
 
         [TestCase(false)]

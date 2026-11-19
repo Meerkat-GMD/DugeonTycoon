@@ -122,9 +122,16 @@ namespace DungeonTycoon.Unity
         {
             var check = kind == MonsterKind.None ? Run.CheckRemove(tile) : Run.CheckPlace(tile, kind);
             if (check != PlacementCheck.Allowed) return check;
-            if (kind == MonsterKind.None) Run.Remove(tile);
-            else Run.Place(tile, kind);
-            PlayButtonSound();
+            if (kind == MonsterKind.None)
+            {
+                Run.Remove(tile);
+                PlayButtonSound();
+            }
+            else
+            {
+                Run.Place(tile, kind);
+                dungeonAudio.PlayEffect(SoundKey.PlacePiece);
+            }
             RefreshLayout();
             return check;
         }
@@ -148,6 +155,8 @@ namespace DungeonTycoon.Unity
         {
             SoundKey? music = Run.Phase switch
             {
+                RunPhase.Planning when hud.TitleVisible => SoundKey.Title,
+                RunPhase.Planning when hud.PrologueVisible => SoundKey.Prologue,
                 RunPhase.Planning when hud.DungeonVisible => SoundKey.Planning,
                 RunPhase.Combat when Run.FightingBoss =>
                     Run.Stage == 3 ? SoundKey.NecromancerMarch : SoundKey.BossBattle,
@@ -199,8 +208,8 @@ namespace DungeonTycoon.Unity
                 if (accumulator > TickSeconds*budget) accumulator = 0;
             }
             if (SelectedHero >= 0 && run.Party[SelectedHero].Hp == 0) SelectHero(-1);
-            if (run.LeaderTile != leaderBefore) dungeonAudio.PlayEffect(SoundKey.Step);
-            if (run.Coins != coinsBefore) dungeonAudio.PlayEffect(SoundKey.Reward);
+            if (run.LeaderTile != leaderBefore) dungeonAudio.PlayFootstep(run.Stage);
+            if (run.Coins != coinsBefore) dungeonAudio.PlayEffect(SoundKey.Coin);
             foreach (var hero in run.Party)
                 if (hero.Hp == 0 && (standingBefore & (1 << (int)hero.Role)) != 0)
                     dungeonAudio.PlayEffect(SoundKey.Down);

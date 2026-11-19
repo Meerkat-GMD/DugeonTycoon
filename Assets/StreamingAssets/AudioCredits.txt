@@ -1,13 +1,16 @@
 Dungeon Tycoon audio credits
 
-RPG Ambience - Dungeon by HitCtrl
-https://opengameart.org/content/rpg-ambience-dungeon
-Creative Commons Attribution 3.0 Unported
-https://creativecommons.org/licenses/by/3.0/
-Original OGG supplied without edits.
-
 The following recordings are released under CC0 1.0.
 https://creativecommons.org/publicdomain/zero/1.0/
+
+타이틀 화면 배경음악은 beardalaxy의 《Mysterious Cave Theme Loop》를 사용했습니다.
+https://opengameart.org/content/mysterious-cave-theme-loop
+
+프롤로그 컷씬 배경음악은 RandomMind의 《Medieval: Exploration》을 사용했습니다.
+https://opengameart.org/content/medieval-exploration
+
+던전 탐험과 일반 전투 배경음악은 MintoDog의 Great Labyrinth를 사용했습니다.
+https://opengameart.org/content/great-labyrinthorchestral-dungeon-music
 
 Whispers in the Fog by Ruhinre
 https://opengameart.org/content/whispers-in-the-fog
@@ -25,3 +28,15 @@ https://kenney.nl/assets/impact-sounds
 Interface Sounds and Music Jingles by Kenney (CC0)
 https://kenney.nl/assets/interface-sounds
 https://kenney.nl/assets/music-jingles
+
+전투 예고음은 CC0 1.0 음원을 편집해 사용했습니다.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+추적 레이저 조준음은 dslrguide의 Metal Scrape를 사용했습니다.
+https://freesound.org/people/dslrguide/sounds/321480/
+
+메테오 예고음은 wjl의 Short-Fireball-Woosh.flac을 사용했습니다.
+https://freesound.org/people/wjl/sounds/267887/
+
+크게 베기 예고음은 Kenney의 RPG Audio에 포함된 drawKnife3.ogg를 사용했습니다.
+https://kenney.nl/assets/rpg-audio

@@ -26,10 +26,15 @@ namespace DungeonTycoon.Unity
         private DungeonGame game;
         private UIDocument document;
         private PanelSettings panel;
-        private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen;
+        private VisualElement hud, bossBar, bossFill, party, bottom, history, titleScreen, titleMenu, prologue;
+        private IVisualElementScheduledItem titleEntrance;
         private VisualElement gameOver, gameOverLayout, victoryPage, victoryLayout, confetti;
         private Button defeatRestart, victoryTitle, stageContinue;
         internal bool DungeonVisible => hud != null && titleScreen.style.display == DisplayStyle.None;
+        internal bool TitleVisible => titleMenu != null && titleScreen.style.display != DisplayStyle.None &&
+            titleMenu.style.display != DisplayStyle.None;
+        internal bool PrologueVisible => prologue != null && titleScreen.style.display != DisplayStyle.None &&
+            prologue.style.display != DisplayStyle.None;
         private VisualElement interventionPage, speedGroup, dialogueStage;
         private Label stageNumber, stageName, bossTag, bossName, bossHp, pauseBanner, aiMode;
         private Label hint, budget, placementCount, faith, expeditionFaith, partyLevel, summaryTitle, summaryDetail;
@@ -119,7 +124,7 @@ namespace DungeonTycoon.Unity
             {
                 var target = e.target as VisualElement;
                 var button = target as Button ?? target?.GetFirstAncestorOfType<Button>();
-                if (button != null && button.enabledInHierarchy) game.PlayButtonSound();
+                if (button != null && button.enabledInHierarchy && button.name != "title-new") game.PlayButtonSound();
             }, TrickleDown.TrickleDown);
             game.EventsPlayed += OnCombatEvents;
         }
@@ -143,10 +148,11 @@ namespace DungeonTycoon.Unity
             tipFact = planningTip.Q<Label>("fact");
             hud.style.display = DisplayStyle.None;
             titleScreen = root.Q("title-screen");
+            titleMenu = titleScreen.Q(className: "title-menu");
             var newGame = titleScreen.Q<Button>("title-new");
             BindTutorial(root);
             BindPrologue(newGame);
-            newGame.schedule.Execute(() => newGame.Focus());
+            EnterTitle(newGame);
             titleScreen.Q<Button>("title-quit").clicked += QuitGame;
             stageNumber = root.Q<Label>("stage-number");
             stageName = root.Q<Label>("stage-name");
@@ -191,8 +197,7 @@ namespace DungeonTycoon.Unity
                 Show(gameOver,false);
                 Show(hud,false);
                 hud.SetEnabled(true);
-                Show(titleScreen,true);
-                newGame.Focus();
+                EnterTitle(newGame);
             }
             stageClearPage = root.Q("stage-clear");
             stageClearLayout = stageClearPage.Q("stage-clear-layout");
@@ -323,6 +328,16 @@ namespace DungeonTycoon.Unity
 
         // ── Frame ────────────────────────────────────────────────────────
 
+        private void EnterTitle(Button newGame)
+        {
+            Show(titleScreen,true);
+            titleEntrance = titleScreen.schedule.Execute(() =>
+            {
+                newGame.Focus();
+                titleEntrance = titleScreen.schedule.Execute(() => titleScreen.AddToClassList("title-entered"));
+            });
+        }
+
         private void BindPrologue(Button newGame)
         {
             var pages = new (string Art, string Caption)[] {
@@ -331,7 +346,7 @@ namespace DungeonTycoon.Unity
                 ("ChosenParty", "가엾게 여긴 신이 직접 용사들을 육성하기로 했어요."),
                 ("DungeonMap", "용사 파티 수준에 맞는 적을 적절히 배치하여 용사를 성장시키고 네크로 맨서를 무찌르세요!")
             };
-            var prologue = titleScreen.Q("prologue");
+            prologue = titleScreen.Q("prologue");
             var art = prologue.Q<Image>("prologue-art");
             var caption = prologue.Q<Label>("prologue-caption");
             var skip = prologue.Q<Button>("prologue-skip");
@@ -347,30 +362,31 @@ namespace DungeonTycoon.Unity
             {
                 Show(titleScreen,false);
                 Show(prologue,false);
-                Show(titleScreen.Q(className: "title-menu"),true);
+                Show(titleMenu,true);
                 Show(titleScreen.Q("title-logo"),true);
                 hud.style.display = DisplayStyle.Flex;
             }
 
             void BeginPrologue()
             {
+                titleEntrance?.Pause();
                 page = 0;
-                titleScreen.Q(className: "title-menu").style.display = DisplayStyle.None;
+                Show(titleMenu,false);
                 titleScreen.Q("title-logo").style.display = DisplayStyle.None;
+                titleScreen.RemoveFromClassList("title-entered");
                 prologue.style.display = DisplayStyle.Flex;
                 ShowPage();
                 prologue.Focus();
             }
 
-            newGame.clicked += BeginPrologue;
-            titleScreen.Q<Button>("title-tutorial").clicked += () =>
+            newGame.clicked += () =>
             {
-                SetTutorialSeen(false);
+                game.Audio.PlayEffect(SoundKey.StartGame);
                 BeginPrologue();
             };
-
             void Advance()
             {
+                game.Audio.PlayEffect(SoundKey.PageTurn);
                 if (++page == pages.Length) Finish();
                 else ShowPage();
             }
@@ -902,7 +918,7 @@ namespace DungeonTycoon.Unity
         {
             var features = new List<string>();
             if (run.Patrols.Count > 0)
-                features.Add($"고정 순회조 {run.Patrols.Count}조 {run.PatrolMemberCount}마리 · 바닥의 색 선을 따라 돎");
+                features.Add($"고정 순회조 {run.Patrols.Count}조 {run.PatrolMemberCount}마리\n금색 칸 · 순회조와 교전이 겹칠 수 있음");
             var props = new List<string>();
             if (run.Chests.Count > 0) props.Add($"보물 상자 {run.Chests.Count}");
             if (run.Springs.Count > 0) props.Add($"샘물 {run.Springs.Count}");
@@ -1104,15 +1120,20 @@ namespace DungeonTycoon.Unity
             }
 
             if (onTile && !panning)
-            {
-                var check = brush == MonsterKind.None ? run.CheckRemove(tile) : run.CheckPlace(tile,brush);
-                game.Board.SetHover(run.Map.IsFloor(tile) ? tile : (TilePoint?)null,check == PlacementCheck.Allowed);
-            }
+                UpdatePlacementHover(run, tile);
             else game.Board.SetHover(null,false);
             if (inputOpen && !panning && !game.Presenting && picked != null && skillTiles.TryGetValue(picked, out var hovered))
                 UpdateSkillTip(run, picked, hovered.Role, hovered.Slot);
             else
                 UpdatePlanningTip(run, mouse, editing && !panning && !game.Presenting);
+        }
+
+        private void UpdatePlacementHover(DungeonRun run, TilePoint tile)
+        {
+            var check = brush == MonsterKind.None ? run.CheckRemove(tile) : run.CheckPlace(tile, brush);
+            bool allowed = check == PlacementCheck.Allowed;
+            bool nearPatrol = allowed && brush != MonsterKind.None && run.IsWithinPatrolSight(tile);
+            game.Board.SetHover(run.Map.IsFloor(tile) ? tile : (TilePoint?)null, allowed, nearPatrol);
         }
 
         private void UpdateSkillTip(DungeonRun run, VisualElement tile, HeroRole role, int slot)

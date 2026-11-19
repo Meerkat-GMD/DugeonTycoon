@@ -1032,12 +1032,25 @@
     top: 163px;
     width: 732px;
     height: 310px;
-    translate: -13px 0;
+    opacity: 0;
+    translate: -13px -16px;
     background-image: url("TitleLogo.png");
 }
 .title-menu {
     position: absolute;
     bottom: 196px;
+    opacity: 0;
+    translate: 0 12px;
+}
+.title-entered .title-logo {
+    opacity: 1;
+    translate: -13px 0;
+    transition: opacity 420ms ease-out, translate 420ms ease-out;
+}
+.title-entered .title-menu {
+    opacity: 1;
+    translate: 0 0;
+    transition: opacity 300ms ease-out 100ms, translate 300ms ease-out 100ms;
 }
 .ending-overlay {
     display: none;

@@ -411,7 +411,7 @@ namespace DungeonTycoon.Core
         }
 
         private int HitDamage(HeroState hero, MonsterState monster) =>
-            Mitigate(hero.Attack + LevelAttackGain * (Level - 1) - FatigueAttackPenalty, monster.Armor);
+            Mitigate(hero.Attack + LevelAttackBonus - FatigueAttackPenalty, monster.Armor);
 
         /// <summary>Deals the damage; a monster brought down gives experience and loot, and the boss clears the stage.</summary>
         private void Hit(HeroState hero, MonsterState monster, int damage)

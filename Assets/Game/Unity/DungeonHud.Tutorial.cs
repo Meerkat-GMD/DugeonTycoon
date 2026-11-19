@@ -9,12 +9,13 @@ namespace DungeonTycoon.Unity
     {
         private const string TutorialSeenKey = "StageOneTutorialSeen";
         private const float TutorialNoticeSeconds = 5f;
-        private static readonly TilePoint TutorialTile = new TilePoint(5, 21);
+        private static readonly TilePoint TutorialTile = new TilePoint(10, 23);
+        private static readonly TilePoint TutorialSecondTile = new TilePoint(28, 6);
 
         private VisualElement tutorialCard, tutorialConnector, tutorialFocus;
         private bool tutorialFocusPulses;
         private Label tutorialTitle, tutorialBody, tutorialCarryover;
-        private Button tutorialSkip, tutorialContinue, tutorialReplay;
+        private Button tutorialSkip, tutorialContinue;
         private bool tutorialActive, tutorialSelectedSkeleton, tutorialPlaced, tutorialOracleSeen, tutorialPrayerSeen;
         private bool tutorialXpSeen, tutorialBlessSeen, tutorialChestSeen, tutorialFatigueSeen, tutorialDeparted;
         private int tutorialPausedSpeed;
@@ -33,17 +34,8 @@ namespace DungeonTycoon.Unity
             tutorialContinue = tutorialCard.Q<Button>("tutorial-continue");
             tutorialSkip = root.Q<Button>("tutorial-skip");
             tutorialCarryover = root.Q<Label>("tutorial-carryover");
-            tutorialReplay = root.Q<Button>("title-tutorial");
             tutorialSkip.clicked += DismissTutorial;
             tutorialContinue.clicked += ResumeTutorialPause;
-            Show(tutorialReplay, PlayerPrefs.GetInt(TutorialSeenKey) != 0);
-        }
-
-        private void SetTutorialSeen(bool seen)
-        {
-            PlayerPrefs.SetInt(TutorialSeenKey, seen ? 1 : 0);
-            PlayerPrefs.Save();
-            Show(tutorialReplay, seen);
         }
 
         private void ResetTutorial(DungeonRun run)
@@ -58,7 +50,8 @@ namespace DungeonTycoon.Unity
         private void DismissTutorial()
         {
             tutorialActive = false;
-            SetTutorialSeen(true);
+            PlayerPrefs.SetInt(TutorialSeenKey, 1);
+            PlayerPrefs.Save();
             ResumeTutorialPause();
             HideTutorialCard();
             Show(tutorialSkip, false);
@@ -182,11 +175,21 @@ namespace DungeonTycoon.Unity
         {
             bool hasPlacement = tutorialPlaced || run.Placements.Count > 0;
             bool collapsed = bottom.ClassListContains("collapsed");
+            bool showSecond = !collapsed && brush == MonsterKind.Skeleton && run.Placements.Count == 1 &&
+                run.CountAt(TutorialTile) == 1 && run.Placements[0].Kind == MonsterKind.Skeleton &&
+                run.CheckPlace(TutorialSecondTile, MonsterKind.Skeleton) == PlacementCheck.Allowed;
             if (hasPlacement)
             {
-                game.Board.SetTutorialPreview(null);
+                game.Board.SetTutorialPreview(showSecond ? TutorialSecondTile : (TilePoint?)null);
+                if (showSecond && game.Board.TryTutorialTileScreenPoint(TutorialSecondTile, out var nextPoint))
+                {
+                    ShowTutorialCard("두 번째 교전을 나눠 보세요",
+                        "두 번째 해골 검사는 보스방으로 가는 길에 따로 둘 수 있습니다. 준비가 끝났다면 출발해도 됩니다.",
+                        budget, nextPoint);
+                    return;
+                }
                 ShowTutorialCard("전투가 몰리지 않게 배치하세요",
-                    "배치 지우기로 위협 예산을 돌려받습니다. 순회로와 떨어진 길목에 적을 나눠 두면 전투가 겹칠 위험을 줄일 수 있습니다.",
+                    "금색으로 표시되는 칸에서는 순회조와 교전이 겹칠 수 있습니다. 두 길목에 적을 나눠 두면 따로 싸우기 쉽습니다.",
                     collapsed ? collapse : budget);
                 return;
             }
