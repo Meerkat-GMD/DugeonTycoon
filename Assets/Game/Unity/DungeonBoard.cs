@@ -327,7 +327,8 @@ namespace DungeonTycoon.Unity
                 var prefab = Resources.Load<GameObject>("MainCharacters/" + HeroModels[i]);
                 var model = Instantiate(prefab, heroes[i], false);
                 model.transform.localPosition = Vector3.up * .14f;
-                model.transform.localRotation = Quaternion.Euler(0, 180, 0);
+                // The stand faces local -Z. Keep each prefab's authored forward-axis correction.
+                model.transform.localRotation = Quaternion.Euler(0, 180, 0) * prefab.transform.localRotation;
                 heroAnimators[i] = model.GetComponentInChildren<Animator>();
                 heroAnimators[i].applyRootMotion = false;
                 heroAnimators[i].SetBool(IdleParameter, true);
