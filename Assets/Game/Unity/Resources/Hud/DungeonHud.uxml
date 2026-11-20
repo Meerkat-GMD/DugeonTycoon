@@ -405,4 +405,25 @@
             <ui:Button name="prologue-skip" class="prologue-action" text="Skip" />
         </ui:VisualElement>
     </ui:VisualElement>
+    <ui:VisualElement name="pause-menu" class="hud pause-overlay">
+        <ui:VisualElement class="pause-box">
+            <ui:Label class="pause-title" text="일시정지" />
+            <ui:VisualElement name="pause-actions">
+                <ui:Button name="pause-resume" class="chip pause-button pause-resume" text="계속하기" />
+                <ui:Button name="pause-open-audio" class="chip pause-button" text="음량" />
+                <ui:Button name="pause-fullscreen" class="chip pause-button" />
+                <ui:Button name="pause-title" class="chip pause-button pause-leave" text="타이틀로" />
+            </ui:VisualElement>
+            <ui:VisualElement name="pause-audio" class="pause-subpage">
+                <ui:Button name="pause-audio-back" class="chip pause-button" text="뒤로" />
+            </ui:VisualElement>
+            <ui:VisualElement name="pause-confirm" class="pause-subpage">
+                <ui:Label class="pause-message" text="타이틀로 돌아가면 현재 원정 진행이 사라집니다." />
+                <ui:VisualElement class="pause-confirm-buttons">
+                    <ui:Button name="pause-cancel-title" class="chip pause-button" text="취소" />
+                    <ui:Button name="pause-confirm-title" class="chip pause-button pause-leave" text="타이틀로" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
 </ui:UXML>

@@ -6,7 +6,7 @@ namespace DungeonTycoon.Unity
     internal enum Finish
     {
         Ink, Basalt, Slate, Flagstone, Ash, Ivory, Brass, Gold, Wood, Leather,
-        Steel, Teal, Mint, Leaf, Plum, Crimson, Ember, Flame, Skin
+        Steel, Teal, Mint, Leaf, Plum, Crimson, Ember, Flame, Skin, FadedCrimson
     }
 
     // Each prop is one flat-shaded mesh. Faces with the same finish share a submesh.

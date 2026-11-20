@@ -233,6 +233,58 @@
 .hud .audio-name { width: 49px; }
 .hud .audio-value { width: 44px; -unity-text-align: middle-right; }
 
+.hud.pause-overlay {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(7, 11, 14, 0.72);
+}
+
+.hud .pause-box {
+    width: 288px;
+    padding: 15px 19px 19px;
+    background-color: var(--panel);
+    border-width: 1px;
+    border-color: var(--edge);
+    border-top-width: 3px;
+    border-top-color: var(--gold);
+}
+
+.hud .pause-title {
+    margin-bottom: 12px;
+    color: var(--gold);
+    font-size: 22px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.hud .pause-button {
+    height: 34px;
+    margin: 3px 0;
+    border-width: 1px;
+    border-color: var(--edge);
+}
+
+.hud .pause-button:focus { border-color: var(--gold); }
+.hud .pause-resume { background-color: var(--chosen); color: var(--teal); }
+.hud .pause-resume:hover { background-color: #45665c; }
+.hud .pause-leave { color: var(--ember); }
+
+.hud .pause-subpage { display: none; }
+.hud .pause-message { margin: 0 0 12px; white-space: normal; font-size: 14px; }
+.hud .pause-confirm-buttons { flex-direction: row; }
+.hud .pause-confirm-buttons .pause-button { flex-grow: 1; }
+.hud .pause-confirm-buttons .pause-leave { margin-left: 8px; }
+
+.hud .audio-panel.pause-volume {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+    padding: 0 0 8px;
+    border-top-width: 0;
+}
+
 /* ── Party column ────────────────────────────────────────────────── */
 
 .hud .party {

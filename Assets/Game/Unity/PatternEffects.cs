@@ -30,6 +30,7 @@ namespace DungeonTycoon.Unity
         private sealed class Fx
         {
             public PatternCast Cast;
+            public bool GraveKnightBeam;
             public float Progress, FiredAt = -1;
             public Vector3 Origin, End, Target;
             public readonly List<Transform> Parts = new List<Transform>();
@@ -80,7 +81,7 @@ namespace DungeonTycoon.Unity
         // ── Following the rules ──────────────────────────────────────────
 
         /// <summary>Starts effects for new casts, follows their progress, sets off the landing ones and drops cancelled ones.</summary>
-        internal void Sync(IReadOnlyList<PatternCast> casts, float ticks)
+        internal void Sync(IReadOnlyList<PatternCast> casts, float ticks, bool firstStage)
         {
             var current = new HashSet<PatternCast>();
             if (casts != null)
@@ -91,7 +92,7 @@ namespace DungeonTycoon.Unity
                     if (!live.TryGetValue(cast, out var fx))
                     {
                         if (cast.Phase == CastPhase.Fired) continue;
-                        fx = Begin(cast);
+                        fx = Begin(cast, firstStage && cast.Pattern == MonsterPattern.TrackingBeam);
                         live.Add(cast, fx);
                     }
                     fx.Progress = Mathf.Clamp01((float)(ticks - cast.StartTick) / Mathf.Max(1, cast.FireTick - cast.StartTick));
@@ -138,9 +139,9 @@ namespace DungeonTycoon.Unity
             if (root) Object.Destroy(root.gameObject);
         }
 
-        private Fx Begin(PatternCast cast)
+        private Fx Begin(PatternCast cast, bool graveKnightBeam)
         {
-            var fx = new Fx { Cast = cast };
+            var fx = new Fx { Cast = cast, GraveKnightBeam = graveKnightBeam };
             fx.Charge = Part(fx, "충전 고리", ring, glass);
             switch (cast.Pattern)
             {
@@ -318,13 +319,14 @@ namespace DungeonTycoon.Unity
                     var from = fx.Origin + direction * (tile * .35f) + Vector3.up * .95f;
                     var to = fx.End + Vector3.up * .45f;
                     float core = Mathf.Sqrt(1 - t);
-                    Stretch(fx.Line, from, to, .55f * core, .4f * core);
+                    float scale = fx.GraveKnightBeam ? .7f : 1f;
+                    Stretch(fx.Line, from, to, .55f * core * scale, .4f * core * scale);
                     Tint(fx.Line, BlastCore, 1 - t * t);
                     Stretch(fx.Trail, from, to, 1.3f * (1 - .5f * t), .8f * (1 - .5f * t));
-                    Tint(fx.Trail, LockColor, .5f * (1 - t));
-                    // The blast also scorches the 3×3 around the caster, so the flash spreads that far.
+                    Tint(fx.Trail, LockColor, (fx.GraveKnightBeam ? .3f : .5f) * (1 - t));
+                    // 시전자 주변 3×3칸에도 짧게 빛을 남깁니다.
                     Place(fx.Flash, fx.Origin + Vector3.up * .07f, tile * (1.3f + .4f * t));
-                    Tint(fx.Flash, BlastCore, .7f * (1 - t));
+                    Tint(fx.Flash, BlastCore, (fx.GraveKnightBeam ? .25f : .7f) * (1 - t));
                     poseFoe(cast.Caster.Id, -direction * (.18f * (1 - t)), 1);
                     return true;
                 }

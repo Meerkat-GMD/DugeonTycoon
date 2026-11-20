@@ -110,10 +110,10 @@ namespace DungeonTycoon.Unity
             Close();
         }
 
-        private void Update()
+        internal void HandleEscape()
         {
-            if (IsOpen && Editing && Input.GetKeyDown(KeyCode.Escape)) CloseEditor();
-            else if (IsOpen && Input.GetKeyDown(KeyCode.Escape)) Close();
+            if (Editing) CloseEditor();
+            else Close();
         }
 
         /// <summary>Shows the formation before the first departure. Does nothing once the party has set off.</summary>

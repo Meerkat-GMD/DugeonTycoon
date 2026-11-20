@@ -50,6 +50,7 @@ namespace DungeonTycoon.Unity
         public float SpotlightUntil { get; private set; }
         /// <summary>0 when paused, otherwise 1 or 2. Speed only changes how many ticks run per second.</summary>
         public int Speed { get; private set; } = 1;
+        internal bool MenuPaused { get; set; }
         /// <summary>The hero the GM picked as the target of help, or -1.</summary>
         public int SelectedHero { get; private set; } = -1;
         private int resumeSpeed = 1;
@@ -169,7 +170,7 @@ namespace DungeonTycoon.Unity
                     ? SoundKey.SkillAwaken : SoundKey.LevelRise);
             heardLevel = Run.Level;
             dungeonAudio.UpdateBeam(Run.Casts, Run.Ticks + Mathf.Clamp01(accumulator / TickSeconds),
-                Run.Phase == RunPhase.Combat && Speed > 0 && !Presenting && Run.PendingPrayer == null);
+                Run.Phase == RunPhase.Combat && Speed > 0 && !MenuPaused && !Presenting && Run.PendingPrayer == null);
         }
 
         /// <summary>
@@ -178,6 +179,7 @@ namespace DungeonTycoon.Unity
         /// </summary>
         private void Update()
         {
+            if (MenuPaused) return;
             var run = Run;
             // Checked before the dungeon test: armour from the first boss is shared out after the stage has cleared.
             var loot = run?.PendingLoot;
@@ -341,6 +343,7 @@ namespace DungeonTycoon.Unity
             {
                 AskingPrayer = -1;
             }
+            if (MenuPaused) await UniTask.WaitWhile(() => MenuPaused, cancellationToken: token);
             if (Run != expedition) return;
             var heard = expedition.HearPrayer(prayer.Token, proposal);
             if (heard == null) return;
@@ -432,6 +435,13 @@ namespace DungeonTycoon.Unity
         public void Restart(bool keepPlan = false, bool sameSeed = false)
         {
             if (Run.Phase != RunPhase.Victory && Run.Phase != RunPhase.Defeat) return;
+            ResetExpedition(keepPlan, sameSeed);
+        }
+
+        internal void AbandonExpedition() => ResetExpedition(false, false);
+
+        private void ResetExpedition(bool keepPlan, bool sameSeed)
+        {
             // A balance file edited since the last expedition applies from this one.
             BalanceFile.Load();
             Run = keepPlan ? Run.Rematch(sameSeed ? Run.Seed : Environment.TickCount) : new DungeonRun(Environment.TickCount);

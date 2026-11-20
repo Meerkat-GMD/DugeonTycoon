@@ -45,6 +45,12 @@ namespace DungeonTycoon.Unity
         private VisualElement planningTip;
         private VisualElement audioPanel;
         private Button audioToggle;
+        private const string FullscreenPreference = "Display.Fullscreen";
+        private enum PausePage { Menu, Audio, ConfirmTitle }
+        private PausePage pausePage;
+        private VisualElement pauseMenu, pauseActions, pauseAudio, pauseConfirm, audioPanelHome;
+        private Button pauseResume, pauseAudioButton, pauseFullscreen, pauseAudioBack, pauseTitle, pauseCancelTitle;
+        private Focusable previousHudFocus;
         private Label tipKind, tipName, tipDescription, tipFact;
         private DungeonBoard.PlanningTarget shownTarget;
         private readonly Dictionary<VisualElement, (HeroRole Role, int Slot)> skillTiles = new();
@@ -187,13 +193,15 @@ namespace DungeonTycoon.Unity
             victoryTitle = victoryPage.Q<Button>("victory-title");
             confetti = victoryLayout.Q("victory-confetti");
             confetti.generateVisualContent += DrawConfetti;
-            victoryTitle.clicked += ReturnToTitle;
-            gameOver.Q<Button>("defeat-main").clicked += ReturnToTitle;
+            victoryTitle.clicked += () => ReturnToTitle(false);
+            gameOver.Q<Button>("defeat-main").clicked += () => ReturnToTitle(false);
 
-            void ReturnToTitle()
+            void ReturnToTitle(bool abandon)
             {
+                ClosePauseMenu();
                 Show(victoryPage,false);
-                game.Restart();
+                if (abandon) game.AbandonExpedition();
+                else game.Restart();
                 Show(gameOver,false);
                 Show(hud,false);
                 hud.SetEnabled(true);
@@ -294,6 +302,7 @@ namespace DungeonTycoon.Unity
             BindVolume("audio-bgm", AudioGroup.Bgm);
             BindVolume("audio-effects", AudioGroup.Effects);
             BindVolume("audio-ambience", AudioGroup.Ambience);
+            BindPauseMenu(root, () => ReturnToTitle(true));
             root.Q<Button>("history-close").clicked += () => history.RemoveFromClassList("open");
             collapse.clicked += () => bottom.ToggleInClassList("collapsed");
             primary.clicked += game.RequestDeparture;
@@ -425,6 +434,13 @@ namespace DungeonTycoon.Unity
             if (!ReferenceEquals(knownRun,run) || knownStage != run.Stage) ResetForStage(run);
             Keys(run);
             Refresh(run);
+            if (game.MenuPaused)
+            {
+                if (!Application.isEditor && Screen.fullScreen != pauseFullscreen.ClassListContains("on"))
+                    RefreshFullscreenButton(Screen.fullScreen);
+                UpdateClearArea(run);
+                return;
+            }
             RefreshSpoils(run);
             RefreshPops(run);
             UpdateClearArea(run);
@@ -497,22 +513,134 @@ namespace DungeonTycoon.Unity
 
         private void Keys(DungeonRun run)
         {
-            if (audioPanel.ClassListContains("open") && Input.GetKeyDown(KeyCode.Escape))
+            if (Input.GetKeyDown(KeyCode.Escape))
             {
-                ShowAudio(false);
+                HandleEscape(run);
                 return;
             }
-            if (Input.GetKeyDown(KeyCode.Escape)) Show(blessPicker,false);
-            if (HistoryOpen)
-            {
-                if (Input.GetKeyDown(KeyCode.Escape)) history.RemoveFromClassList("open");
-                return;
-            }
+            if (game.MenuPaused || HistoryOpen) return;
             // While the dialogue stage is open, Space and clicks advance its lines instead.
             if (!Exploring(run) || game.Presenting) return;
             if (Input.GetKeyDown(KeyCode.Space)) game.TogglePause();
             if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) game.SetSpeed(1);
             if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) game.SetSpeed(2);
+        }
+
+        private void BindPauseMenu(VisualElement root, System.Action returnToTitle)
+        {
+            pauseMenu = root.Q("pause-menu");
+            pauseActions = pauseMenu.Q("pause-actions");
+            pauseAudio = pauseMenu.Q("pause-audio");
+            pauseConfirm = pauseMenu.Q("pause-confirm");
+            pauseResume = pauseActions.Q<Button>("pause-resume");
+            pauseAudioButton = pauseActions.Q<Button>("pause-open-audio");
+            pauseFullscreen = pauseActions.Q<Button>("pause-fullscreen");
+            pauseTitle = pauseActions.Q<Button>("pause-title");
+            pauseAudioBack = pauseAudio.Q<Button>("pause-audio-back");
+            pauseCancelTitle = pauseConfirm.Q<Button>("pause-cancel-title");
+            audioPanelHome = audioPanel.parent;
+
+            pauseResume.clicked += ClosePauseMenu;
+            pauseAudioButton.clicked += () => ShowPausePage(PausePage.Audio);
+            pauseAudioBack.clicked += () => ShowPausePage(PausePage.Menu, pauseAudioButton);
+            pauseTitle.clicked += () => ShowPausePage(PausePage.ConfirmTitle);
+            pauseCancelTitle.clicked += () => ShowPausePage(PausePage.Menu, pauseTitle);
+            pauseConfirm.Q<Button>("pause-confirm-title").clicked += returnToTitle;
+
+            if (PlayerPrefs.HasKey(FullscreenPreference))
+                ApplyFullscreen(PlayerPrefs.GetInt(FullscreenPreference) == 1);
+            else RefreshFullscreenButton(Screen.fullScreen);
+            pauseFullscreen.clicked += () =>
+            {
+                bool fullscreen = !pauseFullscreen.ClassListContains("on");
+                ApplyFullscreen(fullscreen);
+                PlayerPrefs.SetInt(FullscreenPreference, fullscreen ? 1 : 0);
+                PlayerPrefs.Save();
+            };
+        }
+
+        private void ApplyFullscreen(bool fullscreen)
+        {
+            if (fullscreen)
+            {
+                var display = Screen.currentResolution;
+                Screen.SetResolution(display.width, display.height, FullScreenMode.FullScreenWindow);
+            }
+            else Screen.SetResolution(1600, 900, FullScreenMode.Windowed);
+            RefreshFullscreenButton(fullscreen);
+        }
+
+        private void RefreshFullscreenButton(bool fullscreen)
+        {
+            pauseFullscreen.EnableInClassList("on", fullscreen);
+            pauseFullscreen.text = fullscreen ? "전체화면   ON" : "전체화면   OFF";
+        }
+
+        private void HandleEscape(DungeonRun run)
+        {
+            if (game.MenuPaused)
+            {
+                if (pausePage == PausePage.Menu) ClosePauseMenu();
+                else ShowPausePage(PausePage.Menu, pausePage == PausePage.Audio ? pauseAudioButton : pauseTitle);
+            }
+            else if (game.Formation.IsOpen) game.Formation.HandleEscape();
+            else if (audioPanel.ClassListContains("open")) ShowAudio(false);
+            else if (HistoryOpen) history.RemoveFromClassList("open");
+            else if (blessPicker.style.display == DisplayStyle.Flex) Show(blessPicker,false);
+            else if (!game.Presenting && (run.Phase == RunPhase.Planning || Exploring(run))) OpenPauseMenu();
+        }
+
+        private void OpenPauseMenu()
+        {
+            game.MenuPaused = true;
+            if (!Application.isEditor) RefreshFullscreenButton(Screen.fullScreen);
+            panning = false;
+            game.Board.SetHover(null, false);
+            UpdatePlanningTip(game.Run, Input.mousePosition, false);
+            previousHudFocus = hud.focusController.focusedElement;
+            hud.SetEnabled(false);
+            Show(pauseMenu,true);
+            ShowPausePage(PausePage.Menu);
+        }
+
+        private void ClosePauseMenu()
+        {
+            if (!game.MenuPaused) return;
+            ShowPausePage(PausePage.Menu);
+            Show(pauseMenu,false);
+            hud.SetEnabled(true);
+            previousHudFocus?.Focus();
+            previousHudFocus = null;
+            game.MenuPaused = false;
+        }
+
+        private void ShowPausePage(PausePage page, Button menuFocus = null)
+        {
+            if (pausePage == PausePage.Audio)
+            {
+                ShowAudio(false);
+                audioPanel.RemoveFromClassList("pause-volume");
+                audioPanelHome.Insert(audioPanelHome.IndexOf(history), audioPanel);
+            }
+            pausePage = page;
+            Show(pauseActions, page == PausePage.Menu);
+            Show(pauseAudio, page == PausePage.Audio);
+            Show(pauseConfirm, page == PausePage.ConfirmTitle);
+            switch (page)
+            {
+                case PausePage.Audio:
+                    pauseAudio.Insert(0, audioPanel);
+                    audioPanel.AddToClassList("pause-volume");
+                    audioPanel.AddToClassList("open");
+                    pauseAudioBack.Focus();
+                    break;
+                case PausePage.ConfirmTitle:
+                    pauseCancelTitle.Focus();
+                    break;
+                default:
+                    (menuFocus ?? pauseResume).Focus();
+                    break;
+            }
         }
 
         private void Refresh(DungeonRun run)
@@ -584,7 +712,7 @@ namespace DungeonTycoon.Unity
                 Show(stageClearPage,showClear);
                 Show(gameOver,defeated);
                 Show(victoryPage,showVictory);
-                hud.SetEnabled(!showClear && !defeated && !showVictory);
+                hud.SetEnabled(!game.MenuPaused && !showClear && !defeated && !showVictory);
                 if (showClear)
                 {
                     stageClearTitle.text = $"{run.Stage}스테이지 클리어";

@@ -508,6 +508,7 @@ namespace DungeonTycoon.Unity
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int DashedId = Shader.PropertyToID("_Dashed");
         private static readonly int BorderOpacityId = Shader.PropertyToID("_BorderOpacity");
+        private static readonly int BorderWidthId = Shader.PropertyToID("_BorderWidth");
         // 조준, 범위 확정, 착탄 순서로 표시 색을 적용합니다.
         private static readonly Color[] WarnColors =
         {
@@ -602,13 +603,10 @@ namespace DungeonTycoon.Unity
             return tile;
         }
 
-        /// <summary>
-        /// Paints the tiles every telegraphed pattern will hit, exactly the ones the rules will check: orange while a
-        /// beam still follows its target, red once fixed and deepening toward the moment it lands, then a brief pale flash.
-        /// </summary>
+        /// <summary>판정에 쓰는 칸을 그리고, 무덤 기사 레이저는 점선 조준과 실선 고정으로 구분합니다.</summary>
         public void SetCasts(IReadOnlyList<PatternCast> casts, float ticks)
         {
-            effects?.Sync(map == null ? null : casts, ticks);
+            effects?.Sync(map == null ? null : casts, ticks, stage == 1);
             foreach (var foe in foes)
             {
                 if (!foe.Alive || !foe.Ranged || foe.Cast?.Phase != CastPhase.Fired) continue;
@@ -631,15 +629,26 @@ namespace DungeonTycoon.Unity
                     bool fired = cast.Phase == CastPhase.Fired;
                     float flash = fired ? 1f - Mathf.Clamp01((ticks - cast.FireTick) / 5f) : 0f;
                     color.a = fired ? Mathf.Lerp(.15f,.55f,flash) : Mathf.Lerp(.25f,.35f,progress);
-                    if (fired)
+                    float borderOpacity = fired ? Mathf.Lerp(.4f,.95f,flash) : .92f;
+                    float borderWidth = .055f;
+                    bool aiming = cast.Phase == CastPhase.Aiming;
+                    if (stage == 1 && cast.Pattern == MonsterPattern.TrackingBeam)
+                    {
+                        // 발사 섬광은 광선에 집중시키고 바닥에는 피격 범위를 남깁니다.
+                        color.a = fired ? .11f*flash : aiming ? .11f : Mathf.Lerp(.15f,.23f,progress);
+                        borderOpacity = fired ? .68f*flash : aiming ? .88f : .98f;
+                        borderWidth = aiming ? .047f : .085f;
+                    }
+                    else if (fired)
                     {
                         color.r *= 1f + flash*.55f;
                         color.g *= 1f + flash*.55f;
                         color.b *= 1f + flash*.55f;
                     }
                     warnBlock.SetColor(BaseColorId,color);
-                    warnBlock.SetFloat(DashedId, cast.Phase == CastPhase.Aiming ? 1f : 0f);
-                    warnBlock.SetFloat(BorderOpacityId, fired ? Mathf.Lerp(.4f,.95f,flash) : .92f);
+                    warnBlock.SetFloat(DashedId, aiming ? 1f : 0f);
+                    warnBlock.SetFloat(BorderOpacityId, borderOpacity);
+                    warnBlock.SetFloat(BorderWidthId, borderWidth);
                     foreach (var tile in cast.Area)
                     {
                         var renderer = WarnTile(used++);
@@ -666,7 +675,7 @@ namespace DungeonTycoon.Unity
             if (!ReferenceEquals(this.map, map))
             {
                 this.map = map;
-                BuildScenery(placeable, patrols);
+                BuildScenery(stage, placeable, patrols);
                 fixedPlanningTargets.Clear();
                 foreach (var chest in chestProps) fixedPlanningTargets.Add(CreateTarget(chest.Fresh, PlanningKind.Chest));
                 foreach (var spring in springProps) fixedPlanningTargets.Add(CreateTarget(spring.Fresh, PlanningKind.Spring));
@@ -815,7 +824,7 @@ namespace DungeonTycoon.Unity
             }
         }
 
-        private void BuildScenery(Func<TilePoint,bool> placeable, IReadOnlyList<PatrolSquad> patrols)
+        private void BuildScenery(int stage, Func<TilePoint,bool> placeable, IReadOnlyList<PatrolSquad> patrols)
         {
             if (patrolRouteRoot) patrolRouteRoot.gameObject.SetActive(false);
             patrolRoutes.Clear();
@@ -827,7 +836,7 @@ namespace DungeonTycoon.Unity
             scenery = new GameObject("던전").transform;
             scenery.SetParent(transform,false);
             var flamePositions = new List<Vector3>();
-            var dungeon = DungeonScenery.Dungeon(map, Tile, TileCenter, !bossGatePrefab, (position, geometry) =>
+            var dungeon = DungeonScenery.Dungeon(map, Tile, TileCenter, !bossGatePrefab, stage, (position, geometry) =>
             {
                 var wall = Draw("복도 앞벽", geometry, stageMeshes, scenery);
                 wall.localPosition = position;
@@ -835,11 +844,29 @@ namespace DungeonTycoon.Unity
             }, flamePositions, out var gatePosition);
             Draw("바닥과 벽", dungeon, stageMeshes, scenery);
             if (bossGatePrefab)
-                InstantiateProp(bossGatePrefab, "보스방 입구", scenery).localPosition = gatePosition;
+            {
+                var gate = InstantiateProp(bossGatePrefab, "보스방 입구", scenery);
+                gate.localPosition = gatePosition;
+                if (stage == 3) gate.localScale = Vector3.Scale(gate.localScale,new Vector3(1.12f,1.45f,1f));
+            }
             entranceZone = Draw("입구 보호 구역",
                 DungeonScenery.EntranceZone(map, Tile, TileCenter, tile => !placeable(tile)), stageMeshes, scenery, indicatorPalette);
             StageLight("입구 수정빛", TileCenter(map.Entrance)+new Vector3(0,.85f,.35f), new Color32(113,222,204,255), 3.6f);
-            StageLight("왕좌 조명", TileCenter(map.BossTile)+new Vector3(0,1.8f,-.65f), new Color32(255,199,136,255), 5.2f, 3f);
+            var bossPosition = TileCenter(map.BossTile);
+            switch (stage)
+            {
+                case 2:
+                    StageLight("납골당 문 조명", gatePosition+new Vector3(0,1.8f,-.55f), new Color32(152,205,235,255), 6.6f, 3.2f);
+                    StageLight("납골당 사제 뒤 조명", bossPosition+new Vector3(.55f,1.5f,.9f), new Color32(125,193,219,255), 4.2f, 3.6f);
+                    break;
+                case 3:
+                    StageLight("성채 문 조명", gatePosition+new Vector3(0,2.9f,-.8f), new Color32(255,157,122,255), 4.6f, 4f);
+                    StageLight("마왕 뒤 조명", bossPosition+new Vector3(0,2.1f,1.1f), new Color32(197,140,243,255), 4.8f, 4.2f);
+                    break;
+                default:
+                    StageLight("무덤 기사 뒤 조명", bossPosition+new Vector3(.55f,1.4f,.85f), new Color32(255,186,123,255), 3.5f, 3.4f);
+                    break;
+            }
             var amber = new Color32(255,170,98,255);
             foreach (var position in flamePositions)
                 StageLight("불빛", position, amber, 2.9f, 2.6f);
@@ -1702,7 +1729,7 @@ namespace DungeonTycoon.Unity
             {
                 "24232D","474552","646572","747782","7C808E","E9DFC3","90704B",
                 "D5AA60","76583F","6D4738","9CB0BC","287777","66D5C0","688957",
-                "60495E","754552","EA7745","FFBE6E","D6A77E"
+                "60495E","754552","EA7745","FFBE6E","D6A77E","53434E"
             };
             Material source = Resources.Load<Material>("DungeonMiniatureToon");
             var materials = new Material[colors.Length];

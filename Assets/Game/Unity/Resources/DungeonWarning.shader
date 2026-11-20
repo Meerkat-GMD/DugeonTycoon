@@ -4,6 +4,7 @@ Shader "DungeonTycoon/DungeonWarning"
     {
         [HDR] _BaseColor("Color", Color) = (1, 0.3, 0.2, 0.3)
         _BorderOpacity("Border Opacity", Range(0, 1)) = 0.92
+        _BorderWidth("Border Width", Range(0, 0.5)) = 0.055
         _Dashed("Dashed Border", Range(0, 1)) = 0
     }
 
@@ -24,6 +25,7 @@ Shader "DungeonTycoon/DungeonWarning"
             CBUFFER_START(UnityPerMaterial)
                 half4 _BaseColor;
                 half _BorderOpacity;
+                half _BorderWidth;
                 half _Dashed;
             CBUFFER_END
 
@@ -52,7 +54,7 @@ Shader "DungeonTycoon/DungeonWarning"
                 float2 edge = min(input.uv, 1.0 - input.uv);
                 float distance = min(edge.x, edge.y);
                 float smoothing = max(fwidth(distance), 0.001);
-                float border = 1.0 - smoothstep(0.055 - smoothing, 0.055 + smoothing, distance);
+                float border = 1.0 - smoothstep(_BorderWidth - smoothing, _BorderWidth + smoothing, distance);
                 float alongEdge = edge.x < edge.y ? input.uv.y : input.uv.x;
                 float dash = step(abs(frac(alongEdge * 5.0 + 0.5) - 0.5), 0.34);
                 border *= lerp(1.0, dash, _Dashed);

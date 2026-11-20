@@ -11,11 +11,12 @@ namespace DungeonTycoon.Unity
 
         /// <summary>Floor, walls and props for a stage. Positions come from <paramref name="center"/>.</summary>
         internal static DungeonMesh Dungeon(DungeonMap map, float tile, Func<TilePoint, Vector3> center,
-            bool includeGate, Action<Vector3, DungeonMesh> addCutawayWall, List<Vector3> flamePositions,
+            bool includeGate, int stage, Action<Vector3, DungeonMesh> addCutawayWall, List<Vector3> flamePositions,
             out Vector3 gatePosition)
         {
             var m = new DungeonMesh();
-            int bossLeft = int.MaxValue, bossRight = int.MinValue, bossTop = int.MaxValue, bossBottom = int.MinValue;
+            var aisle = stage == 2 ? Finish.Slate : Finish.FadedCrimson;
+            int bossTop = int.MaxValue;
             for (int y = 0; y < map.Height; y++)
             for (int x = 0; x < map.Width; x++)
             {
@@ -27,9 +28,8 @@ namespace DungeonTycoon.Unity
                     Finish stone;
                     if (map.IsBossRoom(point))
                     {
-                        stone = x == map.BossTile.X ? Finish.Crimson : (x+y)%2 == 0 ? Finish.Slate : Finish.Flagstone;
-                        bossLeft = Math.Min(bossLeft,x); bossRight = Math.Max(bossRight,x);
-                        bossTop = Math.Min(bossTop,y); bossBottom = Math.Max(bossBottom,y);
+                        stone = x == map.BossTile.X ? aisle : (x+y)%2 == 0 ? Finish.Slate : Finish.Flagstone;
+                        bossTop = Math.Min(bossTop,y);
                     }
                     else stone = variation%5 == 0 ? Finish.Ash : variation%3 == 0 ? Finish.Slate : Finish.Flagstone;
                     m.Box(c.x,-.035f,c.z,tile-.05f,.07f,tile-.05f,stone);
@@ -46,7 +46,8 @@ namespace DungeonTycoon.Unity
                 wall.Box(position.x,WallHeight-.03f,position.z,tile-.06f,.08f,tile-.06f,
                     variation%4 == 0 ? Finish.Basalt : Finish.Ink);
                 WallCoping(wall,map,point,position,tile);
-                if (map.IsFloor(new TilePoint(x,y+1)) && variation%6 == 1)
+                var south = new TilePoint(x,y+1);
+                if (map.IsFloor(south) && variation%6 == 1 && !map.IsBossRoom(south))
                 {
                     Sconce(wall,position.x,position.z-tile*.5f);
                     if (!cutaway) flamePositions.Add(c + new Vector3(0,.88f,-tile*.5f-.22f));
@@ -65,13 +66,29 @@ namespace DungeonTycoon.Unity
             }
 
             gatePosition = center(new TilePoint(map.BossTile.X,bossTop)) + Vector3.forward * (tile * .25f);
-            if (includeGate) Gate(m,gatePosition.x,gatePosition.z);
-            var nearLeft = center(new TilePoint(bossLeft,bossBottom));
-            var nearRight = center(new TilePoint(bossRight,bossBottom));
-            Torch(m,nearLeft.x,nearLeft.z,.63f);
-            Torch(m,nearRight.x,nearRight.z,.63f);
-            flamePositions.Add(nearLeft + Vector3.up*.98f);
-            flamePositions.Add(nearRight + Vector3.up*.98f);
+            if (includeGate) Gate(m,gatePosition.x,gatePosition.z,stage == 3 ? 1.45f : 1f);
+            if (stage == 2)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Sarcophagus(m, gatePosition + Vector3.right*(tile*side*2.05f));
+                    Sarcophagus(m, gatePosition + Vector3.right*(tile*side*3.85f));
+                }
+            }
+            else
+            {
+                var torchRow = gatePosition - Vector3.forward*(tile*.42f);
+                float offset = tile*(stage == 3 ? 2.9f : 1.75f);
+                float height = stage == 3 ? 1.1f : .78f;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var at = torchRow + Vector3.right*(side*offset);
+                    Torch(m, at.x, at.z, height);
+                    flamePositions.Add(at + Vector3.up*(height+.35f));
+                    if (stage == 3)
+                        Banner(m, gatePosition + Vector3.right*(side*tile*2.05f));
+                }
+            }
             return m;
         }
 
@@ -223,21 +240,43 @@ namespace DungeonTycoon.Unity
             DungeonFigures.Jewel(m,x+.025f,height+.35f,z,.15f,.36f,Finish.Flame);
         }
 
-        private static void Gate(DungeonMesh m,float x,float z)
+        private static void Sarcophagus(DungeonMesh m, Vector3 at)
+        {
+            var (x, z) = (at.x, at.z);
+            m.Box(x,.07f,z,1.13f,.14f,.47f,Finish.Basalt);
+            m.Box(x,.21f,z,1.04f,.17f,.42f,Finish.Slate);
+            m.Ring(x,.34f,z,1.53f,1.30f,.16f,Finish.Ash,4,.43f);
+            m.Box(x,.428f,z,.42f,.025f,.035f,Finish.Basalt);
+            m.Box(x-.12f,.428f,z,.035f,.025f,.15f,Finish.Basalt);
+        }
+
+        private static void Banner(DungeonMesh m, Vector3 at)
+        {
+            var (x, z) = (at.x, at.z);
+            m.Box(x,1.65f,z+.25f,.93f,1.50f,.31f,Finish.Basalt);
+            m.Box(x,2.42f,z+.25f,1.01f,.12f,.39f,Finish.Slate);
+            m.Rod(new Vector3(x-.48f,2.31f,z+.065f),new Vector3(x+.48f,2.31f,z+.065f),.075f,Finish.Brass);
+            m.Cutout(x,1.82f,z+.07f,.055f,Finish.Crimson,
+                new Vector2(-.36f,.48f),new Vector2(-.36f,-.40f),new Vector2(0,-.63f),
+                new Vector2(.36f,-.40f),new Vector2(.36f,.48f));
+            m.Box(x,1.86f,z+.03f,.19f,.19f,.032f,Finish.Brass,0,0,45);
+        }
+
+        private static void Gate(DungeonMesh m,float x,float z,float heightScale)
         {
             for (int s = -1; s <= 1; s += 2)
             {
                 float post = x+s*.96f;
-                m.Box(post,.13f,z,.68f,.26f,.71f,Finish.Ink);
-                m.Box(post,.31f,z,.63f,.12f,.62f,Finish.Brass);
+                m.Box(post,.13f*heightScale,z,.68f,.26f*heightScale,.71f,Finish.Ink);
+                m.Box(post,.31f*heightScale,z,.63f,.12f*heightScale,.62f,Finish.Brass);
                 for (int course = 0; course < 3; course++)
-                    m.Box(post,.51f+course*.33f,z,.48f,.31f,.51f,course%2 == 0 ? Finish.Slate : Finish.Basalt);
-                m.Box(post,1.37f,z,.62f,.15f,.62f,Finish.Brass);
-                m.Box(post,1.53f,z,.55f,.17f,.57f,Finish.Slate);
-                m.Cutout(post,1.21f,z-.31f,.045f,Finish.Crimson,
+                    m.Box(post,(.51f+course*.33f)*heightScale,z,.48f,.31f*heightScale,.51f,course%2 == 0 ? Finish.Slate : Finish.Basalt);
+                m.Box(post,1.37f*heightScale,z,.62f,.15f*heightScale,.62f,Finish.Brass);
+                m.Box(post,1.53f*heightScale,z,.55f,.17f*heightScale,.57f,Finish.Slate);
+                m.Cutout(post,1.21f*heightScale,z-.31f,.045f,Finish.Crimson,
                     new Vector2(-.14f,.17f),new Vector2(.14f,.17f),
                     new Vector2(.14f,-.36f),new Vector2(0,-.49f),new Vector2(-.14f,-.36f));
-                m.Box(post,1.12f,z-.346f,.127f,.127f,.018f,Finish.Gold,0,0,45);
+                m.Box(post,1.12f*heightScale,z-.346f,.127f,.127f,.018f,Finish.Gold,0,0,45);
             }
             const int stones = 9;
             for (int i = 0; i < stones; i++)
@@ -248,10 +287,10 @@ namespace DungeonTycoon.Unity
                 Vector2 innerB = new Vector2(Mathf.Cos(b)*.72f, Mathf.Sin(b)*.64f);
                 Vector2 outerA = new Vector2(Mathf.Cos(a)*1.20f, Mathf.Sin(a)*1.03f);
                 Vector2 outerB = new Vector2(Mathf.Cos(b)*1.20f, Mathf.Sin(b)*1.03f);
-                m.Cutout(x,1.56f,z,.53f, i == stones/2 ? Finish.Brass : Finish.Slate,
+                m.Cutout(x,1.56f*heightScale,z,.53f, i == stones/2 ? Finish.Brass : Finish.Slate,
                     innerA,innerB,outerB,outerA);
             }
-            DungeonFigures.Jewel(m,x,2.44f,z-.26f,.20f,.28f,Finish.Ember);
+            DungeonFigures.Jewel(m,x,1.56f*heightScale+.88f,z-.26f,.20f,.28f,Finish.Ember);
         }
 
         internal static DungeonMesh PlacementLimitArea(IEnumerable<TilePoint> blocked, float tile, Func<TilePoint, Vector3> center)
